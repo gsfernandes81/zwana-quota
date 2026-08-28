@@ -25,7 +25,7 @@ nothing to install and nothing to download.
 
 Credentials
 -----------
-Read from a ``.env`` file (``~/or3/.env`` by default), which should be mode 600::
+Read from a ``.env`` file (``~/zwana-quota/.env`` by default), which should be mode 600::
 
     zwana_username=...
     zwana_password=...
@@ -70,7 +70,7 @@ BASE_URL = "https://ic.zwana.io/api/"
 #: copy is a thing that can disagree with the first, and the one that opens in a
 #: browser would be the copy nobody tests.
 PORTAL_URL = BASE_URL[: -len("api/")]
-DEFAULT_ENV = Path.home() / "or3" / ".env"
+DEFAULT_ENV = Path.home() / "zwana-quota" / ".env"
 CACHE_DIR = Path.home() / ".cache" / "zwana"
 COOKIE_FILE = CACHE_DIR / "cookies.txt"
 

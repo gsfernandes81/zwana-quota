@@ -1,0 +1,5 @@
+# Credentials — the zwana portal login, read by zwana_quota.py
+.env
+
+__pycache__/
+*.pyc

@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Put zwana-tile where the Termux:Tasker plugin will run it. Runs ON THE PHONE.
 #
-#   termux/tasker/install.sh           link it in and check the preconditions
-#   termux/tasker/install.sh --stub    write a one-line stub instead of a link
+#   tasker/install.sh           link it in and check the preconditions
+#   tasker/install.sh --stub    write a one-line stub instead of a link
 #
 # A symlink, not a copy, for the reason the fish completions are symlinked: a
 # `git pull` should be the whole update. If the plugin's file picker refuses to
