@@ -28,3 +28,26 @@ the old credentials with `mv ~/or3/.env ~/zwana-quota/.env`, and re-point the
 `make test` (pytest) or `make check` — `quota_widget.py --self-test`, which
 also pins the string budgets and the four-line contract the Tasker tile
 depends on. Offline: the portal is never reached.
+
+## The portal API
+
+Findings that cost real time to work out (2026-08-01, on the unminified
+AngularJS SPA the portal is):
+
+1. `POST api/account/token` looks like an OAuth2 password grant but wants a
+   **JSON** body, not form encoding.
+2. Its response `token_type` is literally `"password"` (it echoes the grant
+   type), and the `access_token` it hands back **does not authorise
+   anything**. Auth is really the `.AspNetCore.Identity.Application`
+   **cookie** from `Set-Cookie`; sending the token as an Authorization header
+   earns a 302 back to the login page.
+3. `Balance` is denominated in **credits, not bytes**. A `-0.1` credit entry
+   corresponds to `Allocation: 41943040` (40 MiB), and the provider's
+   `UnitCost` of `2.38418579102e-09` credits/byte confirms it:
+   **one credit = 400 MiB exactly.**
+
+Useful endpoints: `Balance/GetForCurrentUser`, `UserProvider/GetStatus`,
+`Allocation/GetHistoryForCurrentUser`, `account/getcurrent`.
+
+The daily grant (763 MiB) lands at **00:02:19 UTC** and leftover quota does
+not roll over — which is the whole reason the `dlq` repo exists.
