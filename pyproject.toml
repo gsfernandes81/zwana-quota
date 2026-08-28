@@ -1,0 +1,20 @@
+[project]
+name = "zwana-quota"
+version = "0.1.0"
+description = "The zwana portal client, the metered-data quota widget and the Tasker tile"
+requires-python = ">=3.11"
+# Deliberately empty: everything here is stdlib.
+dependencies = []
+
+# Nothing installs this repo — the widget runs by path from ~/.shortcuts and
+# the tile through Termux:Tasker, and the dlq runner imports quota_widget from
+# this CHECKOUT. The pyproject exists so uv can own the dev environment (a
+# locked pytest for `make test`), not to make a distribution.
+[tool.uv]
+package = false
+
+# Same two-group shape as ytq and dlq, for the same reasons (see the comment
+# in either of their pyprojects).
+[dependency-groups]
+dev = ["pytest>=8"]
+lint = ["ruff==0.16.4"]

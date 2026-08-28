@@ -25,7 +25,9 @@ the old credentials with `mv ~/or3/.env ~/zwana-quota/.env`, and re-point the
 
 ## Checks
 
-`make test` (pytest) or `make check` — `quota_widget.py --self-test`, which
+`make dev` (`uv sync`, once, networked) puts the locked pytest into `.venv`;
+then `make test` (`uv run --offline pytest`) or `make check` —
+`quota_widget.py --self-test`, which
 also pins the string budgets and the four-line contract the Tasker tile
 depends on. Offline: the portal is never reached.
 
