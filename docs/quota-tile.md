@@ -301,16 +301,13 @@ zwana-tile --qs-width 12 30
 ```
 
 `--qs-width` overrides `--qs-size`, so a measured tile always beats a named one.
-Then run
 
-```bash
-python3 ~/zwana-quota/quota_widget.py --self-test
-```
-
-which checks every figure the tile can ever draw against whatever you set — that
-the label fits, that the subtitle fits, that the reset survived the squeeze, and
-that a stale or offline reading still says so at every size. A clipped subtitle
-is usually the reset that got clipped, and Android clips without a word.
+Whatever you set has to hold for every figure the tile can ever draw — the
+label fitting, the subtitle fitting, the reset surviving the squeeze, and a
+stale or offline reading still saying so at every size. A clipped subtitle is
+usually the reset that got clipped, and Android clips without a word. There is
+no command that checks this at the moment: `quota_widget.py --self-test` was
+removed on 2026-09-02 and the pytest suite that replaces it is being written.
 
 If you settle on widths you want as the default, they are `QS_LABEL`,
 `QS_STATUS` and `QS_SIZES` at the top of the Quick Settings section in

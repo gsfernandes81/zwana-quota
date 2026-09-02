@@ -26,10 +26,15 @@ the old credentials with `mv ~/or3/.env ~/zwana-quota/.env`, and re-point the
 ## Checks
 
 `make dev` (`uv sync`, once, networked) puts the locked pytest into `.venv`;
-then `make test` (`uv run pytest`) or `make check` —
-`quota_widget.py --self-test`, which
-also pins the string budgets and the four-line contract the Tasker tile
-depends on. Offline: the portal is never reached.
+then `make test` or `make check` — both are `.githooks/checks.sh`, the one
+copy of what runs (pytest through `.venv` when there is one, plain `python3
+-m pytest` otherwise). Offline: the portal is never reached.
+
+`quota_widget.py --self-test` was removed on 2026-09-02; the pytest suite that
+replaces it is being written, and has to carry the same things — the face
+fitting 35 x 5 at every magnitude, the string budgets, and the four-line
+contract the Tasker tile depends on. Until it lands `tests/` is empty and the
+gate says "no tests yet" rather than blocking a push.
 
 ## The portal API
 
