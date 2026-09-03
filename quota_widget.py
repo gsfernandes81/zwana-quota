@@ -1289,5 +1289,7 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+# nomut: start — the shell entry point; `main` itself is checked.
 if __name__ == "__main__":
     sys.exit(main())
+# nomut: end

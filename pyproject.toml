@@ -16,5 +16,11 @@ package = false
 # Same two-group shape as ytq and dlq, for the same reasons (see the comment
 # in either of their pyprojects).
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "hypothesis>=6.167.1",
+    "pytest>=8",
+]
 lint = ["ruff==0.16.4"]
+mutants = [
+    "poodle>=1.3.4",
+]

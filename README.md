@@ -25,16 +25,27 @@ the old credentials with `mv ~/or3/.env ~/zwana-quota/.env`, and re-point the
 
 ## Checks
 
-`make dev` (`uv sync`, once, networked) puts the locked pytest into `.venv`;
-then `make test` or `make check` — both are `.githooks/checks.sh`, the one
-copy of what runs (pytest through `.venv` when there is one, plain `python3
--m pytest` otherwise). Offline: the portal is never reached.
+`make dev` (`uv sync`, once, networked) puts the locked pytest and hypothesis
+into `.venv`; then `make test` or `make check` — both are
+`.githooks/checks.sh`, the one copy of what runs (pytest through `.venv` when
+there is one, plain `python3 -m pytest` otherwise). Offline: the portal is
+never reached, and nothing outside a temporary directory is written.
 
-`quota_widget.py --self-test` was removed on 2026-09-02; the pytest suite that
-replaces it is being written, and has to carry the same things — the face
-fitting 35 x 5 at every magnitude, the string budgets, and the four-line
-contract the Tasker tile depends on. Until it lands `tests/` is empty and the
-gate says "no tests yet" rather than blocking a push.
+`quota_widget.py --self-test` was removed on 2026-09-02; `tests/` replaced it
+on 2026-09-03 and carries the same things — the face fitting 35 x 5 at every
+magnitude, the string budgets at every tile size, and the four-line contract
+the Tasker tile depends on — as behaviour and invariants rather than as
+expected output, so the wording and the layouts can still change. The
+properties are `hypothesis`; the portal is stubbed at the seams the modules
+already have, and no seam was added for the tests.
+
+`make mutants` runs those tests against a module with one thing changed in it,
+a couple of thousand times over (poodle; `poodle_config.py`). It answers the
+question coverage does not: whether a test would have *noticed*. It is
+deliberately not part of `make test` — a push here is a deploy, and the
+pre-push checks have to stay quick — and its survivors are read rather than
+scored, since the wording it can change freely is wording the suite is
+deliberately not holding.
 
 ## The portal API
 

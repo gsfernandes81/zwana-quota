@@ -7,3 +7,7 @@ __pycache__/
 # uv-managed dev environment (make dev)
 .venv/
 .pytest_cache/
+
+# mutation testing (make mutants)
+.poodle-temp/
+.hypothesis/

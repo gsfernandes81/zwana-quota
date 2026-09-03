@@ -150,10 +150,14 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+# nomut: start — the one live network object in the repo. The suite replaces
+# it wholesale, so mutating how it is built could only ever produce a survivor
+# that says nothing, and an unstubbed one would put traffic on a metered radio.
 _jar = http.cookiejar.MozillaCookieJar(COOKIE_FILE)
 _opener = urllib.request.build_opener(
     NoRedirect, urllib.request.HTTPCookieProcessor(_jar)
 )
+# nomut: end
 
 
 def request(path: str, payload: Any = None) -> Any:
@@ -387,5 +391,7 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+# nomut: start — the shell entry point; `main` itself is checked.
 if __name__ == "__main__":
     sys.exit(main())
+# nomut: end
