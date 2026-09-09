@@ -572,7 +572,7 @@ def compose_tile(doc: dict, paint: Paint, width: int) -> list[tuple[str, str]]:
 
     Five rows exactly, which is the whole tile and is also exactly the figure's
     height: the figure on the left, and beside it the unit, the share of today's
-    pool, tonight's top-up and the paid part. The first line of the small print
+    pool, tonight's top-up and the reserve. The first line of the small print
     is blank in the ordinary case, and is where a stale or offline reading gets
     to say so — of the five rows it is the only one with anything to give.
     """
@@ -619,11 +619,14 @@ def compose_tile(doc: dict, paint: Paint, width: int) -> list[tuple[str, str]]:
     stamp = dt.datetime.fromisoformat(doc["reset"]["local"]).strftime("%H:%M")
     grant = size(doc["free"]["grant_bytes"])
 
-    # What is left is two different things wearing one number: tonight's grant,
-    # which expires at the reset, and paid data, which does not. Only the second
-    # cost money, so the face names it rather than leaving the figure to be read
-    # as free. Nothing to say when none of it is paid.
-    paid = size(doc["paid"]["left_bytes"]) if doc["paid"]["left_bytes"] > 0 else ""
+    # The reserve, spelled two ways at once: the money, and what it would still
+    # buy at the current rate. ``money()`` wraps its figure in parens for the
+    # ``--full`` box; this row wants the bare "$4.50" instead, so the parens
+    # come back off rather than duplicating the digit formatting. Nothing to
+    # say when the reserve is empty.
+    credits = doc["reserve"]["credits"]
+    cash = money(credits)[1:-1] if credits > 0 else ""
+    worth = size(doc["reserve"]["bytes"]) if credits > 0 else ""
 
     small = [
         fit(tail),
@@ -633,7 +636,14 @@ def compose_tile(doc: dict, paint: Paint, width: int) -> list[tuple[str, str]]:
         # the row still says the one thing that cannot be worked out from the
         # rest of the face.
         fit(f"+{grant} {stamp}", f"reset {stamp}", stamp),
-        fit(f"{paid} paid", paid) if paid else "",
+        fit(
+            f"{cash} / {worth} paid",
+            f"{cash} / {worth}",
+            f"{cash}/{worth}".replace(" ", ""),
+            cash,
+        )
+        if cash
+        else "",
     ]
 
     gap = " " * FACE_GAP

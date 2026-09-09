@@ -144,6 +144,9 @@ def test_an_asked_for_width_is_the_width_drawn(capsys, clock, portal, width):
 
 
 def test_the_top_and_margin_are_asked_for_in_rows_and_columns(capsys, clock, portal):
+    # An empty reserve keeps the last row short, so the margin this test
+    # checks is not the one the reserve row's own width would eat into.
+    portal.answer = reading(remainder=int(1.68 * 1024**3), grant=GRANT, credits=0)
     _, none, _ = run(["--top", "0", "--margin", "0"], capsys)
     _, moved, _ = run(["--top", "3", "--margin", "2"], capsys)
     assert not none.startswith("\n")

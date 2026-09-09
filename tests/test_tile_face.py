@@ -272,15 +272,28 @@ def test_a_live_reading_of_any_age_is_not_stale():
     assert "ago" not in rows[0][0]
 
 
-def test_paid_data_is_named_rather_than_read_as_free():
-    paid = 2 * 1024**3
-    _, rows = face(GRANT + paid, pool=GRANT + paid)
-    assert rows[4][0].endswith(f"{qw.size(paid)} paid")
+def test_the_reserve_is_named_in_dollars_and_what_they_would_buy():
+    _, rows = face(GRANT, credits=4.5, per_credit=1024**3)
+    assert rows[4][0].endswith("$4.50 / 4.50 GiB paid")
 
 
-def test_nothing_is_said_about_paid_data_when_there_is_none():
-    _, rows = face(GRANT)
+def test_nothing_is_said_when_the_reserve_is_empty():
+    _, rows = face(GRANT, credits=0)
     assert rows[4][0].strip() == qw.big(qw.face_value(GRANT, 18)[0])[4].strip()
+
+
+def test_the_reserve_row_drops_the_word_and_then_the_spaces_as_the_figure_grows():
+    """The ladder the reserve row degrades through: the full spelling, the
+    same without "paid", the same again with no spaces, and the dollars
+    alone — in that order, as a wider figure leaves it less room."""
+    _, roomy = face(GRANT, credits=4.5, per_credit=1024**3)
+    assert roomy[4][0].endswith("$4.50 / 4.50 GiB paid")
+
+    _, tight = face(2**44, credits=4.5, per_credit=1024**3)
+    assert tight[4][0].endswith("$4.50/4.50GiB")
+
+    _, tightest = face(2**45, credits=1234.56, per_credit=1024**4)
+    assert tightest[4][0].endswith("$1,234.56")
 
 
 # --------------------------------------------------------------------------- #
@@ -354,8 +367,8 @@ def test_the_smallest_possible_pool_still_reads_as_all_of_it():
     assert "100%" in rows[2][0]
 
 
-def test_a_single_byte_of_paid_data_is_still_named():
-    _, rows = face(GRANT + 1, grant=GRANT, pool=GRANT + 1)
+def test_the_smallest_reserve_is_still_named():
+    _, rows = face(GRANT, credits=0.01, per_credit=1024**3)
     assert "paid" in rows[4][0]
 
 
