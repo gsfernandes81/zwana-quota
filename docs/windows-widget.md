@@ -3,10 +3,11 @@
 The same reading the phone shows, on the Windows 11 widgets board: what is
 left of today's allowance and how long until it resets.
 
-**Status: plan only. Nothing is built.** Three decisions below are the repo
-owner's and are marked **OPEN**; the recommendations are what will be built
-if they are confirmed. Read `../README.md`'s *The portal API* section first —
-it is the contract this plan ports, and it stays the single source of truth.
+**Status: plan only. Nothing is built.** The four decisions below were
+settled by the repo owner on 2026-09-19 and are recorded as answers, not
+recommendations; one question remains open (§5, the CI workflow). Read
+`../README.md`'s *The portal API* section first — it is the contract this plan
+ports, and it stays the single source of truth.
 
 ## What the port actually owes the portal
 
@@ -46,65 +47,77 @@ can infer a different `carry_in` from the phone's, which first looked at
 split may not. Anything the widget draws from the derivation therefore either
 accepts that drift or is not drawn.
 
-Hence the work is **tiered**, and tier 1 is a separate decision from tier 0:
+Hence the work is **tiered**. Both tiers are in scope (§2), but they land in
+that order, because tier 0 is what has to be on the board before the harder
+half is worth writing:
 
 - **Tier 0** — remainder, the countdown, stale/offline honesty. No derivation,
   no cross-activation state beyond a cached reading. This is the definition
-  of done.
-- **Tier 1** — share of pool, tonight's top-up, free vs paid. Needs `day_pool`
-  and `derive` ported, and needs the drift above stated on the face or
-  designed out.
+  of done, and it ships first.
+- **Tier 1** — share of pool, tonight's top-up, free vs paid. Ports `day_pool`
+  and `derive`, and owes the drift above an answer.
 
-If tier 1 is wanted, it ships with **golden vectors**: a `make vectors` target
-writes the numbers `derive` produces for a set of raw readings to
+Tier 1 ships with **golden vectors**: a `make vectors` target writes the
+numbers `derive` produces for a set of raw readings to
 `windows/tests/vectors.json`, a Python test asserts the checked-in file still
 matches the live `derive`, and the C# suite reads the same file. That pins the
 *numbers*, which is the interface, and not the wording, which `CLAUDE.md`
 deliberately leaves free.
 
+**The drift has a direction, and it is the safe one.** A Windows cache that
+first looks late in the day sees a lower pool high-water mark, so it infers a
+smaller `carry_in`, so its `free_left` comes out *larger*. That is the same
+direction `derive`'s own accuracy block already documents — `free.left_bytes`
+is an upper bound and never a floor — only looser. So the Windows widget can
+over-state what is free, exactly as the phone can, and never under-state it;
+nothing reads the Windows cache but the Windows widget, and the `dlq` runner's
+guards never see it. What the face owes in return is the same honesty the
+phone's does: the headline is `Remainder`, which always agrees with the phone,
+and the derived share is small print that says when it is an estimate.
+
 ## Decisions
 
-### 1. Same repo, under `windows/` — **OPEN, recommended**
+### 1. Same repo, under `windows/` — **settled**
 
 One portal contract, one README section, one commit when the portal moves.
 The toolchains genuinely share nothing, so `windows/` is inert on a phone: no
 Python import reaches into it, `make test` never sees it, and the pre-push
 hook does not change (§5).
 
-### 2. Reimplement the client in C# — **OPEN, recommended (a)**
+### 2. Reimplement the client in C#, both tiers — **settled**
 
 Shelling out to Python (b) needs a Python on the Windows box an MSIX cannot
 assume; a cache file written by something else (c) is (a) plus a scheduled
-fetcher. (a) it is — with the tiering above, which is what keeps "two
-implementations of the same thing" down to two implementations of *login and
-one GET*.
+fetcher. (a) it is, and both tiers: the widget gets the whole face, not just the
+figure. Tier 0 lands first and is the gate on tier 0's cadence and cache being
+right before the derivation is copied at all.
 
 The constants — 400 MiB/credit, the 763 MiB grant, the reset — get defined
 once in C# with a comment naming the README section, and any change to them
 is a change to both in the same commit.
 
-### 3. Credentials: Windows Credential Locker — **OPEN, needs an answer**
+### 3. Credentials: Windows Credential Locker, entered in a settings window — **settled**
 
 `.env` is wrong on Windows. `PasswordVault` is per-user, packaged-app-native
 and needs no key management; a DPAPI-protected file under
 `LocalApplicationData` is the fallback if the packaging shape rules it out.
 Either way the password never lands in the repo or in plaintext on disk.
 
-What needs the owner's answer is how they are first entered, because **the
-widget cannot host a text input** and the COM server has no UI:
-
-- a minimal settings window in the same package (two fields and Save), which
-  the widget's signed-out card can raise through an `Action.Execute` the
-  provider handles by launching it; or
-- a one-off CLI in the package, run once by hand after install.
-
-The settings window is the one that survives a password change without the
-owner remembering a command. The CLI is perhaps an hour less work.
+They are entered in **a minimal settings window in the same package** (two
+fields and Save), because **the widget cannot host a text input** and the COM
+server has no UI. The widget's signed-out card raises it through an
+`Action.Execute` the provider handles by launching the window — not a
+protocol handler, since what a widget card is allowed to invoke is narrower
+than full Adaptive Cards and is worth not depending on. A password change is
+then the same window again, with nothing to remember.
 
 ### 4. Refresh: match the phone, which does not poll at all
 
-Worth stating plainly, because the guidance for widgets assumes a desktop on
-an unmetered line: **the Android surfaces have no background polling.** The
+The portal is the vessel's own, on this machine as on the phone: reaching
+`ic.zwana.io` costs no quota, so the cadence is not about data cost. It is
+still the phone's cadence, because a widget that polls a captive portal in the
+background is spending the host's battery and goodwill for a figure nobody is
+looking at. **The Android surfaces have no background polling.** The
 cache max age is 45 s (`DEFAULT_MAX_AGE`, and `CACHE_MAX_AGE` in
 `tasker/zwana-tile`) and a fetch happens only when someone taps the tile or
 opens the widget. So:
@@ -132,9 +145,11 @@ surfaces will disagree by two minutes every night.
 No MSBuild in `.githooks/checks.sh` — it runs on Termux, where it cannot build
 anything Windows, and a push here is a deploy that has to stay quick. If the
 Windows half wants checks, a separate `windows-latest` GitHub Actions
-workflow scoped to `paths: ['windows/**']` is the place. **That is the owner's
-call** (Actions minutes, push-triggered builds) and will be asked before it is
-added.
+workflow scoped to `paths: ['windows/**']` is the place — and tier 1 being in
+scope gives it something worth running, since the golden vectors are only a
+contract if something checks them on both sides. **This is the one decision
+still open** (Actions minutes, push-triggered builds); nothing before phase 4
+needs it.
 
 ## Step 0, before any zwana code: does the platform still work here?
 
@@ -161,7 +176,7 @@ week spent on a board that will not show it.
 | 2 | the portal client (login, cookie, `GetActive`), credentials in the Credential Locker, first-run path per §3 | tier 0 on the board, real figure |
 | 3 | cache in custom state, Activate/Deactivate cadence, stale/offline face | survives sign-out/in |
 | 4 | README: build, signing, sideload, where credentials live | reproducible after a reinstall |
-| 5 | tier 1 + golden vectors, only if §2's tiering says yes | Python and C# agree on the vectors |
+| 5 | tier 1: `day_pool` and `derive` ported, golden vectors both sides read | Python and C# agree on the vectors |
 
 ## Visual
 
