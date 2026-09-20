@@ -45,11 +45,22 @@ internal sealed class WidgetProviderFactory : IClassFactory
         // so that a host asking for what it actually wants is not refused.
         if (riid != IUnknownId && riid != typeof(IWidgetProvider).GUID)
         {
+            Log.Write($"CreateInstance: refused {riid}");
             return E_NOINTERFACE;
         }
 
-        ppvObject = MarshalInspectable<IWidgetProvider>.FromManaged(new WidgetProvider());
-        return 0;
+        try
+        {
+            ppvObject = MarshalInspectable<IWidgetProvider>.FromManaged(new WidgetProvider());
+            Log.Write("CreateInstance: handed the host a provider");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            // Returning a failure the host can see beats throwing across COM.
+            Log.Write($"CreateInstance: FAILED {ex.GetType().Name}: {ex.Message}");
+            return E_NOINTERFACE;
+        }
     }
 
     public int LockServer(bool fLock) => 0;

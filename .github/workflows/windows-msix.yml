@@ -88,6 +88,23 @@ jobs:
             throw "Microsoft.Windows.Widgets.dll was not published beside the exe"
           }
 
+      - name: Render the card without a widgets board
+        run: |
+          # The drawing path is the only part of a provider that can be
+          # exercised here, and it is where this went wrong the first time: the
+          # card was serialised with reflection, which Native AOT does not do,
+          # so it threw inside the callback that draws and the widget pinned
+          # and showed nothing. Startup was fine. Only this catches that.
+          & (Resolve-Path staging/ZwanaQuotaWidget.exe) --render-selftest "$PWD/card.json"
+          if ($LASTEXITCODE -ne 0) { throw "the render self-test exited $LASTEXITCODE" }
+          if (-not (Test-Path card.json)) { throw "the render self-test wrote no card" }
+
+          $card = Get-Content card.json -Raw
+          $parsed = $card | ConvertFrom-Json   # throws if the board could not parse it either
+          if ($parsed.type -ne 'AdaptiveCard') { throw "not an Adaptive Card: $($parsed.type)" }
+          if (-not $parsed.body) { throw "the card has no body" }
+          "card renders: $($card.Length) chars, $($parsed.body.Count) blocks" | Write-Host
+
       - name: Smoke test the provider
         run: |
           # It registers a class object and waits for the host. Nothing here can

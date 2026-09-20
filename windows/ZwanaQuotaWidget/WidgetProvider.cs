@@ -46,6 +46,7 @@ internal sealed class WidgetProvider : IWidgetProvider
 
     public WidgetProvider()
     {
+        Log.Write("provider constructed");
         // A reboot, a sign-out, or our own process being reclaimed all land
         // here: the host still has the widgets, so we ask it what we are
         // serving rather than assuming we are serving nothing.
@@ -68,17 +69,22 @@ internal sealed class WidgetProvider : IWidgetProvider
 
     public void CreateWidget(WidgetContext widgetContext)
     {
-        var widget = new PinnedWidget
+        Log.Guard("CreateWidget", () =>
         {
-            Id = widgetContext.Id,
-            DefinitionId = widgetContext.DefinitionId,
-        };
-        _running[widget.Id] = widget;
-        UpdateWidget(widget);
+            var widget = new PinnedWidget
+            {
+                Id = widgetContext.Id,
+                DefinitionId = widgetContext.DefinitionId,
+            };
+            Log.Write($"CreateWidget {widget.DefinitionId} {widget.Id}");
+            _running[widget.Id] = widget;
+            UpdateWidget(widget);
+        });
     }
 
     public void DeleteWidget(string widgetId, string customState)
     {
+        Log.Write($"DeleteWidget {widgetId}");
         _running.Remove(widgetId);
         if (_running.Count == 0)
         {
@@ -88,20 +94,27 @@ internal sealed class WidgetProvider : IWidgetProvider
 
     public void OnActionInvoked(WidgetActionInvokedArgs actionInvokedArgs)
     {
-        var widgetId = actionInvokedArgs.WidgetContext.Id;
-        if (_running.TryGetValue(widgetId, out var widget))
+        Log.Guard("OnActionInvoked", () =>
         {
-            UpdateWidget(widget);
-        }
+            var widgetId = actionInvokedArgs.WidgetContext.Id;
+            if (_running.TryGetValue(widgetId, out var widget))
+            {
+                UpdateWidget(widget);
+            }
+        });
     }
 
     public void OnWidgetContextChanged(WidgetContextChangedArgs contextChangedArgs)
     {
-        var widgetId = contextChangedArgs.WidgetContext.Id;
-        if (_running.TryGetValue(widgetId, out var widget))
+        Log.Guard("OnWidgetContextChanged", () =>
         {
-            UpdateWidget(widget);
-        }
+            var widgetId = contextChangedArgs.WidgetContext.Id;
+            Log.Write($"OnWidgetContextChanged {widgetId} size={contextChangedArgs.WidgetContext.Size}");
+            if (_running.TryGetValue(widgetId, out var widget))
+            {
+                UpdateWidget(widget);
+            }
+        });
     }
 
     /// <summary>The board is showing this widget and wants current content.</summary>
@@ -115,15 +128,35 @@ internal sealed class WidgetProvider : IWidgetProvider
     /// </remarks>
     public void Activate(WidgetContext widgetContext)
     {
-        if (_running.TryGetValue(widgetContext.Id, out var widget))
+        Log.Guard("Activate", () =>
         {
-            widget.IsActive = true;
-            UpdateWidget(widget);
-        }
+            Log.Write($"Activate {widgetContext.Id}");
+            if (_running.TryGetValue(widgetContext.Id, out var widget))
+            {
+                widget.IsActive = true;
+                UpdateWidget(widget);
+            }
+            else
+            {
+                // The host knows about a widget we do not. Recovering here
+                // rather than ignoring it is the difference between a blank
+                // widget and a drawn one after the provider is restarted.
+                Log.Write($"Activate: {widgetContext.Id} was not in the running set; adding it");
+                var recovered = new PinnedWidget
+                {
+                    Id = widgetContext.Id,
+                    DefinitionId = widgetContext.DefinitionId,
+                    IsActive = true,
+                };
+                _running[recovered.Id] = recovered;
+                UpdateWidget(recovered);
+            }
+        });
     }
 
     public void Deactivate(string widgetId)
     {
+        Log.Write($"Deactivate {widgetId}");
         if (_running.TryGetValue(widgetId, out var widget))
         {
             widget.IsActive = false;
@@ -134,15 +167,18 @@ internal sealed class WidgetProvider : IWidgetProvider
     {
         if (widget.DefinitionId != QuotaWidgetId)
         {
+            Log.Write($"UpdateWidget: ignoring unknown definition {widget.DefinitionId}");
             return;
         }
 
+        var card = Cards.Compose("— GiB", "skeleton build · no portal reading yet");
         var options = new WidgetUpdateRequestOptions(widget.Id)
         {
-            Template = Cards.Template,
-            Data = Cards.Data("— GiB", "skeleton build · no portal reading yet"),
+            Template = card,
+            Data = "{}",
             CustomState = widget.CustomState,
         };
         WidgetManager.GetDefault().UpdateWidget(options);
+        Log.Write($"UpdateWidget: sent {card.Length} chars for {widget.Id}");
     }
 }

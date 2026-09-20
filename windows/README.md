@@ -72,6 +72,23 @@ and was caught by the smoke test below.
 
 [ml]: https://github.com/microsoft/WindowsAppSDK/issues/5969
 
+## When it pins but draws nothing
+
+The provider writes **`C:\Users\<you>\zwana-quota-widget.log`** — profile
+root rather than AppData, because MSIX redirects AppData writes into the
+package's own store and a log nobody can find is not a log. Every callback
+from the board is in it, and so is anything that threw.
+
+What the lines mean:
+
+| the log says | what it means |
+|---|---|
+| nothing at all, no file | the board never launched the provider: COM registration, or the package's `com:ExeServer` entry |
+| `starting` then nothing | the host launched us but never asked for a provider |
+| `CreateInstance: handed the host a provider` | activation works |
+| `CreateWidget` then `UpdateWidget: sent N chars` | the card went to the board. A blank widget after this is the card, not the plumbing |
+| `FAILED <exception>` | there it is |
+
 ## Two things the build checks, because they fail silently
 
 **Registration-free WinRT.** A self-contained Windows App SDK app does not
@@ -86,6 +103,15 @@ it. The build greps the exe for it.
 **A provider that dies on startup.** It would also pin and never draw. The
 build runs it for five seconds and keeps whatever it said on the way out.
 That is what caught `PublishTrimmed`.
+
+**A card that cannot be built.** The build runs the exe with
+`--render-selftest` and parses what comes back, because the drawing path is
+the one part of a provider that works without a widgets board. This is not
+hypothetical: the first AOT build serialised the card with
+`JsonSerializer.Serialize(new { … })`, reflection-based serialisation is off
+under Native AOT, and it threw inside the callback that draws. Startup was
+clean, the widget pinned, and it showed nothing. Three checks now stand
+between that and the sofa.
 
 ## Signing
 
