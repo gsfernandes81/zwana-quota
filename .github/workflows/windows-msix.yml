@@ -95,8 +95,11 @@ jobs:
           # card was serialised with reflection, which Native AOT does not do,
           # so it threw inside the callback that draws and the widget pinned
           # and showed nothing. Startup was fine. Only this catches that.
-          & (Resolve-Path staging/ZwanaQuotaWidget.exe) --render-selftest "$PWD/card.json"
-          if ($LASTEXITCODE -ne 0) { throw "the render self-test exited $LASTEXITCODE" }
+          # Start-Process -Wait, not '&': this is a GUI-subsystem exe, so the
+          # shell does not wait for it and $LASTEXITCODE stays empty.
+          $p = Start-Process -FilePath (Resolve-Path staging/ZwanaQuotaWidget.exe) `
+            -ArgumentList '--render-selftest', "$PWD/card.json" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the render self-test exited $($p.ExitCode)" }
           if (-not (Test-Path card.json)) { throw "the render self-test wrote no card" }
 
           $card = Get-Content card.json -Raw
