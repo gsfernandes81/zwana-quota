@@ -34,6 +34,13 @@
     <!-- Every byte here crosses a metered satellite link; see windows/README.md
          for what was measured and what it bought. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- CsWinRT builds the WinRT vtables for managed classes that implement
+         projected interfaces. Under Native AOT it must do so at compile time,
+         and if it does not notice our provider, the object handed to the board
+         answers QueryInterface(IWidgetProvider) with E_NOINTERFACE — which is
+         where the AOT build currently stops. The warnings say what it noticed. -->
+    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+    <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
   </PropertyGroup>
 
   <ItemGroup>

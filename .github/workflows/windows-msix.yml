@@ -59,8 +59,15 @@ jobs:
       - name: Publish the provider (${{ matrix.variant }})
         run: |
           dotnet publish windows/ZwanaQuotaWidget/ZwanaQuotaWidget.csproj `
-            -c Release -r win-x64 ${{ matrix.publish_args }} -o staging
+            -c Release -r win-x64 ${{ matrix.publish_args }} -o staging 2>&1 |
+            Tee-Object -Variable publishOutput
           if ($LASTEXITCODE -ne 0) { throw "publish failed" }
+
+          # CsWinRT's AOT warnings name the types whose WinRT vtables it did or
+          # did not generate, which is the difference between a provider the
+          # board can use and one it cannot.
+          $publishOutput | Select-String -Pattern 'CsWinRT|IL\d|AOT' |
+            Select-Object -First 25 | Write-Host
 
       - name: Verify registration-free WinRT is wired up
         run: |
