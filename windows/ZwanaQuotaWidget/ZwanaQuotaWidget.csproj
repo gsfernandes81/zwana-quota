@@ -19,12 +19,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ZwanaQuotaWidget</AssemblyName>
-    <!-- Every byte here crosses a metered satellite link. This one is worth
-         1.8 MB; InvariantGlobalization was tried too and measured at nothing,
-         because .NET on Windows uses the in-box ICU rather than shipping its
-         own, so it was taken back out rather than left in for the look of it.
-         Where the weight actually is, see windows/README.md. -->
-    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <RootNamespace>ZwanaQuotaWidget</RootNamespace>
     <!-- MSIX-packaged, so the Windows App SDK bootstrapper is not wanted. -->
     <WindowsPackageType>MSIX</WindowsPackageType>
@@ -32,14 +26,30 @@
     <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
     <!-- The target machine is on a metered satellite link and cannot fetch a
          .NET runtime or a Windows App Runtime installer, so both ride inside
-         the package. The workflow can turn this off for a small build on a
-         machine that already has them. -->
+         the package. -->
     <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
     <WindowsAppSDKSelfContained Condition="'$(WindowsAppSDKSelfContained)' == ''">$(SelfContained)</WindowsAppSDKSelfContained>
+    <!-- Every byte here crosses a metered satellite link; see windows/README.md
+         for what was measured and what it bought. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
+    <!-- The Widgets COMPONENT package, not the Microsoft.WindowsAppSDK
+         metapackage. The metapackage is the whole SDK: WinUI, the XAML
+         renderer, and from 1.8 onwards onnxruntime.dll and DirectML.dll — 66 MB
+         of runtime this provider never calls, because it renders an Adaptive
+         Card and the board draws it. The component brings one 2.5 MB DLL and
+         its projection, and Base (half a megabyte of MSBuild targets) brings
+         the self-contained plumbing with it.
+
+         That plumbing is load-bearing and invisible: the Widgets package
+         carries a package.appxfragment declaring WidgetManager and friends as
+         WinRT activatable classes, and Base's SelfContained.targets turns it
+         into a side-by-side manifest embedded in the exe. Without it,
+         WidgetManager.GetDefault() throws class-not-registered at runtime.
+         The build verifies this rather than assuming it. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" Version="2.0.5" />
   </ItemGroup>
 
 </Project>
