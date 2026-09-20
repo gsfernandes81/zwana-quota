@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The widget provider is a packaged Win32 COM server: the widgets board
+       activates it on demand, it hands back an Adaptive Card, and it exits
+       again. There is no window, hence WinExe rather than a console app that
+       would flash a terminal every time the board is opened.
+
+       Packaging is NOT done here. The MSIX is packed by hand in CI with
+       MakeAppx (see .github/workflows/windows-msix.yml), which keeps the
+       build off any Visual Studio workload the runner image may or may not
+       carry, and keeps what is packed to exactly what is published. -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ZwanaQuotaWidget</AssemblyName>
+    <RootNamespace>ZwanaQuotaWidget</RootNamespace>
+    <!-- MSIX-packaged, so the Windows App SDK bootstrapper is not wanted. -->
+    <WindowsPackageType>MSIX</WindowsPackageType>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
+    <!-- The target machine is on a metered satellite link and cannot fetch a
+         .NET runtime or a Windows App Runtime installer, so both ride inside
+         the package. The workflow can turn this off for a small build on a
+         machine that already has them. -->
+    <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
+    <WindowsAppSDKSelfContained Condition="'$(WindowsAppSDKSelfContained)' == ''">$(SelfContained)</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
+  </ItemGroup>
+
+</Project>

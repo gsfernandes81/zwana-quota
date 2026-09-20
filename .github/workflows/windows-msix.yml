@@ -1,0 +1,167 @@
+# Build the sideloadable MSIX. The target machine is on a metered satellite
+# link and has no build tooling, so this runner is the only compiler the
+# Windows half has — which is also why the package bundles its runtimes by
+# default rather than asking that machine to go and fetch them.
+#
+# Nothing here touches the Python half: the pre-push hook and .githooks/checks.sh
+# are untouched, and this workflow only runs when windows/** changes.
+#
+# Signing: a self-signed certificate is minted per run unless the repository
+# carries MSIX_PFX_BASE64 / MSIX_PFX_PASSWORD, in which case that certificate
+# signs the build and upgrades install in place. See windows/README.md.
+
+name: windows msix
+
+on:
+  push:
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows-msix.yml'
+  workflow_dispatch:
+    inputs:
+      self_contained:
+        description: 'Bundle the .NET and Windows App SDK runtimes (large package, no prerequisites on the target machine)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  msix:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish the provider
+        run: |
+          $sc = '${{ github.event.inputs.self_contained }}'
+          if ([string]::IsNullOrEmpty($sc)) { $sc = 'true' }
+          "self-contained: $sc" | Write-Host
+          dotnet publish windows/ZwanaQuotaWidget/ZwanaQuotaWidget.csproj `
+            -c Release -r win-x64 -p:SelfContained=$sc -o staging
+          if ($LASTEXITCODE -ne 0) { throw "publish failed" }
+
+      - name: Stage the package layout
+        run: |
+          # The package root is the publish output plus the manifest and the
+          # images it names. Symbols are not shipped.
+          Copy-Item windows/ZwanaQuotaWidget/AppxManifest.xml staging/AppxManifest.xml
+          Copy-Item windows/ZwanaQuotaWidget/Images staging/Images -Recurse -Force
+          Copy-Item windows/ZwanaQuotaWidget/ProviderAssets staging/ProviderAssets -Recurse -Force
+          Get-ChildItem staging -Filter *.pdb -Recurse | Remove-Item -Force
+          if (-not (Test-Path staging/ZwanaQuotaWidget.exe)) { throw "the published exe is missing" }
+
+      - name: Locate the Windows SDK tools
+        run: |
+          $bin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $versions = Get-ChildItem $bin -Directory |
+            Where-Object { $_.Name -like '10.*' } |
+            Sort-Object { [version]$_.Name } -Descending
+          foreach ($v in $versions) {
+            $makeappx = Join-Path $v.FullName 'x64\makeappx.exe'
+            $signtool = Join-Path $v.FullName 'x64\signtool.exe'
+            if ((Test-Path $makeappx) -and (Test-Path $signtool)) {
+              "MAKEAPPX=$makeappx" | Out-File $env:GITHUB_ENV -Append
+              "SIGNTOOL=$signtool" | Out-File $env:GITHUB_ENV -Append
+              "Using the SDK in $($v.Name)" | Write-Host
+              exit 0
+            }
+          }
+          throw "no makeappx/signtool on this image"
+
+      - name: Prepare the signing certificate
+        env:
+          MSIX_PFX_BASE64: ${{ secrets.MSIX_PFX_BASE64 }}
+          MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+
+          if ($env:MSIX_PFX_BASE64) {
+            Write-Host "Signing with the certificate from the repository secrets."
+            [IO.File]::WriteAllBytes("$PWD\signing.pfx", [Convert]::FromBase64String($env:MSIX_PFX_BASE64))
+            $password = ConvertTo-SecureString -String $env:MSIX_PFX_PASSWORD -AsPlainText -Force
+            $data = Get-PfxData -FilePath "$PWD\signing.pfx" -Password $password
+            $cert = $data.EndEntityCertificates[0]
+            Export-Certificate -Cert $cert -FilePath out/zwana-quota.cer | Out-Null
+            "SIGN_WITH=pfx" | Out-File $env:GITHUB_ENV -Append
+          }
+          else {
+            Write-Host "No MSIX_PFX_BASE64 secret: minting a self-signed certificate for this run."
+            [xml]$manifest = Get-Content windows/ZwanaQuotaWidget/AppxManifest.xml
+            $subject = $manifest.Package.Identity.Publisher
+            $cert = New-SelfSignedCertificate `
+              -Type Custom `
+              -Subject $subject `
+              -KeyUsage DigitalSignature `
+              -FriendlyName 'zwana-quota sideload' `
+              -CertStoreLocation 'Cert:\CurrentUser\My' `
+              -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+            Export-Certificate -Cert $cert -FilePath out/zwana-quota.cer | Out-Null
+            "SIGN_WITH=store" | Out-File $env:GITHUB_ENV -Append
+            "CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File $env:GITHUB_ENV -Append
+          }
+
+          # The package's Publisher and the signer have to be the same string
+          # or Windows refuses the install, so the manifest follows the
+          # certificate rather than the other way round.
+          "CERT_SUBJECT=$($cert.Subject)" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Match the manifest publisher to the certificate
+        run: |
+          $path = "$PWD\staging\AppxManifest.xml"
+          [xml]$manifest = Get-Content $path
+          if ($manifest.Package.Identity.Publisher -ne $env:CERT_SUBJECT) {
+            "publisher: $($manifest.Package.Identity.Publisher) -> $env:CERT_SUBJECT" | Write-Host
+            $manifest.Package.Identity.Publisher = $env:CERT_SUBJECT
+            $manifest.Save($path)
+          }
+
+      - name: Pack
+        run: |
+          & $env:MAKEAPPX pack /d staging /p out/zwana-quota-widget.msix /o
+          if ($LASTEXITCODE -ne 0) { throw "makeappx failed" }
+
+      - name: Sign
+        env:
+          MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+        run: |
+          $common = @('sign', '/fd', 'SHA256', '/v')
+          $signer = if ($env:SIGN_WITH -eq 'pfx') {
+            @('/f', "$PWD\signing.pfx", '/p', $env:MSIX_PFX_PASSWORD)
+          } else {
+            @('/sha1', $env:CERT_THUMBPRINT)
+          }
+          $target = 'out/zwana-quota-widget.msix'
+
+          # A timestamp keeps the package installable after the certificate
+          # expires; it needs the network, so a failure there is not fatal.
+          & $env:SIGNTOOL @common @signer '/tr' 'http://timestamp.digicert.com' '/td' 'SHA256' $target
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::timestamping failed; signing without a timestamp"
+            & $env:SIGNTOOL @common @signer $target
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed" }
+          }
+
+      - name: Assemble what gets downloaded
+        run: |
+          Copy-Item windows/install.ps1 out/install.ps1
+          $msix = Get-Item out/zwana-quota-widget.msix
+          "package: {0:N1} MB" -f ($msix.Length / 1MB) | Write-Host
+          Get-ChildItem out | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zwana-quota-widget-msix
+          path: out/
+          retention-days: 30
+          if-no-files-found: error

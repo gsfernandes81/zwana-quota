@@ -11,3 +11,9 @@ __pycache__/
 # mutation testing (make mutants)
 .poodle-temp/
 .hypothesis/
+
+# Windows build output (windows/)
+windows/**/bin/
+windows/**/obj/
+staging/
+out/

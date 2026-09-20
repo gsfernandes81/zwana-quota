@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- The package manifest. Packed as-is by the workflow, which rewrites only
+     Identity/@Publisher to match whichever certificate signs the build — a
+     package whose Publisher and signer disagree will not install, and that
+     mismatch is the classic way a sideload fails.
+
+     The CLSID below appears twice here and once in WidgetProvider.cs. All
+     three must agree. -->
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 com rescap">
+
+  <Identity
+    Name="zwana-quota.QuotaWidget"
+    Publisher="CN=zwana-quota sideload"
+    Version="0.1.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>zwana quota</DisplayName>
+    <PublisherDisplayName>zwana-quota</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="ZwanaQuotaWidget.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="zwana quota"
+        Description="What is left of today's data allowance, and when it resets."
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png"
+        BackgroundColor="transparent" />
+      <Extensions>
+
+        <!-- The COM server the widgets board activates. The packaged-app
+             equivalent of a registry key, and not widget-specific. -->
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="ZwanaQuotaWidget.exe" DisplayName="zwana quota widget provider">
+              <com:Class Id="96f8b4b8-68d6-42a0-bdeb-36c4b9fd75a2" DisplayName="zwana quota widget provider" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+
+        <!-- The registration that puts us in the widgets picker. -->
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets" DisplayName="zwana quota" Id="ZwanaQuotaWidgetApp" PublicFolder="Public">
+            <uap3:Properties>
+              <WidgetProvider>
+                <ProviderIcons>
+                  <Icon Path="Images\StoreLogo.png" />
+                </ProviderIcons>
+                <Activation>
+                  <CreateInstance ClassId="96f8b4b8-68d6-42a0-bdeb-36c4b9fd75a2" />
+                </Activation>
+                <Definitions>
+                  <Definition Id="Zwana_Quota"
+                              DisplayName="zwana quota"
+                              Description="What is left of today's data allowance, and when it resets.">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons>
+                        <Icon Path="ProviderAssets\QuotaIcon.png" />
+                      </Icons>
+                      <Screenshots>
+                        <Screenshot Path="ProviderAssets\QuotaScreenshot.png" DisplayAltText="The zwana quota widget" />
+                      </Screenshots>
+                    </ThemeResources>
+                  </Definition>
+                </Definitions>
+              </WidgetProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <Capability Name="internetClient" />
+  </Capabilities>
+
+</Package>

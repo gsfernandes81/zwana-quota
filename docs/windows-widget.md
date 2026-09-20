@@ -140,38 +140,63 @@ grant lands at **00:02:19 UTC**, but `next_reset()` targets **00:00:00 UTC**
 Windows side should match the phone until both change together, or the two
 surfaces will disagree by two minutes every night.
 
-### 5. Checks: the hook does not change
+### 5. CI: `windows-latest` builds the package — **settled, and load-bearing**
 
 No MSBuild in `.githooks/checks.sh` — it runs on Termux, where it cannot build
-anything Windows, and a push here is a deploy that has to stay quick. If the
-Windows half wants checks, a separate `windows-latest` GitHub Actions
-workflow scoped to `paths: ['windows/**']` is the place — and tier 1 being in
-scope gives it something worth running, since the golden vectors are only a
-contract if something checks them on both sides. **This is the one decision
-still open** (Actions minutes, push-triggered builds); nothing before phase 4
-needs it.
+anything Windows, and a push here is a deploy that has to stay quick. The
+Windows half gets its own workflow instead:
+`.github/workflows/windows-msix.yml`, `windows-latest`, scoped to
+`paths: ['windows/**']`, free on a public repository.
+
+It turned out to be more than a checks question. **The target machine has no
+build tooling and cannot download any over its link**, so this runner is not
+a second opinion on a build that also happens locally — it is the only
+compiler the Windows half has, and every install starts as an artifact
+downloaded from a run. That moves it from phase 4 to the beginning, and it
+sets two constraints on everything after it:
+
+- the package bundles the .NET and Windows App SDK runtimes by default, since
+  asking that machine to fetch a runtime is the same problem again; and
+- signing happens in CI. A self-signed certificate is minted per run, or a
+  pinned one is used if `MSIX_PFX_BASE64` / `MSIX_PFX_PASSWORD` are set as
+  repository secrets. **The repository is public**: the `.pfx` and its
+  password are secrets and never files. `windows/README.md` has both paths,
+  and the manifest's `Publisher` is rewritten to match whichever certificate
+  signs the build, because a package whose publisher and signer disagree will
+  not install.
+
+Tier 1 gives the workflow something worth running beyond the package itself:
+the golden vectors are only a contract if something checks them on both
+sides.
 
 ## Step 0, before any zwana code: does the platform still work here?
 
 Microsoft's widget-provider docs are live and carry no deprecation notice, but
 the platform had no Build 2026 session, and "sideloaded widget never appears
 in the picker" is a recurring report — including on 26200.x, the target build
-family. So the first thing built is not ours:
+family. So the first thing installed draws nothing:
 
-1. Install the unmodified `microsoft/WindowsAppSDK-Samples` C# widget provider
-   on the actual machine, self-signed and sideloaded.
-2. Confirm it appears in the picker, pins to the board, and updates.
+1. Take the `zwana-quota-widget-msix` artifact from a run of the workflow —
+   the phase 1 skeleton, which pins and draws a placeholder and touches no
+   portal.
+2. `install.ps1` from an elevated PowerShell (`windows/README.md`).
+3. Confirm it appears in the picker, pins to the board, and survives a reboot.
 
-Green: proceed, and the signing/sideload steps get written into the README
-while they are fresh. Red: stop and re-decide the surface with the owner
-before writing a line of quota code — that is a cheap afternoon against a
-week spent on a board that will not show it.
+It is our own skeleton rather than the Microsoft sample because the machine
+cannot build either one, so both arrive the same way — and this one is the
+thing we actually want pinned. It answers the same question: does a
+sideloaded provider show up here at all.
+
+Green: proceed to phase 2. Red: stop and re-decide the surface before writing
+a line of quota code — `windows/README.md` has the order to check things in,
+and that is a cheap afternoon against a week spent on a board that will not
+show it.
 
 ## Plan of work
 
 | phase | what | gate |
 |---|---|---|
-| 0 | the sample-provider spike above | go/no-go |
+| 0 | the CI build path: `windows-latest`, MakeAppx, signing, an installable artifact | a run produces a `.msix` that installs |
 | 1 | `windows/` skeleton: packaged C# app, COM server, manifest, a widget that draws a constant | it pins and survives a reboot |
 | 2 | the portal client (login, cookie, `GetActive`), credentials in the Credential Locker, first-run path per §3 | tier 0 on the board, real figure |
 | 3 | cache in custom state, Activate/Deactivate cadence, stale/offline face | survives sign-out/in |
