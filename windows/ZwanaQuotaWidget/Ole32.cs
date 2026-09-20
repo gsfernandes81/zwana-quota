@@ -14,6 +14,12 @@ internal static partial class Ole32
     /// <summary>One registration serves every activation request.</summary>
     public const uint REGCLS_MULTIPLEUSE = 0x1;
 
+    /// <summary>No UI and no message pump, so the server lives in the MTA.</summary>
+    public const uint COINIT_MULTITHREADED = 0x0;
+
+    [LibraryImport("ole32.dll")]
+    public static partial int CoInitializeEx(IntPtr reserved, uint coInit);
+
     [LibraryImport("ole32.dll")]
     public static partial int CoRegisterClassObject(
         in Guid rclsid,
