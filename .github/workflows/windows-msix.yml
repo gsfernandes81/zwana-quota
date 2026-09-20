@@ -71,12 +71,6 @@ jobs:
           $after = (Get-ChildItem staging -Recurse -File | Measure-Object Length -Sum).Sum
           "staged: {0:N1} MB, was {1:N1} MB" -f ($after / 1MB), ($before / 1MB) | Write-Host
 
-          # What the download is actually made of, so the next person to ask
-          # "why is it this big" reads it instead of guessing.
-          Get-ChildItem staging -Recurse -File |
-            Sort-Object Length -Descending | Select-Object -First 8 |
-            Format-Table @{n='MB';e={'{0:N1}' -f ($_.Length / 1MB)}}, Name
-
           if (-not (Test-Path staging/ZwanaQuotaWidget.exe)) { throw "the published exe is missing" }
 
       - name: Locate the Windows SDK tools
@@ -146,8 +140,14 @@ jobs:
 
       - name: Pack
         run: |
-          & $env:MAKEAPPX pack /d staging /p out/zwana-quota-widget.msix /o
-          if ($LASTEXITCODE -ne 0) { throw "makeappx failed" }
+          # makeappx narrates every payload file, which buries everything else
+          # in the log. Kept on disk, shown only if it fails.
+          & $env:MAKEAPPX pack /d staging /p out/zwana-quota-widget.msix /o *> makeappx.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content makeappx.log | Select-Object -Last 40
+            throw "makeappx failed"
+          }
+          Get-Content makeappx.log | Select-Object -Last 2
 
       - name: Sign
         env:
@@ -175,7 +175,14 @@ jobs:
           Copy-Item windows/install.ps1 out/install.ps1
           $msix = Get-Item out/zwana-quota-widget.msix
           "package: {0:N1} MB" -f ($msix.Length / 1MB) | Write-Host
-          Get-ChildItem out | Format-Table Name, Length
+
+          # What the download is actually made of. Every byte crosses a metered
+          # link, so where it goes is worth being able to read rather than guess.
+          Get-ChildItem staging -Recurse -File |
+            Sort-Object Length -Descending | Select-Object -First 10 |
+            Format-Table @{n='MB';e={'{0:N1}' -f ($_.Length / 1MB)}}, Name -AutoSize
+
+          Get-ChildItem out | Format-Table Name, Length -AutoSize
 
       - uses: actions/upload-artifact@v4
         with:
