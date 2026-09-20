@@ -132,6 +132,9 @@ jobs:
           Copy-Item windows/ZwanaQuotaWidget/AppxManifest.xml staging/AppxManifest.xml
           Copy-Item windows/ZwanaQuotaWidget/Images staging/Images -Recurse -Force
           Copy-Item windows/ZwanaQuotaWidget/ProviderAssets staging/ProviderAssets -Recurse -Force
+          # The manifest declares PublicFolder="Public"; a declared folder that
+          # is not in the package is a registration a host may reject.
+          Copy-Item windows/ZwanaQuotaWidget/Public staging/Public -Recurse -Force
           Get-ChildItem staging -Filter *.pdb -Recurse | Remove-Item -Force
 
           # Localised resources for machinery this widget does not draw with.
@@ -203,6 +206,12 @@ jobs:
             $manifest.Package.Identity.Publisher = $env:CERT_SUBJECT
             $manifest.Save($path)
           }
+
+      - name: Show the manifest that is about to be packed
+        run: |
+          # The one artifact of this build nobody can read from the outside,
+          # and the one that decides whether the board ever launches us.
+          Get-Content staging/AppxManifest.xml | Write-Host
 
       - name: Pack
         run: |
