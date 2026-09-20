@@ -37,12 +37,36 @@ board, choose **Add widgets**, and look for *zwana quota* at the bottom.
 
 ## Two things worth knowing before the first install
 
-**The package is large by default (a few hundred MB).** It bundles the .NET
-runtime and the Windows App SDK runtime, because the alternative is the target
-machine fetching both over the satellite link. If this machine already has
-.NET 8 and the Windows App Runtime, start the workflow by hand from the
-Actions tab with **self_contained** unticked and the package drops to a couple
-of megabytes.
+**The package is about 81 MB.** It bundles the .NET runtime and the Windows
+App SDK runtime, because the alternative is the target machine fetching both
+over the satellite link. If this machine already has .NET 8 and the Windows
+App Runtime, start the workflow by hand from the Actions tab with
+**self_contained** unticked and the package drops to a couple of megabytes.
+
+Where those megabytes go, measured rather than assumed — the build prints this
+table at the end of every run:
+
+| MB | | |
+|---|---|---|
+| 23.7 | `Microsoft.Windows.SDK.NET.dll` | the WinRT projection. This is how the widget APIs are called at all |
+| 20.7 | `onnxruntime.dll` | |
+| 17.8 | `DirectML.dll` | |
+| 14.4 + 7.0 + 6.3 | `Microsoft.ui.xaml.dll`, `Microsoft.WinUI.dll`, `Microsoft.UI.Xaml.Controls.dll` | |
+| 12.6 | `System.Private.CoreLib.dll` | |
+
+**Roughly 66 MB of that is machinery this widget never calls**: a
+self-contained Windows App SDK brings its whole runtime, including the ML
+stack and the whole of XAML, and this provider renders an Adaptive Card and
+never loads either. Deleting those files from the staged layout is the obvious
+next saving and it is **deliberately not done yet**: if the widget then failed
+to appear, there would be no way to tell a trimmed-too-far package from a
+widgets board that does not take sideloaded providers. That is phase 0's
+question and it gets asked on an untouched package. Once it is answered, this
+is where the 66 MB is.
+
+Two things measured and rejected on the way here, so they are not tried again:
+localised WinUI resources (1.8 MB, kept), and `InvariantGlobalization`
+(nothing at all — .NET on Windows uses the in-box ICU).
 
 **Each run signs with a different certificate unless you pin one.** Windows
 treats a package signed by a new key as a different signer and refuses to

@@ -19,13 +19,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ZwanaQuotaWidget</AssemblyName>
-    <!-- Every byte here is downloaded over a metered satellite link, and a
-         self-contained build carries its own globalisation data: roughly a
-         third of the package is ICU, for a widget whose entire output is
-         digits, a unit and a clock time. The invariant culture covers that.
-         If a future face ever needs real culture-aware formatting, this is
-         the line that has to go, and the package grows by ~30 MB. -->
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Every byte here crosses a metered satellite link. This one is worth
+         1.8 MB; InvariantGlobalization was tried too and measured at nothing,
+         because .NET on Windows uses the in-box ICU rather than shipping its
+         own, so it was taken back out rather than left in for the look of it.
+         Where the weight actually is, see windows/README.md. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <RootNamespace>ZwanaQuotaWidget</RootNamespace>
     <!-- MSIX-packaged, so the Windows App SDK bootstrapper is not wanted. -->
