@@ -25,7 +25,18 @@ internal partial interface IClassFactory
     int LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
 }
 
-internal sealed class WidgetProviderFactory : IClassFactory
+/// <summary>The class object COM hands the host when it activates our CLSID.</summary>
+///
+/// <remarks>
+/// <c>[GeneratedComClass]</c> is not decoration. StrategyBasedComWrappers builds
+/// the COM vtables for a managed object from this attribute; without it the
+/// wrapper exposes IUnknown and nothing else, so the host's very first call —
+/// CoGetClassObject for IClassFactory — comes back E_NOINTERFACE, CreateInstance
+/// is never reached, and the board draws an empty widget having said nothing.
+/// That was this provider's bug, and ComSelfTest is what now catches it.
+/// </remarks>
+[GeneratedComClass]
+internal sealed partial class WidgetProviderFactory : IClassFactory
 {
     private const int E_NOINTERFACE = unchecked((int)0x80004002);
     private const int CLASS_E_NOAGGREGATION = unchecked((int)0x80040110);
