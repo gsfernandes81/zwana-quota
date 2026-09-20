@@ -21,8 +21,18 @@ board and the smaller one gets there by a route that can fail at runtime:
 
 | artifact | size | what it is |
 |---|---|---|
-| **`zwana-quota-widget-aot`** | **1.7 MB** | compiled ahead of time. No .NET runtime at all: the package is the native exe, the Widgets DLL, and the images. **Start here.** |
-| `zwana-quota-widget-slim` | 38.7 MB | the same code on the ordinary .NET runtime. The fallback if the AOT build misbehaves once it is actually on the board |
+| **`zwana-quota-widget-slim`** | **38.7 MB** | the ordinary .NET runtime. Passes the board's activation handshake end to end. **Use this one.** |
+| `zwana-quota-widget-aot` | — | compiled ahead of time, 1.7 MB, and **currently broken**: it fails the handshake at `QueryInterface(IWidgetProvider)`, so it builds no artifact. See below |
+
+**Why the big one.** The AOT package is twenty times smaller and would be the
+obvious choice on a metered link, but it does not work: CsWinRT has to
+generate the provider's WinRT vtable at compile time for a Native AOT build,
+it is not generating ours, and the object handed to the board answers
+`QueryInterface(IWidgetProvider)` with `E_NOINTERFACE`. The board asks that
+question immediately after `CreateInstance`, so the widget draws nothing. The
+ordinary runtime builds that vtable at run time and passes. A working 38.7 MB
+beats a broken 1.7 MB; the small one stays in the build, failing visibly,
+until that is fixed.
 
 Each artifact holds three files:
 
