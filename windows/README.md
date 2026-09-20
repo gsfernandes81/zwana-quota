@@ -16,8 +16,15 @@ metered link, so **GitHub Actions is the compiler**:
 runs on `windows-latest` whenever `windows/**` changes, and can also be
 started by hand from the Actions tab.
 
-Download the **`zwana-quota-widget-msix`** artifact from the run. It holds
-three files:
+Each run builds **two** variants, because nothing here can drive the widgets
+board and the smaller one gets there by a route that can fail at runtime:
+
+| artifact | size | what it is |
+|---|---|---|
+| **`zwana-quota-widget-aot`** | **1.7 MB** | compiled ahead of time. No .NET runtime at all: the package is the native exe, the Widgets DLL, and the images. **Start here.** |
+| `zwana-quota-widget-slim` | 38.7 MB | the same code on the ordinary .NET runtime. The fallback if the AOT build misbehaves once it is actually on the board |
+
+Each artifact holds three files:
 
 | file | what it is |
 |---|---|
@@ -35,44 +42,58 @@ Everything that script uses ships with Windows — `Import-Certificate`,
 `Add-AppxPackage`. There is nothing further to download. Open the widgets
 board, choose **Add widgets**, and look for *zwana quota* at the bottom.
 
-## Two things worth knowing before the first install
+## How it got from 80 MB to 1.7
 
-**The package is about 81 MB.** It bundles the .NET runtime and the Windows
-App SDK runtime, because the alternative is the target machine fetching both
-over the satellite link. If this machine already has .NET 8 and the Windows
-App Runtime, start the workflow by hand from the Actions tab with
-**self_contained** unticked and the package drops to a couple of megabytes.
+Worth writing down, because every one of these was measured and two of the
+obvious answers were wrong.
 
-Where those megabytes go, measured rather than assumed — the build prints this
-table at the end of every run:
+The first working build was **80.2 MB**. Three things fixed it:
 
-| MB | | |
-|---|---|---|
-| 23.7 | `Microsoft.Windows.SDK.NET.dll` | the WinRT projection. This is how the widget APIs are called at all |
-| 20.7 | `onnxruntime.dll` | |
-| 17.8 | `DirectML.dll` | |
-| 14.4 + 7.0 + 6.3 | `Microsoft.ui.xaml.dll`, `Microsoft.WinUI.dll`, `Microsoft.UI.Xaml.Controls.dll` | |
-| 12.6 | `System.Private.CoreLib.dll` | |
+1. **Reference the component package, not the metapackage** — 80.2 → 38.7 MB.
+   `Microsoft.WindowsAppSDK` is the whole SDK: WinUI, the XAML renderer, and
+   from 1.8 onwards `onnxruntime.dll` (21 MB) and `DirectML.dll` (18 MB).
+   Others hit the same 40 MB on 1.8 ([WindowsAppSDK#5969][ml]);
+   the component packages are the SDK's own answer.
+   `Microsoft.WindowsAppSDK.Widgets` is one 2.4 MB DLL, its projection, and
+   `Base`, which is half a megabyte of MSBuild targets.
+2. **Native AOT** — 38.7 → 1.7 MB. What was left after (1) was all .NET:
+   23.7 MB of Windows metadata projection, 12.6 of `CoreLib`, 4.8 of
+   `coreclr`, against 2.4 MB of the Widgets runtime the provider actually
+   calls. Compiled ahead of time there is no runtime to ship, and the staged
+   package is 4.6 MB: `ZwanaQuotaWidget.exe` (2.2), the Widgets DLL (2.4), and
+   the images.
+3. **Drop the localised WinUI resources** — 1.8 MB, back when there was still
+   WinUI to localise.
 
-**Roughly 66 MB of that is machinery this widget never calls**: a
-self-contained Windows App SDK brings its whole runtime, including the ML
-stack and the whole of XAML, and this provider renders an Adaptive Card and
-never loads either. Deleting those files from the staged layout is the obvious
-next saving and it is **deliberately not done yet**: if the widget then failed
-to appear, there would be no way to tell a trimmed-too-far package from a
-widgets board that does not take sideloaded providers. That is phase 0's
-question and it gets asked on an untouched package. Once it is answered, this
-is where the 66 MB is.
+Two that were tried and bought nothing, so that nobody tries them twice:
+`InvariantGlobalization` (**zero** — .NET on Windows uses the in-box ICU
+rather than shipping its own), and `PublishTrimmed`, which **died on startup**
+and was caught by the smoke test below.
 
-Two things measured and rejected on the way here, so they are not tried again:
-localised WinUI resources (1.8 MB, kept), and `InvariantGlobalization`
-(nothing at all — .NET on Windows uses the in-box ICU).
+[ml]: https://github.com/microsoft/WindowsAppSDK/issues/5969
 
-**Each run signs with a different certificate unless you pin one.** Windows
-treats a package signed by a new key as a different signer and refuses to
-upgrade in place, which is why `install.ps1` removes the installed copy first.
-That is fine for iterating and annoying for anything else. To pin one — again
-with no downloads, from an elevated PowerShell on any Windows machine:
+## Two things the build checks, because they fail silently
+
+**Registration-free WinRT.** A self-contained Windows App SDK app does not
+register its WinRT classes through the package manifest. The Widgets package
+carries a `package.appxfragment` declaring `WidgetManager` and friends, and
+`Microsoft.WindowsAppSDK.Base`'s `SelfContained.targets` compiles it into a
+side-by-side manifest **embedded in the exe**. Lose it — to a project change,
+a packaging shortcut — and the widget pins and never draws, with
+`WidgetManager.GetDefault()` throwing class-not-registered where nobody sees
+it. The build greps the exe for it.
+
+**A provider that dies on startup.** It would also pin and never draw. The
+build runs it for five seconds and keeps whatever it said on the way out.
+That is what caught `PublishTrimmed`.
+
+## Signing
+
+Each run signs with its own self-signed certificate, so `install.ps1` removes
+the installed copy before installing: Windows treats a package signed by a new
+key as a different signer and refuses to upgrade in place. That is fine for
+iterating and annoying for anything else. To pin one — again with no
+downloads, from an elevated PowerShell on any Windows machine:
 
 ```powershell
 $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=zwana-quota sideload" `
@@ -99,7 +120,8 @@ choose above does not have to be the one in `AppxManifest.xml`.
 |---|---|
 | `ZwanaQuotaWidget/Program.cs` | registers the COM class object and waits; the board launches this on demand and it exits once nothing is pinned |
 | `ZwanaQuotaWidget/WidgetProvider.cs` | the `IWidgetProvider` callbacks, and the state recovery that makes a reboot survivable |
-| `ZwanaQuotaWidget/FactoryHelper.cs` | the COM class factory. Boilerplate, kept close to the Windows App SDK sample |
+| `ZwanaQuotaWidget/FactoryHelper.cs` | the COM class factory, on source-generated interop rather than the sample's `[ComImport]` — Native AOT has no built-in COM marshalling |
+| `ZwanaQuotaWidget/Ole32.cs` | the two OLE entry points, as `LibraryImport` P/Invokes |
 | `ZwanaQuotaWidget/Cards.cs` | the Adaptive Card. Follows the board's theme rather than hardcoding one |
 | `ZwanaQuotaWidget/AppxManifest.xml` | the package manifest: the COM server, and the registration that puts the widget in the picker |
 | `install.ps1` | shipped inside the artifact, not run from the checkout |

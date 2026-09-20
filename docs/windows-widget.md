@@ -155,8 +155,12 @@ compiler the Windows half has, and every install starts as an artifact
 downloaded from a run. That moves it from phase 4 to the beginning, and it
 sets two constraints on everything after it:
 
-- the package bundles the .NET and Windows App SDK runtimes by default, since
-  asking that machine to fetch a runtime is the same problem again; and
+- the package carries everything it needs, since asking that machine to fetch
+  a runtime is the same problem again — which made its size the build's
+  problem, and took it from 80.2 MB to **1.7 MB**: the Widgets *component*
+  package rather than the whole SDK, then Native AOT. `windows/README.md` has
+  the measurements, including the two savings that turned out to be nothing;
+  and
 - signing happens in CI. A self-signed certificate is minted per run, or a
   pinned one is used if `MSIX_PFX_BASE64` / `MSIX_PFX_PASSWORD` are set as
   repository secrets. **The repository is public**: the `.pfx` and its
