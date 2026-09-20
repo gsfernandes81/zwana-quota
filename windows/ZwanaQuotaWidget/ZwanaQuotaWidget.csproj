@@ -19,6 +19,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ZwanaQuotaWidget</AssemblyName>
+    <!-- Every byte here is downloaded over a metered satellite link. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <RootNamespace>ZwanaQuotaWidget</RootNamespace>
     <!-- MSIX-packaged, so the Windows App SDK bootstrapper is not wanted. -->
     <WindowsPackageType>MSIX</WindowsPackageType>

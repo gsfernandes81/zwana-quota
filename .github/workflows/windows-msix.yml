@@ -59,6 +59,18 @@ jobs:
           Copy-Item windows/ZwanaQuotaWidget/Images staging/Images -Recurse -Force
           Copy-Item windows/ZwanaQuotaWidget/ProviderAssets staging/ProviderAssets -Recurse -Force
           Get-ChildItem staging -Filter *.pdb -Recurse | Remove-Item -Force
+
+          # A self-contained Windows App SDK brings the whole of WinUI with it,
+          # localised into every language it ships. This widget renders an
+          # Adaptive Card and never loads XAML, and the package is downloaded
+          # over a metered satellite link, so the localised resources go.
+          $before = (Get-ChildItem staging -Recurse -File | Measure-Object Length -Sum).Sum
+          Get-ChildItem staging -Directory |
+            Where-Object { $_.Name -match '^[a-z]{2}(-[A-Za-z]{2,8})*$' -and $_.Name -ne 'en-US' } |
+            Remove-Item -Recurse -Force
+          $after = (Get-ChildItem staging -Recurse -File | Measure-Object Length -Sum).Sum
+          "staged: {0:N1} MB, was {1:N1} MB" -f ($after / 1MB), ($before / 1MB) | Write-Host
+
           if (-not (Test-Path staging/ZwanaQuotaWidget.exe)) { throw "the published exe is missing" }
 
       - name: Locate the Windows SDK tools
