@@ -4,18 +4,22 @@
 // host's custom state rather than in memory.
 
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using COM;
 using ZwanaQuotaWidget;
 
-const uint CLSCTX_LOCAL_SERVER = 0x4;
-const uint REGCLS_MULTIPLEUSE = 0x1;
+var wrappers = new StrategyBasedComWrappers();
+var factory = wrappers.GetOrCreateComInterfaceForObject(
+    new WidgetProviderFactory(),
+    CreateComInterfaceFlags.None);
 
-CoRegisterClassObject(
-    Guid.Parse(WidgetProvider.ClassId),
-    new WidgetProviderFactory<WidgetProvider>(),
-    CLSCTX_LOCAL_SERVER,
-    REGCLS_MULTIPLEUSE,
+var hr = Ole32.CoRegisterClassObject(
+    WidgetProvider.ClassId,
+    factory,
+    Ole32.CLSCTX_LOCAL_SERVER,
+    Ole32.REGCLS_MULTIPLEUSE,
     out var cookie);
+Marshal.ThrowExceptionForHR(hr);
 
 // Wait until the host has taken the last widget away, then stand down.
 using (var emptyWidgetListEvent = WidgetProvider.GetEmptyWidgetListEvent())
@@ -23,15 +27,5 @@ using (var emptyWidgetListEvent = WidgetProvider.GetEmptyWidgetListEvent())
     emptyWidgetListEvent.WaitOne();
 }
 
-CoRevokeClassObject(cookie);
-
-[DllImport("ole32.dll")]
-static extern int CoRegisterClassObject(
-    [MarshalAs(UnmanagedType.LPStruct)] Guid rclsid,
-    [MarshalAs(UnmanagedType.IUnknown)] object pUnk,
-    uint dwClsContext,
-    uint flags,
-    out uint lpdwRegister);
-
-[DllImport("ole32.dll")]
-static extern int CoRevokeClassObject(uint dwRegister);
+Ole32.CoRevokeClassObject(cookie);
+Marshal.Release(factory);

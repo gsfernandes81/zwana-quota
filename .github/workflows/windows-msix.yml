@@ -7,10 +7,12 @@
 # Two variants are built every run, because neither can be tested from the
 # machine that writes them:
 #
-#   slim     — the Widgets component package, self-contained. The one to use.
-#   trimmed  — the same, IL-trimmed. Smaller, and trimming can break WinRT
-#              activation in ways that only show at runtime, so it is offered
-#              rather than assumed.
+#   slim  — the Widgets component package on the ordinary .NET runtime. The
+#           safe one, and the fallback if aot misbehaves on the board.
+#   aot   — the same, compiled ahead of time: no CLR, no metadata projection,
+#           a few megabytes instead of forty. Native AOT changes how COM and
+#           WinRT activation are wired, and nothing here can drive the widgets
+#           board, so it is offered with its risk stated rather than assumed.
 #
 # Nothing here touches the Python half: .githooks/checks.sh is untouched, and
 # this workflow only runs when windows/** changes.
@@ -44,8 +46,8 @@ jobs:
         include:
           - variant: slim
             publish_args: ''
-          - variant: trimmed
-            publish_args: '-p:PublishTrimmed=true'
+          - variant: aot
+            publish_args: '-p:PublishAot=true -p:CsWinRTAotOptimizerEnabled=true'
 
     steps:
       - uses: actions/checkout@v4
@@ -92,9 +94,14 @@ jobs:
           # exercise the widgets board, but a process that dies on startup is a
           # provider that would silently never draw — which is exactly how a
           # trimmed build fails.
-          $p = Start-Process -FilePath (Resolve-Path staging/ZwanaQuotaWidget.exe) -PassThru
+          $p = Start-Process -FilePath (Resolve-Path staging/ZwanaQuotaWidget.exe) -PassThru `
+            -RedirectStandardOutput smoke.out -RedirectStandardError smoke.err
           Start-Sleep -Seconds 5
           if ($p.HasExited) {
+            # A provider that dies here would pin and never draw, and say
+            # nothing about why, so whatever it did say is worth keeping.
+            Get-Content smoke.out, smoke.err -ErrorAction SilentlyContinue |
+              Select-Object -Last 40 | Write-Host
             throw "the provider exited on startup with code $($p.ExitCode)"
           }
           "still running after 5s" | Write-Host

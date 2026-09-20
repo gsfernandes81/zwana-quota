@@ -4,7 +4,6 @@
 // answer the question that comes first, which is whether the widgets board on
 // this machine will show a sideloaded provider at all.
 
-using System.Runtime.InteropServices;
 using Microsoft.Windows.Widgets.Providers;
 
 namespace ZwanaQuotaWidget;
@@ -24,10 +23,7 @@ internal sealed class PinnedWidget
     public bool IsActive { get; set; }
 }
 
-[ComVisible(true)]
-[Guid(WidgetProvider.ClassId)]
-[ComDefaultInterface(typeof(IWidgetProvider))]
-internal class WidgetProvider : IWidgetProvider
+internal sealed class WidgetProvider : IWidgetProvider
 {
     /// <summary>The CLSID the package manifest activates us by.</summary>
     ///
@@ -36,7 +32,7 @@ internal class WidgetProvider : IWidgetProvider
     /// <c>com:Class Id</c>, and in <c>CreateInstance ClassId</c>. Changing it
     /// orphans every pinned widget, so it does not change.
     /// </remarks>
-    public const string ClassId = "96f8b4b8-68d6-42a0-bdeb-36c4b9fd75a2";
+    public static readonly Guid ClassId = new("96f8b4b8-68d6-42a0-bdeb-36c4b9fd75a2");
 
     /// <summary>The widget's <c>Definition Id</c> in the package manifest.</summary>
     public const string QuotaWidgetId = "Zwana_Quota";

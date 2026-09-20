@@ -1,63 +1,56 @@
-// The COM class factory the widgets board activates us through. Boilerplate,
-// and deliberately kept as close to the Windows App SDK sample as it can be:
-// nothing here is ours to be clever about.
+// The COM class factory the widgets board activates us through.
+//
+// Source-generated COM interop rather than the [ComImport] of the Windows App
+// SDK sample: built-in COM marshalling is unavailable under Native AOT, and
+// AOT is what takes the download from tens of megabytes to a few. The
+// generated path works the same on the ordinary runtime, so this is one code
+// path rather than two.
 
-using Microsoft.Windows.Widgets.Providers;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
+using Microsoft.Windows.Widgets.Providers;
 using WinRT;
+using ZwanaQuotaWidget;
 
 namespace COM;
 
-internal static class Guids
-{
-    public const string IClassFactory = "00000001-0000-0000-C000-000000000046";
-    public const string IUnknown = "00000000-0000-0000-C000-000000000046";
-}
-
-[ComImport]
-[ComVisible(false)]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-[Guid(Guids.IClassFactory)]
-internal interface IClassFactory
+[GeneratedComInterface]
+[Guid("00000001-0000-0000-C000-000000000046")]
+internal partial interface IClassFactory
 {
     [PreserveSig]
-    int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject);
+    int CreateInstance(IntPtr pUnkOuter, in Guid riid, out IntPtr ppvObject);
 
     [PreserveSig]
-    int LockServer(bool fLock);
+    int LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
 }
 
-[ComVisible(true)]
-internal class WidgetProviderFactory<T> : IClassFactory
-    where T : IWidgetProvider, new()
+internal sealed class WidgetProviderFactory : IClassFactory
 {
-    private const int CLASS_E_NOAGGREGATION = -2147221232;
-    private const int E_NOINTERFACE = -2147467262;
+    private const int E_NOINTERFACE = unchecked((int)0x80004002);
+    private const int CLASS_E_NOAGGREGATION = unchecked((int)0x80040110);
 
-    public int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject)
+    private static readonly Guid IUnknownId = new("00000000-0000-0000-C000-000000000046");
+
+    public int CreateInstance(IntPtr pUnkOuter, in Guid riid, out IntPtr ppvObject)
     {
         ppvObject = IntPtr.Zero;
 
         if (pUnkOuter != IntPtr.Zero)
         {
-            Marshal.ThrowExceptionForHR(CLASS_E_NOAGGREGATION);
+            return CLASS_E_NOAGGREGATION;
         }
 
-        // The host asks for IUnknown in practice; the other two are accepted so
-        // that a host which asks for what it actually wants is not refused.
-        if (riid == typeof(T).GUID
-            || riid == Guid.Parse(Guids.IUnknown)
-            || riid == typeof(IWidgetProvider).GUID)
+        // The host asks for IUnknown in practice; IWidgetProvider is accepted
+        // so that a host asking for what it actually wants is not refused.
+        if (riid != IUnknownId && riid != typeof(IWidgetProvider).GUID)
         {
-            ppvObject = MarshalInspectable<IWidgetProvider>.FromManaged(new T());
-        }
-        else
-        {
-            Marshal.ThrowExceptionForHR(E_NOINTERFACE);
+            return E_NOINTERFACE;
         }
 
+        ppvObject = MarshalInspectable<IWidgetProvider>.FromManaged(new WidgetProvider());
         return 0;
     }
 
-    int IClassFactory.LockServer(bool fLock) => 0;
+    public int LockServer(bool fLock) => 0;
 }

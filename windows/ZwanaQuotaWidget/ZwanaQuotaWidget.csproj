@@ -18,6 +18,8 @@
     <Platforms>x64</Platforms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The COM interop and P/Invoke source generators emit unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>ZwanaQuotaWidget</AssemblyName>
     <RootNamespace>ZwanaQuotaWidget</RootNamespace>
     <!-- MSIX-packaged, so the Windows App SDK bootstrapper is not wanted. -->
