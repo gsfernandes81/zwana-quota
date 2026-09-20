@@ -117,7 +117,24 @@ between that and the sofa.
 
 Each run signs with its own self-signed certificate, so `install.ps1` removes
 the installed copy before installing: Windows treats a package signed by a new
-key as a different signer and refuses to upgrade in place. That is fine for
+key as a different signer and refuses to upgrade in place. It also **removes
+the previous build's certificate** — same subject, different key — because
+importing without pruning leaves one more trust anchor on the machine per
+install, all named `zwana-quota sideload` and none of them distinguishable.
+Their private keys never left the build runner, so a stale one signs nothing,
+but the store should not grow forever. To see what is actually there:
+
+```powershell
+Get-ChildItem Cert:\LocalMachine\TrustedPeople |
+  Where-Object Subject -eq 'CN=zwana-quota sideload' |
+  Format-Table Thumbprint, NotAfter
+```
+
+If that lists more than one, they are from installs before this pruning
+existed; `Remove-Item` on the ones you do not want is the whole cleanup.
+
+Pinning a certificate in the repository secrets ends all of this: one
+certificate, forever, and builds install over each other in place. That is fine for
 iterating and annoying for anything else. To pin one — again with no
 downloads, from an elevated PowerShell on any Windows machine:
 

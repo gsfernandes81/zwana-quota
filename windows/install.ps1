@@ -14,6 +14,13 @@
     different signer to Windows and it will refuse to upgrade in place — which
     is exactly what happens every run unless a certificate is pinned in the
     repository secrets (see windows/README.md).
+
+    The certificate from the LAST install is removed too. Every run mints a new
+    key under the same name, so importing without pruning leaves one more trust
+    anchor on the machine every time, all of them called the same thing and
+    none of them distinguishable by eye. Their private keys died with the build
+    runner, so a stale one signs nothing — but a trust store that only grows is
+    the wrong default, and nobody is going to weed it by hand later.
 #>
 [CmdletBinding()]
 param()
@@ -26,8 +33,21 @@ $cer = Get-ChildItem -Path $here -Filter *.cer | Select-Object -First 1
 if (-not $msix) { throw "no .msix beside this script ($here)" }
 if (-not $cer) { throw "no .cer beside this script ($here)" }
 
-Write-Host "Trusting $($cer.Name)"
-Import-Certificate -FilePath $cer.FullName -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
+$store = 'Cert:\LocalMachine\TrustedPeople'
+$incoming = Get-PfxCertificate -FilePath $cer.FullName
+
+# Same subject, different key: the previous builds' certificates.
+$stale = @(Get-ChildItem -Path $store |
+    Where-Object { $_.Subject -eq $incoming.Subject -and $_.Thumbprint -ne $incoming.Thumbprint })
+if ($stale) {
+    Write-Host "Removing $($stale.Count) certificate(s) from earlier builds"
+    foreach ($old in $stale) {
+        Remove-Item -Path $old.PSPath -Force
+    }
+}
+
+Write-Host "Trusting $($cer.Name) ($($incoming.Thumbprint))"
+Import-Certificate -FilePath $cer.FullName -CertStoreLocation $store | Out-Null
 
 $installed = Get-AppxPackage -Name 'zwana-quota.QuotaWidget' -ErrorAction SilentlyContinue
 if ($installed) {
