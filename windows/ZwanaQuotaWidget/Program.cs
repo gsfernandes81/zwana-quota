@@ -19,6 +19,14 @@ if (args.Length >= 2 && args[0] == "--render-selftest")
     return 0;
 }
 
+// Perform the widgets board's own activation handshake against ourselves. See
+// ComSelfTest: it is the part of this that no amount of staring at a blank
+// widget will tell you about.
+if (args.Length >= 1 && args[0] == "--com-selftest")
+{
+    return ComSelfTest.Run();
+}
+
 Log.Write($"starting ({RuntimeInformation.ProcessArchitecture}, {RuntimeInformation.FrameworkDescription})");
 // COM passes -Embedding when it launches a server. Whether the board's
 // activation looks like that, or like an ordinary app launch, decides where to

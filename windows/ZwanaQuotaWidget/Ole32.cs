@@ -30,4 +30,15 @@ internal static partial class Ole32
 
     [LibraryImport("ole32.dll")]
     public static partial int CoRevokeClassObject(uint dwRegister);
+
+    /// <summary>In-process too: REGCLS_MULTIPLEUSE registers for both.</summary>
+    public const uint CLSCTX_INPROC_OR_LOCAL = 0x1 | 0x4;
+
+    [LibraryImport("ole32.dll")]
+    public static partial int CoGetClassObject(
+        in Guid rclsid,
+        uint dwClsContext,
+        IntPtr pvReserved,
+        in Guid riid,
+        out IntPtr ppv);
 }

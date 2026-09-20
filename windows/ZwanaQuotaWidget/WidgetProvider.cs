@@ -47,24 +47,33 @@ internal sealed class WidgetProvider : IWidgetProvider
     public WidgetProvider()
     {
         Log.Write("provider constructed");
+
         // A reboot, a sign-out, or our own process being reclaimed all land
         // here: the host still has the widgets, so we ask it what we are
         // serving rather than assuming we are serving nothing.
-        foreach (var info in WidgetManager.GetDefault().GetWidgetInfos())
+        //
+        // Guarded, because this is the one call in the constructor that talks
+        // to the widget host — and a constructor that throws is a provider the
+        // factory cannot hand over at all, which is a widget that never draws
+        // for a reason two layers away from where it shows.
+        Log.Guard("recover pinned widgets", () =>
         {
-            var context = info.WidgetContext;
-            if (_running.ContainsKey(context.Id))
+            foreach (var info in WidgetManager.GetDefault().GetWidgetInfos())
             {
-                continue;
-            }
+                var context = info.WidgetContext;
+                if (_running.ContainsKey(context.Id))
+                {
+                    continue;
+                }
 
-            _running[context.Id] = new PinnedWidget
-            {
-                Id = context.Id,
-                DefinitionId = context.DefinitionId,
-                CustomState = info.CustomState ?? "",
-            };
-        }
+                _running[context.Id] = new PinnedWidget
+                {
+                    Id = context.Id,
+                    DefinitionId = context.DefinitionId,
+                    CustomState = info.CustomState ?? "",
+                };
+            }
+        });
     }
 
     public void CreateWidget(WidgetContext widgetContext)

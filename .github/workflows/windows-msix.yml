@@ -108,6 +108,18 @@ jobs:
           if (-not $parsed.body) { throw "the card has no body" }
           "card renders: $($card.Length) chars, $($parsed.body.Count) blocks" | Write-Host
 
+      - name: Perform the board's activation handshake
+        run: |
+          # A console is needed to read what it prints, and this is a GUI
+          # subsystem binary, so its output goes to a file.
+          $p = Start-Process -FilePath (Resolve-Path staging/ZwanaQuotaWidget.exe) `
+            -ArgumentList '--com-selftest' -Wait -PassThru `
+            -RedirectStandardOutput com.out -RedirectStandardError com.err
+          Get-Content com.out, com.err -ErrorAction SilentlyContinue | Write-Host
+          if ($p.ExitCode -ne 0) {
+            throw "the board's handshake would have failed (exit $($p.ExitCode))"
+          }
+
       - name: Smoke test the provider
         run: |
           # It registers a class object and waits for the host. Nothing here can
