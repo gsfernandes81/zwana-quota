@@ -71,6 +71,12 @@ jobs:
           $after = (Get-ChildItem staging -Recurse -File | Measure-Object Length -Sum).Sum
           "staged: {0:N1} MB, was {1:N1} MB" -f ($after / 1MB), ($before / 1MB) | Write-Host
 
+          # What the download is actually made of, so the next person to ask
+          # "why is it this big" reads it instead of guessing.
+          Get-ChildItem staging -Recurse -File |
+            Sort-Object Length -Descending | Select-Object -First 8 |
+            Format-Table @{n='MB';e={'{0:N1}' -f ($_.Length / 1MB)}}, Name
+
           if (-not (Test-Path staging/ZwanaQuotaWidget.exe)) { throw "the published exe is missing" }
 
       - name: Locate the Windows SDK tools
