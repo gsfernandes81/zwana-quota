@@ -4,6 +4,7 @@
 // answer the question that comes first, which is whether the widgets board on
 // this machine will show a sideloaded provider at all.
 
+using System.Collections.Concurrent;
 using Microsoft.Windows.Widgets.Providers;
 
 namespace ZwanaQuotaWidget;
@@ -51,7 +52,19 @@ internal sealed partial class WidgetProvider : IWidgetProvider
 
     private static readonly ManualResetEvent EmptyWidgetList = new(false);
 
-    private readonly Dictionary<string, PinnedWidget> _running = new();
+    /// <summary>The widgets this process is serving.</summary>
+    ///
+    /// <remarks>
+    /// Static and concurrent, both deliberately. The host may create more than
+    /// one provider object against a single server, and this is an MTA server:
+    /// callbacks arrive on whichever pool thread COM has free, so a plain
+    /// Dictionary here is a data race that would show up as a widget that
+    /// sometimes does not draw.
+    /// </remarks>
+    private static readonly ConcurrentDictionary<string, PinnedWidget> Running = new();
+
+    /// <summary>How many widgets we are serving, for the idle check.</summary>
+    public static int RunningCount => Running.Count;
 
     /// <summary>Signalled once nothing is pinned, which is when we may exit.</summary>
     public static ManualResetEvent GetEmptyWidgetListEvent() => EmptyWidgetList;
@@ -73,12 +86,12 @@ internal sealed partial class WidgetProvider : IWidgetProvider
             foreach (var info in WidgetManager.GetDefault().GetWidgetInfos())
             {
                 var context = info.WidgetContext;
-                if (_running.ContainsKey(context.Id))
+                if (Running.ContainsKey(context.Id))
                 {
                     continue;
                 }
 
-                _running[context.Id] = new PinnedWidget
+                Running[context.Id] = new PinnedWidget
                 {
                     Id = context.Id,
                     DefinitionId = context.DefinitionId,
@@ -98,7 +111,7 @@ internal sealed partial class WidgetProvider : IWidgetProvider
                 DefinitionId = widgetContext.DefinitionId,
             };
             Log.Write($"CreateWidget {widget.DefinitionId} {widget.Id}");
-            _running[widget.Id] = widget;
+            Running[widget.Id] = widget;
             UpdateWidget(widget);
         });
     }
@@ -106,8 +119,8 @@ internal sealed partial class WidgetProvider : IWidgetProvider
     public void DeleteWidget(string widgetId, string customState)
     {
         Log.Write($"DeleteWidget {widgetId}");
-        _running.Remove(widgetId);
-        if (_running.Count == 0)
+        Running.TryRemove(widgetId, out _);
+        if (Running.IsEmpty)
         {
             EmptyWidgetList.Set();
         }
@@ -118,7 +131,7 @@ internal sealed partial class WidgetProvider : IWidgetProvider
         Log.Guard("OnActionInvoked", () =>
         {
             var widgetId = actionInvokedArgs.WidgetContext.Id;
-            if (_running.TryGetValue(widgetId, out var widget))
+            if (Running.TryGetValue(widgetId, out var widget))
             {
                 UpdateWidget(widget);
             }
@@ -131,7 +144,7 @@ internal sealed partial class WidgetProvider : IWidgetProvider
         {
             var widgetId = contextChangedArgs.WidgetContext.Id;
             Log.Write($"OnWidgetContextChanged {widgetId} size={contextChangedArgs.WidgetContext.Size}");
-            if (_running.TryGetValue(widgetId, out var widget))
+            if (Running.TryGetValue(widgetId, out var widget))
             {
                 UpdateWidget(widget);
             }
@@ -152,7 +165,7 @@ internal sealed partial class WidgetProvider : IWidgetProvider
         Log.Guard("Activate", () =>
         {
             Log.Write($"Activate {widgetContext.Id}");
-            if (_running.TryGetValue(widgetContext.Id, out var widget))
+            if (Running.TryGetValue(widgetContext.Id, out var widget))
             {
                 widget.IsActive = true;
                 UpdateWidget(widget);
@@ -169,7 +182,7 @@ internal sealed partial class WidgetProvider : IWidgetProvider
                     DefinitionId = widgetContext.DefinitionId,
                     IsActive = true,
                 };
-                _running[recovered.Id] = recovered;
+                Running[recovered.Id] = recovered;
                 UpdateWidget(recovered);
             }
         });
@@ -178,7 +191,7 @@ internal sealed partial class WidgetProvider : IWidgetProvider
     public void Deactivate(string widgetId)
     {
         Log.Write($"Deactivate {widgetId}");
-        if (_running.TryGetValue(widgetId, out var widget))
+        if (Running.TryGetValue(widgetId, out var widget))
         {
             widget.IsActive = false;
         }

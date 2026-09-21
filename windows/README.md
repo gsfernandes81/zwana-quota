@@ -192,6 +192,39 @@ The CLSID `96f8b4b8-68d6-42a0-bdeb-36c4b9fd75a2` appears in `WidgetProvider.cs`
 and twice in `AppxManifest.xml`. All three must agree, and changing it orphans
 every pinned widget.
 
+## If the widgets board itself stops loading
+
+It happened during this bring-up, and it survives a reboot, so it is worth
+writing down. A pinned widget whose provider cannot be activated leaves the
+board holding a pin it can neither draw nor resolve, and repeated failed
+activations leave provider processes behind — the sample this was built from
+waits forever on an event that only fires when the last widget is unpinned, so
+an activation that pins nothing never exits. Both are fixed here (the provider
+stands down after five idle minutes with nothing pinned), but a board already
+in that state needs clearing by hand, elevated:
+
+```powershell
+Get-Process ZwanaQuotaWidget -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-AppxPackage zwana-quota.QuotaWidget | Remove-AppxPackage
+taskkill /f /im widgets.exe 2>$null ; taskkill /f /im widgetservice.exe 2>$null
+
+# The board's saved state, which is where the dangling pin lives
+$state = "$env:LOCALAPPDATA\Packages\MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy\LocalState"
+if (Test-Path $state) { Rename-Item $state "$state.broken" }
+
+Get-AppxPackage *WebExperience* | ForEach-Object {
+  Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"
+}
+Get-AppxPackage *WidgetsPlatformRuntime* | ForEach-Object {
+  Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"
+}
+```
+
+Settings → Apps → *Windows Web Experience Pack* → Advanced options →
+**Repair**, then **Reset**, is the same thing through the supported UI.
+Renaming `LocalState` loses the widget layout, which is the price of getting
+the board back.
+
 ## If it does not appear in the picker
 
 That is a real possibility rather than a formality — it is the most commonly

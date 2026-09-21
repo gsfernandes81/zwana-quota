@@ -68,10 +68,25 @@ if (hr < 0)
 
 Log.Write($"registered (cookie {cookie}); waiting for the host");
 
-// Wait until the host has taken the last widget away, then stand down.
+// Wait until the host has taken the last widget away — or until it becomes
+// clear the host is not going to ask us for anything.
+//
+// The sample this came from waits forever, which is wrong for a server the
+// board launches on demand: an activation that never pins anything leaves a
+// process waiting on an event that cannot fire, and they accumulate. Enough of
+// them and the thing being debugged is the machine rather than the widget.
+// Standing down costs nothing, because the next activation launches us again.
 using (var emptyWidgetListEvent = WidgetProvider.GetEmptyWidgetListEvent())
 {
-    emptyWidgetListEvent.WaitOne();
+    var idle = TimeSpan.FromMinutes(5);
+    while (!emptyWidgetListEvent.WaitOne(idle))
+    {
+        if (WidgetProvider.RunningCount == 0)
+        {
+            Log.Write("idle with nothing pinned; standing down");
+            break;
+        }
+    }
 }
 
 Ole32.CoRevokeClassObject(cookie);
