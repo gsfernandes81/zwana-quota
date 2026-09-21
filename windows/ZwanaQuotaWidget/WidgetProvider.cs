@@ -23,7 +23,19 @@ internal sealed class PinnedWidget
     public bool IsActive { get; set; }
 }
 
-internal sealed class WidgetProvider : IWidgetProvider
+/// <remarks>
+/// <c>partial</c> and <c>[GeneratedWinRTExposedType]</c> are both load-bearing,
+/// and only under Native AOT. CsWinRT builds the WinRT vtable for a managed
+/// class that implements a projected interface, and for an AOT build it must do
+/// so at compile time — by adding a generated attribute to this class, which it
+/// can only do if the class is partial. Without it the object the board
+/// receives answers QueryInterface(IWidgetProvider) with E_NOINTERFACE: it
+/// pins, it never draws, and nothing anywhere says why. The ordinary runtime
+/// builds the same vtable at run time and does not care, which is what makes
+/// this a difference between two builds of identical source.
+/// </remarks>
+[global::WinRT.GeneratedWinRTExposedType]
+internal sealed partial class WidgetProvider : IWidgetProvider
 {
     /// <summary>The CLSID the package manifest activates us by.</summary>
     ///

@@ -71,8 +71,15 @@ jobs:
           # CsWinRT's AOT warnings name the types whose WinRT vtables it did or
           # did not generate, which is the difference between a provider the
           # board can use and one it cannot.
-          $publishOutput | Select-String -Pattern 'CsWinRT|IL\d|AOT' |
-            Select-Object -First 25 | Write-Host
+          # CsWinRT1028 is the one that matters: a class it could not attach a
+          # vtable to, because the class is not partial. It is a warning, the
+          # build goes green, and the widget never draws.
+          $warnings = $publishOutput | Select-String -Pattern 'warning|CsWinRT'
+          if ($warnings) { $warnings | Select-Object -First 25 | Write-Host }
+          else { "no build warnings" | Write-Host }
+          if ($publishOutput -match 'CsWinRT1028') {
+            throw "CsWinRT1028: a type implementing a WinRT interface is not partial, so it has no AOT vtable"
+          }
 
       - name: Verify registration-free WinRT is wired up
         run: |
