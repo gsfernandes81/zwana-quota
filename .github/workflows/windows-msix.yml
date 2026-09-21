@@ -7,12 +7,11 @@
 # Two variants are built every run, because neither can be tested from the
 # machine that writes them:
 #
-#   slim  — the Widgets component package on the ordinary .NET runtime. The
-#           safe one, and the fallback if aot misbehaves on the board.
-#   aot   — the same, compiled ahead of time: no CLR, no metadata projection,
-#           a few megabytes instead of forty. Native AOT changes how COM and
-#           WinRT activation are wired, and nothing here can drive the widgets
-#           board, so it is offered with its risk stated rather than assumed.
+#   aot   — compiled ahead of time: no CLR, no metadata projection, under three
+#           megabytes instead of thirty-nine. The one to install.
+#   slim  — the same source on the ordinary .NET runtime, as the fallback if
+#           AOT ever diverges again. Both pass the board's handshake, which is
+#           the only reason either is offered.
 #
 # Nothing here touches the Python half: .githooks/checks.sh is untouched, and
 # this workflow only runs when windows/** changes.
@@ -39,11 +38,6 @@ defaults:
 jobs:
   msix:
     runs-on: windows-latest
-
-    # The aot variant is an optimisation, not the product: it fails the board's
-    # handshake at QueryInterface(IWidgetProvider) and so ships no artifact,
-    # but it must not turn the run red and hide whether slim is good.
-    continue-on-error: ${{ matrix.variant == 'aot' }}
 
     strategy:
       fail-fast: false

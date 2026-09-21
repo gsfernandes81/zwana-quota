@@ -21,18 +21,11 @@ board and the smaller one gets there by a route that can fail at runtime:
 
 | artifact | size | what it is |
 |---|---|---|
-| **`zwana-quota-widget-slim`** | **38.7 MB** | the ordinary .NET runtime. Passes the board's activation handshake end to end. **Use this one.** |
-| `zwana-quota-widget-aot` | — | compiled ahead of time, 1.7 MB, and **currently broken**: it fails the handshake at `QueryInterface(IWidgetProvider)`, so it builds no artifact. See below |
+| **`zwana-quota-widget-aot`** | **2.6 MB** | compiled ahead of time. No .NET runtime at all: the native exe, the Widgets DLL, and the images. **Use this one.** |
+| `zwana-quota-widget-slim` | 38.7 MB | the same source on the ordinary .NET runtime, kept as the fallback if AOT ever diverges again |
 
-**Why the big one.** The AOT package is twenty times smaller and would be the
-obvious choice on a metered link, but it does not work: CsWinRT has to
-generate the provider's WinRT vtable at compile time for a Native AOT build,
-it is not generating ours, and the object handed to the board answers
-`QueryInterface(IWidgetProvider)` with `E_NOINTERFACE`. The board asks that
-question immediately after `CreateInstance`, so the widget draws nothing. The
-ordinary runtime builds that vtable at run time and passes. A working 38.7 MB
-beats a broken 1.7 MB; the small one stays in the build, failing visibly,
-until that is fixed.
+Both pass the board's activation handshake in the build. That is the only
+reason either is offered: the AOT build spent a day failing it silently.
 
 Each artifact holds three files:
 
@@ -113,6 +106,22 @@ it. The build greps the exe for it.
 **A provider that dies on startup.** It would also pin and never draw. The
 build runs it for five seconds and keeps whatever it said on the way out.
 That is what caught `PublishTrimmed`.
+
+**The activation handshake.** The board's side of it is four COM calls — get
+the class object for our CLSID, ask it for `IClassFactory`, call
+`CreateInstance`, ask the result for `IWidgetProvider` — and every one happens
+across a boundary where a failure produces an empty widget and no message
+anywhere. `ComSelfTest` performs all four against the provider in a process
+with no widgets board in it, and the build fails on any of them. Two real bugs
+were found this way, both of which had already cost an install cycle each:
+
+- the class object exposed `IUnknown` alone, because the implementing class
+  was missing `[GeneratedComClass]` — the host's *first* call failed, so
+  `CreateInstance` was never reached; and
+- under Native AOT the provider had no WinRT vtable, because the class was not
+  `partial` and CsWinRT can only attach one to a partial class. `CsWinRT1028`
+  says so, as a warning, in a build that otherwise goes green. The publish step
+  now fails on that warning.
 
 **A card that cannot be built.** The build runs the exe with
 `--render-selftest` and parses what comes back, because the drawing path is
