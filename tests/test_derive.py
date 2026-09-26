@@ -165,7 +165,9 @@ def test_the_reading_block_reports_the_age_and_never_calls_a_cache_live(
 ):
     doc = qw.derive(raw, age, live)
     assert doc["reading"]["live"] is live
-    assert doc["reading"]["age_seconds"] == pytest.approx(age, abs=0.05)
+    # Rounded to a tenth: half a tenth off at most, and a hair more in
+    # floating point (1.75 -> 1.8 is 0.05000000000000004).
+    assert doc["reading"]["age_seconds"] == pytest.approx(age, abs=0.05 + 1e-9)
     assert doc["reading"]["online"] is bool(raw["online"])
     assert dt.datetime.fromisoformat(doc["reading"]["taken"]).timestamp() == pytest.approx(
         raw["ts"], abs=1
