@@ -1,13 +1,18 @@
 # zwana-quota — the metered-data readout
 
 How much of the day's data allowance is left, read from the crew portal at
-`ic.zwana.io` and drawn three ways on the phone:
+`ic.zwana.io` and drawn three ways on the phone, and on the wrist:
 
 - **`quota_widget.py`** — the home-screen widget face (via Termux:Widget
   shortcuts in `~/.shortcuts/`), and the library the other two build on.
 - **`tasker/zwana-tile`** — the same reading on an Android Quick Settings
   tile, through the Termux:Tasker plugin. `tasker/install.sh` links it in;
   `docs/quota-tile.md` is the guide.
+- **`android/`** — an Android home-screen widget that reads the portal itself
+  and needs nothing else installed, and, in the same APK, the Connect IQ
+  companion that sends the reading to **`garmin/`**, a glance for a Garmin
+  Instinct 3. `android/README.md` is the install guide;
+  `docs/android-widget.md` the reasoning.
 - **`zwana_quota.py`** — the portal client itself: login, balance, reset
   time. Credentials live in `.env` at this repo's root (`~/zwana-quota/.env`,
   mode 600, gitignored) as `zwana_username` / `zwana_password`; the session

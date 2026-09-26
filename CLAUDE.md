@@ -30,6 +30,20 @@ Decisions that travel with this code:
 - The nightly grant is spent first and expires at the reset; paid allocations
   do not — `free.left_bytes` can only over-state, which is the direction the
   dlq runner's guards need (see the accuracy block in `quota_widget.py`).
+- **`android/` is a second copy of the client and the derivation, held to
+  this one by numbers.** The Android widget reads the portal itself (it must
+  work with nothing else installed), so `android/core` ports `gather`,
+  `day_pool` and `derive` to Kotlin. `vectors/quota.json` is what the live
+  Python makes of fixed inputs; `tests/test_vectors.py` fails `make test` when
+  a change here leaves it stale (`make vectors`), and the Kotlin suite fails
+  until the port lands on the new numbers. **Change the derivation here, carry
+  it there, in the same push.** `docs/android-widget.md`.
+- **The watch gets strings, never rules.** `garmin/` (Monkey C, Instinct 3)
+  is sent the figures the phone already spelled, as one payload built in
+  `WatchPayload` — no Long in the Connect IQ SDK, so KiB and epoch-second
+  Ints. It decides only what only it can: whether the reading is still
+  believable *now* (`new day`, `2h ago`). The payload's keys are the wire
+  contract; renaming one blanks the glance without an error anywhere.
 
 ## Checks
 
@@ -38,6 +52,13 @@ pre-push hook runs it). Offline: the portal is never reached. This repo needs
 no sibling checkout — it is the one the others reach down into. Exit 5 is a
 failure again: with a suite in the tree, "no tests collected" means the tests
 did not import, which is not a state to push a deploy in.
+
+`make android-test` is the Kotlin port's suite (`android/core`, JDK and
+Gradle, Maven Central only) and is **not** in `make check`: the phone that
+pushes has neither. CI runs it before building the APK
+(`.github/workflows/android-apk.yml`), which is the only place the Android app
+is compiled. The watch app is compiled nowhere automatic — its device files
+need a Garmin login.
 
 `quota_widget.py --self-test` came out on 2026-09-02 and `tests/` replaced it
 on 2026-09-03. Not a transcription of it: the suite tests **behaviour and
@@ -69,6 +90,7 @@ uses.
 | `test_tile_face.py` | the face: five rows, never wider than `TILE`, ASCII only, at every unit threshold and every digit-gaining value; the reset time surviving every squeeze; a stale or offline reading *drawn* and not merely fitted |
 | `test_qs_tile.py` | the four lines in the order Tasker splits them into, the label and subtitle budgets at all three named sizes, the state never Android's third one, and the level word for the icon |
 | `test_full_box.py` | `--full`: nothing but ASCII and the one measured middot inside the frame, no row padded out with spaces, the bar's filled run being the share that has gone, and the countdown giving way before the clock time does |
+| `test_vectors.py` | `vectors/quota.json` is still what the live `gather` and `derive` produce, and building it leaves the clock and the portal stub as it found them |
 | `test_cli.py` | both command lines: which stream the answer lands on, the exit codes, that calibration costs no request, that the tile printed is the tile composed, and that `--refresh-only` says nothing and leaves a good cache alone when it fails |
 
 **`_fake` and `TILE_ROWS` did not come back, and should not.** The fake
