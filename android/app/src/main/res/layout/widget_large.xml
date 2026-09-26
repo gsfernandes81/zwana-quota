@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The face: the figure and the data switch, then four lines of small
-     print. Each small line is a line of its own and never wraps. The reset
-     line ends with the time and is ellipsized from its start, so a narrow
-     widget loses the grant before it loses the time. -->
+<!-- The face resized big enough for the device list (Android 12 and later
+     choose it by size): the same lines as widget.xml, and under a rule a
+     row per device, the last row saying how many more there are. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
@@ -26,15 +25,30 @@
         style="@style/WidgetLine"
         android:ellipsize="start" />
 
+    <FrameLayout
+        android:id="@+id/rule"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="7dp"
+        android:layout_marginBottom="4dp"
+        android:background="#1FCDD6F4" />
+
     <TextView
-        android:id="@+id/devices"
-        style="@style/WidgetLine"
-        android:textSize="13sp"
-        android:visibility="gone" />
+        android:id="@+id/device1"
+        style="@style/WidgetDevice" />
+
+    <TextView
+        android:id="@+id/device2"
+        style="@style/WidgetDevice" />
+
+    <TextView
+        android:id="@+id/device3"
+        style="@style/WidgetDevice" />
 
     <TextView
         android:id="@+id/footnote"
         style="@style/WidgetLine"
+        android:layout_marginTop="2dp"
         android:text="tap to read"
         android:textColor="#A6ADC8"
         android:textSize="12sp" />

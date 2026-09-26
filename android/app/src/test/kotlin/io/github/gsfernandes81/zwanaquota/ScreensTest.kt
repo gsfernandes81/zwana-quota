@@ -7,6 +7,7 @@ import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.Reading
+import io.github.gsfernandes81.zwanaquota.core.Session
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +47,54 @@ class ScreensTest {
         RuntimeEnvironment.setQualifiers("+night")
         seed(remainder = 190_000_000, ageSeconds = 2 * 3600, notes = true)
         shoot("dark-stale", expand = true)
+    }
+
+    /**
+     * The widget, compact and resized large, in each state of the data
+     * switch: this phone switched data on with a laptop joined, this phone
+     * joined someone else's, data on elsewhere without this phone, data off.
+     */
+    @Test
+    fun `the widget in each state of the data switch`() {
+        seed(remainder = 316_000_000, ageSeconds = 20, notes = false)
+        val me = "10.1.0.225"
+        val laptop = "10.1.0.125"
+        Store(context).saveNames(mapOf(laptop to Store.Named("gavins-thinkpad", Instant.now().epochSecond)))
+        val sessions = listOf(
+            Session(true, me, 0, me, listOf(laptop)),
+            Session(true, laptop, 0, me, listOf(me, "10.1.0.31", "10.1.0.40")),
+            Session(true, laptop, 0, me, emptyList()),
+            Session(false, null, 0, me, emptyList()),
+        )
+        val density = context.resources.displayMetrics.density
+        val sizes = listOf(false to (250 to 150), true to (330 to 250))
+        val gap = (16 * density).toInt()
+        val width = gap + sizes.sumOf { (it.second.first * density).toInt() + gap }
+        val rowHeight = (sizes.maxOf { it.second.second } * density).toInt() + gap
+        val sheet = Bitmap.createBitmap(width, gap + sessions.size * rowHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(sheet)
+        canvas.drawColor(0xFF22324A.toInt())
+        sessions.forEachIndexed { row, session ->
+            Store(context).save(session)
+            var x = gap
+            for ((large, size) in sizes) {
+                val w = (size.first * density).toInt()
+                val h = (size.second * density).toInt()
+                val parent = android.widget.FrameLayout(context)
+                val view = QuotaWidget.remoteViews(context, Refresher.cachedFace(context), null, large, signedIn = true)
+                    .apply(context, parent)
+                view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+                view.layout(0, 0, w, h)
+                canvas.save()
+                canvas.translate(x.toFloat(), (gap + row * rowHeight).toFloat())
+                view.draw(canvas)
+                canvas.restore()
+                x += w + gap
+            }
+        }
+        val out = File("build/screens/widget.png").apply { parentFile?.mkdirs() }
+        out.outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertTrue("nothing was written", out.length() > 0)
     }
 
     /**

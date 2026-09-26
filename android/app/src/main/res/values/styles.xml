@@ -9,4 +9,11 @@
         <item name="android:textColor">#CDD6F4</item>
         <item name="android:textSize">14sp</item>
     </style>
+
+    <style name="WidgetDevice" parent="WidgetLine">
+        <item name="android:paddingTop">2dp</item>
+        <item name="android:paddingBottom">2dp</item>
+        <item name="android:textSize">13.5sp</item>
+        <item name="android:visibility">gone</item>
+    </style>
 </resources>

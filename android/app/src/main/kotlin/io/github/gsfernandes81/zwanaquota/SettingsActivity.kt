@@ -128,7 +128,8 @@ class SettingsActivity : AppCompatActivity() {
             editingLogin = false
             username.text?.clear()
             store.note("account", "signed out")
-            QuotaWidget.draw(this, Refresher.cachedFace(this), busy = false)
+            store.forgetSession()
+            QuotaWidget.draw(this, Refresher.cachedFace(this))
             render()
         }
 
@@ -183,7 +184,7 @@ class SettingsActivity : AppCompatActivity() {
         val zone = ZoneId.systemDefault()
         val reading = store.reading()
         val doc = reading?.let { Pipeline.derive(it, Pipeline.epochSeconds(now) - it.ts, false, now) }
-        val face = doc?.let { Face.of(it, zone) } ?: Refresher.cachedFace(this)
+        val face = doc?.let { Face.of(it, zone, Refresher.hour24(this)) } ?: Refresher.cachedFace(this)
         figure.text = face.figure
         // The widget's face puts the age in front of the share, because it has
         // no chips; here the freshness chip says it, so the line keeps to the
@@ -286,6 +287,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val table = listOf(
             R.string.row_portal to (readable(notes["read"]) ?: getString(R.string.nothing_yet)),
+            R.string.row_session to (readable(notes["session"]) ?: getString(R.string.nothing_yet)),
             R.string.row_watch to (readable(notes["watch"]) ?: getString(R.string.nothing_yet)),
             R.string.row_background to (readable(notes["worker"]) ?: getString(R.string.nothing_yet)),
             R.string.row_garmin to Garmin.state,

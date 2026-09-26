@@ -2,7 +2,13 @@ package io.github.gsfernandes81.zwanaquota
 
 import android.content.Context
 import io.github.gsfernandes81.zwanaquota.core.Reading
+import io.github.gsfernandes81.zwanaquota.core.Session
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -19,6 +25,8 @@ class Store(context: Context) {
     private val prefs = app.getSharedPreferences("zwana", Context.MODE_PRIVATE)
     private val cache = File(app.filesDir, "reading.json")
     private val journal = File(app.filesDir, "journal.txt")
+    private val sessionFile = File(app.filesDir, "session.json")
+    private val namesFile = File(app.filesDir, "names.json")
 
     /** The last reading of any age, or null -- an unreadable cache is no reading. */
     fun reading(): Reading? = try {
@@ -32,6 +40,48 @@ class Store(context: Context) {
         val tmp = File(cache.path + ".tmp")
         tmp.writeText(reading.toJson().toString())
         tmp.renameTo(cache)
+    }
+
+    /** The data session as last read, or null if it never has been. */
+    fun session(): Session? = try {
+        Session.fromJson(Json.parseToJsonElement(sessionFile.readText()))
+    } catch (_: Exception) {
+        null
+    }
+
+    fun save(session: Session) = replace(sessionFile, session.toJson().toString())
+
+    fun forgetSession() {
+        sessionFile.delete()
+    }
+
+    /**
+     * Device names the network gave, by IP, with when each was asked. An
+     * empty name is an answer too -- nobody answered -- so a device that
+     * never will is not asked on every read.
+     */
+    fun names(): Map<String, Named> = try {
+        Json.parseToJsonElement(namesFile.readText()).jsonObject.mapValues { (_, v) ->
+            val o = v.jsonObject
+            Named(o.getValue("name").jsonPrimitive.content, o.getValue("at").jsonPrimitive.long)
+        }
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
+    fun saveNames(names: Map<String, Named>) = replace(
+        namesFile,
+        JsonObject(
+            names.mapValues { (_, n) -> JsonObject(mapOf("name" to JsonPrimitive(n.name), "at" to JsonPrimitive(n.at))) },
+        ).toString(),
+    )
+
+    class Named(val name: String, val at: Long)
+
+    private fun replace(file: File, text: String) {
+        val tmp = File(file.path + ".tmp")
+        tmp.writeText(text)
+        tmp.renameTo(file)
     }
 
     var watchEnabled: Boolean

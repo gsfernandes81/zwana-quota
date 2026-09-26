@@ -22,6 +22,16 @@
         <item name="colorOutlineVariant">@color/seed_outline_variant</item>
     </style>
 
+    <!-- The widget's "turn data off?" question: no window of its own, only the
+         dialog, over the home screen it was asked from. -->
+    <style name="Theme.Zwana.Confirm" parent="Theme.Zwana">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
     <!-- A label/value row in the diagnostics. -->
     <style name="Zwana.Label" parent="">
         <item name="android:layout_width">112dp</item>

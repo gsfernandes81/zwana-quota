@@ -27,6 +27,16 @@
             </intent-filter>
         </activity>
 
+        <!-- The widget's "turn data off?" question. Its own empty task, gone
+             from Recents and from the back stack once answered. -->
+        <activity
+            android:name=".ConfirmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Zwana.Confirm" />
+
         <receiver
             android:name=".QuotaWidget"
             android:exported="false">

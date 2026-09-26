@@ -50,4 +50,26 @@
     <string name="battery_free">Unrestricted</string>
     <string name="battery_held">Optimised: sends may be held back</string>
     <string name="nothing_yet">Nothing yet</string>
+    <string name="row_session">Data switch</string>
+
+    <!-- The widget's data switch. -->
+    <string name="pill_on">● Data on</string>
+    <string name="pill_off">○ Data off</string>
+    <string name="pill_join">+ Join</string>
+    <string name="busy_read">reading the portal...</string>
+    <string name="busy_turn_on">switching data on...</string>
+    <string name="busy_turn_off_everywhere">switching data off...</string>
+    <string name="busy_leave">taking this phone off...</string>
+    <string name="busy_join">joining...</string>
+    <string name="more_devices">+%d more</string>
+
+    <string name="confirm_off_title">Turn data off for every device?</string>
+    <string name="confirm_off_alone_title">Turn data off?</string>
+    <string name="confirm_off_body">This phone switched data on, so turning it off disconnects everything on it: %s.</string>
+    <string name="confirm_off_alone_body">Nothing else is on it. Data can be switched on again from the widget.</string>
+    <string name="confirm_off_yes">Turn off</string>
+    <string name="confirm_leave_title">Take this phone off?</string>
+    <string name="confirm_leave_body">Only this phone disconnects. Data stays on for %s.</string>
+    <string name="confirm_leave_yes">Disconnect</string>
+    <string name="confirm_cancel">Cancel</string>
 </resources>
