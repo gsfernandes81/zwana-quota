@@ -62,8 +62,10 @@ rm zwana-key.pem zwana-cert.pem             # the .p12 holds both now
 base64 -w0 zwana.p12                        # the value of ANDROID_KEYSTORE_BASE64
 ```
 
-In the repository's Settings → Secrets and variables → Actions, add it as a
-**repository** secret (the APK job uses no environment):
+Add it as a secret of the `garmin` environment (Settings → Environments →
+garmin), beside the Garmin ones. The APK job runs in that environment, but a
+job is handed only the secrets its steps name, so it never sees the Garmin
+login:
 
 | name | value |
 |---|---|

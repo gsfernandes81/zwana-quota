@@ -8,7 +8,7 @@
 # tests `make android-test` runs -- so an APK is never built from a port that
 # has drifted from the Python.
 #
-# Signing: a stable key from the repository secret ANDROID_KEYSTORE_BASE64
+# Signing: a stable key from the `garmin` environment's secret ANDROID_KEYSTORE_BASE64
 # (and ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
 # only if the keystore has a password or another alias), so each build
 # installs over the last. Without them a key is minted for the run,
@@ -31,6 +31,10 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    # The signing secrets live in the same environment as the Garmin ones.
+    # A job is handed only the secrets its steps name, so this one sees the
+    # ANDROID_* keystore and never the Garmin login.
+    environment: garmin
     defaults:
       run:
         working-directory: android
@@ -61,7 +65,7 @@ jobs:
         run: |
           store="$RUNNER_TEMP/release.p12"
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "Signing with the keystore from the repository secrets."
+            echo "Signing with the keystore from the environment secrets."
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$store"
           else
             echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: this APK is signed with a key minted for this run, and will not install over any other build. See android/README.md."
