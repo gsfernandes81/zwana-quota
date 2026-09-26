@@ -38,7 +38,8 @@ the derivation, held to one set of numbers.
    when asked.
 3. Open **zwana quota**, enter the portal login (the same `zwana_username` /
    `zwana_password` as the `.env`), and press **Save and read**.
-4. Long-press the home screen → Widgets → **zwana quota**. Tap it to read again.
+4. Long-press the home screen → Widgets → **zwana quota**. It reads the
+   portal every 15 minutes while the screen is on, and at once when tapped.
 
 ### The data switch and the device list
 
@@ -116,13 +117,13 @@ once, and every build after installs in place.
 ### What it shows
 
 The glance is laid out as Garmin's Body Battery glance is: a title, a bar
-that is full at the reset and empties as the day's data is used, and under it what is left and
-tonight's grant with the time it lands:
+that is full at the reset and empties as the day's data is used, and under
+it what is left and, after a reset icon, when tonight's grant lands:
 
 ```
 Data Left
-[############........]
-301 MiB     +763 @ 00:00
+[########............]
+301 MiB         ↻@00:00
 ```
 
 When the reading cannot be taken at face value, the reason is shown at the
@@ -207,9 +208,9 @@ whose simulator also runs the glance without a watch.
 ### Connecting the two
 
 In the app, switch on **Send the reading to the watch**. It sends one
-straight away, then every 30 minutes (the same cadence as the Tasker tile's
-"kept fresh" profile) and on every tap of the widget. Switched off, nothing
-is scheduled and the SDK is never touched.
+straight away, then every 15 minutes while the phone's screen is on and at
+least every 30 minutes while it is off, and on every tap of the widget.
+Switched off, the SDK is never touched.
 
 ## First install: what to check, in order
 

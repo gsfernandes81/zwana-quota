@@ -71,15 +71,27 @@ the reset line and that line is ellipsized from its start, so a narrow widget
 loses the grant and never the time. The watch is different: its glance is drawn when looked
 at, so it computes the age itself and says `2h ago` or `new day`.
 
-### Cadence: the tile's, not a new one
+### Cadence: every 15 minutes while the screen is on
 
-The Termux tile is not only tapped: `docs/quota-tile.md` has a **kept fresh**
-profile that reads every 30 minutes. The widget's `updatePeriodMillis` and
-the watch's periodic send use the same 30 minutes, plus a read on every tap.
-The watch calls a reading stale at twice that. There is no WorkManager
-network constraint, because a captive Wi-Fi with the quota spent is exactly
-when Android calls the network unusable, and exactly when the reading
-matters.
+The Tasker tile on this phone is kept fresh every 15 minutes while the screen
+is on, and the widget does the same: one WorkManager job every 15 minutes
+(its shortest period), which reads the portal when the screen is on and
+does nothing when it is off, since nobody is looking. The exception is the
+watch: switched on, it is still sent a reading at least every 30 minutes,
+screen on or off, and it calls a reading stale at twice that. The job
+exists only while there is a widget on a home screen or the watch is on.
+Android's own widget update (`updatePeriodMillis`, 30 minutes at the
+shortest) stays as a backstop, and every tap reads at once.
+
+With the screen off the phone dozes and the job is held to its maintenance
+windows anyway, so this costs nothing with the phone in a pocket. Turning
+the screen on does not itself start a read (an app cannot be woken by that
+without a service kept running), so the figure on first unlock can be up to
+one period old; its read time is on it.
+
+There is no WorkManager network constraint, because a captive Wi-Fi with the
+quota spent is exactly when Android calls the network unusable, and exactly
+when the reading matters.
 
 ### The network the request goes over
 
