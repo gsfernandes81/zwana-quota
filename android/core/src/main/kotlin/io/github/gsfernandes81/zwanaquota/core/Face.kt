@@ -108,7 +108,9 @@ data class Face(
             return Face(
                 figure = Format.size(doc.remainderBytes),
                 status = if (mark != null) "$mark, $percent" else "$percent of ${Format.size(doc.poolBytes)}",
-                reset = if (doc.grantBytes > 0) "+${Format.size(doc.grantBytes)} at $resetAt" else "resets $resetAt",
+                // The time leads, so a narrow widget ellipsizes the grant and
+                // never the clock.
+                reset = if (doc.grantBytes > 0) "resets $resetAt, +${Format.size(doc.grantBytes)}" else "resets $resetAt",
                 footnote = "read ${Format.clock(doc.readingTaken, zone)}, ${Format.money(doc.credits)} reserve",
                 level = Format.grade(share),
                 freeNow = doc.freeLeftBytes > 0,

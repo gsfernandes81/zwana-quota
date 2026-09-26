@@ -90,7 +90,13 @@ class FaceTest {
         val docs = listOf(doc(), doc(age = 7200.0, live = false), doc(online = false), doc(0), doc(32L shl 40), doc(grantBytes = 0))
         for (zone in zones) {
             val at = Format.clock(Pipeline.nextReset(now), zone)
-            for (d in docs) assertTrue(at in Face.of(d, zone).reset, "$zone ${Face.of(d, zone)}")
+            for (d in docs) {
+                val reset = Face.of(d, zone).reset
+                assertTrue(at in reset, "$zone $reset")
+                // Ahead of anything else on its line, which is what an
+                // ellipsis at the end cannot reach.
+                assertTrue(reset.indexOf(at) <= reset.indexOfFirst { it.isDigit() }, "$zone $reset")
+            }
             assertTrue(at in Face.unknown(now, zone, "why").reset)
         }
     }
