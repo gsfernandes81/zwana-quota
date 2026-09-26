@@ -21,7 +21,7 @@ class QuotaService extends System.ServiceDelegate {
         var data = msg.data;
         try {
             Quota.store(data);
-        } catch (e) {
+        } catch (e instanceof Lang.Exception) {
             // Storage refused from the background: Background.exit still carries it.
         }
         Background.exit(data as Application.PersistableType);

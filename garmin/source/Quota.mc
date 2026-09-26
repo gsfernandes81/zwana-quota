@@ -26,8 +26,13 @@ module Quota {
     const KEY = "q";
     const DAY = 86400;
 
-    // Keep a message from the phone. False if it was not one.
-    function store(data) as Boolean {
+    // Keep a message from the phone. False if it was not one, or if it is
+    // older than the one already kept: the background service stores a
+    // message and also hands it to the app, which may start much later, and
+    // that late copy must not replace a newer send. Ordered by when the phone
+    // sent it rather than by its number, which starts again from 1 whenever
+    // the phone app is reinstalled.
+    function store(data as Application.PersistableType?) as Boolean {
         if (!(data instanceof Dictionary)) {
             return false;
         }
@@ -35,8 +40,11 @@ module Quota {
         if (d.get("fig") == null || d.get("reset") == null) {
             return false;
         }
-        d.put("got", Time.now().value());
-        Application.Storage.setValue(KEY, d);
+        var kept = last();
+        if (kept != null && num(d, "sent") < num(kept, "sent")) {
+            return false;
+        }
+        Application.Storage.setValue(KEY, d as Application.PropertyValueType);
         return true;
     }
 
@@ -109,7 +117,8 @@ module Quota {
         var at = clock(nextReset(d));
         var m = mark(d);
         if (m != null) {
-            return [m + ", resets " + at, m + ", " + at, at];
+            var why = m as String;
+            return [why + ", resets " + at, why + ", " + at, at];
         }
         var share = str(d, "share");
         return [share + " left, resets " + at, share + ", resets " + at, share + ", " + at, at];
@@ -127,7 +136,7 @@ module Quota {
         var lines = [] as Array<String>;
         var m = mark(d);
         if (m != null) {
-            lines.add(m);
+            lines.add(m as String);
         }
         lines.add(str(d, "share") + " of today left");
         lines.add("resets " + clock(nextReset(d)) + " +" + str(d, "gfig"));
