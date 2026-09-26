@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Full bleed: the launcher's own mask is the icon's shape, so no disc or
+     tile is drawn inside it. The crimson echoes the crew portal's icon. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#1E1E2E" />
+    <solid android:color="#A32F2F" />
 </shape>
