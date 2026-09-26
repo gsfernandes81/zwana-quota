@@ -47,21 +47,36 @@ Keystore. Backups and device transfer are switched off, so it does not travel.
 Android only installs an update signed with the same key as what is already
 installed. Without a key in the repository's secrets, each CI run mints its own
 and warns, and every install becomes uninstall-then-install: the widget has
-to be placed again and the login entered again. To make it stable, once:
+to be placed again and the login entered again. To make it stable, once, in
+Termux (`openssl-tool` is a few MB, where `openjdk-21` for `keytool` is far
+more over a metered link; the result is the same PKCS12 keystore):
 
 ```sh
-keytool -genkeypair -keystore zwana.jks -storetype PKCS12 -alias zwana \
-        -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=zwana quota"
-base64 -w0 zwana.jks            # the value of ANDROID_KEYSTORE_BASE64
+pkg install openssl-tool
+cd ~
+openssl req -x509 -newkey rsa:4096 -keyout zwana-key.pem -out zwana-cert.pem \
+        -days 10000 -nodes -subj "/CN=zwana quota"
+openssl pkcs12 -export -in zwana-cert.pem -inkey zwana-key.pem \
+        -name zwana -out zwana.p12          # asks for a password: remember it
+rm zwana-key.pem zwana-cert.pem             # the .p12 holds both now
+base64 -w0 zwana.p12                        # the value of ANDROID_KEYSTORE_BASE64
 ```
 
-In the repository's Settings → Secrets and variables → Actions, add
-`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`
-(`zwana`) and `ANDROID_KEY_PASSWORD` (the same password, for a PKCS12
-store). The repository is public, so the keystore only ever lives in secrets,
-never as a file in the tree. Keep `zwana.jks` somewhere safe: losing it means
-one more uninstall. `keytool` comes with any JDK, including Termux's
-`openjdk-21`.
+In the repository's Settings → Secrets and variables → Actions, add these as
+**repository** secrets (the APK job uses no environment):
+
+| name | value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | the `base64 -w0` output |
+| `ANDROID_KEYSTORE_PASSWORD` | the password you gave `openssl pkcs12` |
+| `ANDROID_KEY_ALIAS` | `zwana` |
+| `ANDROID_KEY_PASSWORD` | the same password (optional: the job falls back to it) |
+
+The repository is public, so the keystore only ever lives in secrets, never
+as a file in the tree. Keep `zwana.p12` and its password somewhere safe off
+the phone: losing either means one more uninstall. The first build signed
+with it will not install over a build signed with a minted key; uninstall
+once, and every build after installs in place.
 
 ## The watch
 
