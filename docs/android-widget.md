@@ -65,9 +65,10 @@ The reset is 00:00:00 UTC, matching `next_reset`, not the README's observed
 
 A home-screen widget is redrawn only when something asks. "3h 20m" to the
 reset would still say 3h 20m an hour later. So the widget's times are clock
-times (`resets 05:30`, `read 14:02`) and stay true however long the picture
-stands. The reset leads its own line, so an ellipsis takes the grant after it
-and never the time. The watch is different: its glance is drawn when looked
+times (`+763 MiB at 00:00 hrs`, `read 14:02`), on the phone's own 12- or
+24-hour clock, and stay true however long the picture stands. The time ends
+the reset line and that line is ellipsized from its start, so a narrow widget
+loses the grant and never the time. The watch is different: its glance is drawn when looked
 at, so it computes the age itself and says `2h ago` or `new day`.
 
 ### Cadence: the tile's, not a new one
@@ -99,6 +100,26 @@ firewall forwards what it permits. If pinning is refused anyway,
 refusal, which happens before a byte is sent, so a login is never posted
 twice. The diagnostics say which way each read went.
 
+### The data switch asks the portal, not the picture
+
+The widget's switch (`core/.../Session.kt`) is the portal's own: data on or
+off for the account with `Account/UpdateForCurrentUser`, and one device on or
+off with `Device/JoinDevice` / `RemoveDevice`. Which it does follows who
+switched data on. From the phone that did, off is off for everyone, as it is
+on the portal. From a phone that only joined, off takes that phone alone off,
+so a tap on a phone can never cut off a laptop that was not its to cut off.
+Taking anything off asks first.
+
+A widget is a picture that can be minutes old, so the worker reads the
+session again before sending anything, and does nothing if the action the
+picture offered is no longer the one the session calls for
+(`SessionChanged`). A tap cannot act on a state that has gone.
+
+Devices are named by the network, never by MAC, and the phone asks for the
+names itself (`core/.../Names.kt`: reverse DNS, mDNS, NetBIOS), after the
+figure is drawn, so a slow or silent network holds up nothing. A name is kept
+six hours and a silence one hour, because addresses are handed out again.
+
 ### What the watch is sent
 
 One `HashMap`, built in one place (`WatchPayload` in `core/.../Face.kt`) and
@@ -106,7 +127,18 @@ tested there. The SDK carries Integer, Float, String, Boolean, List and
 HashMap, and **no Long**, so byte counts go as whole KiB and times as epoch
 seconds. The figures go as the strings the phone's own face draws: the
 watch holds no unit ladder, no thresholds and no grades, which is how a third
-language avoids a third copy.
+language avoids a third copy. `tests/test_watch_contract.py` reads both
+sources as text and fails `make test` when a key the watch reads is not one
+the phone sends, when the versions differ, or when the app id in
+`garmin/manifest.xml` is not the phone's `APP_ID`.
+
+The watch refuses to be crashed by what it is sent: every key is read
+through a type check that turns a missing or mistyped value into 0 or "", a
+message of another version is not kept, storage failures are caught, and no
+loop runs on a value from the message. A Connect IQ app runs in Garmin's
+sandbox and cannot harm the watch; the worst a bad build can do is show
+"IQ!" in place of the glance, and deleting the `.prg` from `GARMIN/APPS` over
+USB removes it.
 
 ### Credentials
 

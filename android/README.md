@@ -2,9 +2,10 @@
 
 One APK, two jobs:
 
-- **a home-screen widget**: what is left of today's data, and when it resets.
-  It reads the portal itself and needs nothing else installed: no Termux, no
-  Garmin Connect, no watch.
+- **a home-screen widget**: what is left of today's data, and when it resets,
+  with a switch for the data connection and who is on it. It reads the portal
+  itself and needs nothing else installed: no Termux, no Garmin Connect, no
+  watch.
 - **a Connect IQ companion**: when switched on, it sends the same reading to
   the zwana quota app on a Garmin Instinct 3 (`../garmin/`), which shows it
   as a glance.
@@ -16,9 +17,9 @@ getting it onto the phone and the watch.
 
 | path | what |
 |---|---|
-| `core/` | the portal client, `gather`/`day_pool`/`derive`, the widget's face and the watch payload. Plain Kotlin on the JVM, no Android, **a Gradle build of its own** so it can be tested anywhere Maven Central is reachable. Held to `../vectors/quota.json`, which the Python writes |
-| `app/` | the Android half: the widget, the settings/diagnostics screen, the background worker, the Garmin SDK. Built only by CI |
-| `../garmin/` | the Monkey C watch app. Built on a machine with the Connect IQ SDK (below) |
+| `core/` | the portal client, `gather`/`day_pool`/`derive`, the widget's face, the watch payload, the data session and its switch (`Session.kt`), and the device-name lookups (`Names.kt`). Plain Kotlin on the JVM, no Android, **a Gradle build of its own** so it can be tested anywhere Maven Central is reachable. Held to `../vectors/quota.json`, which the Python writes |
+| `app/` | the Android half: the widget and its "turn data off?" dialog, the settings/diagnostics screen, the background worker, the Garmin SDK. Built only by CI |
+| `../garmin/` | the Monkey C watch app. Built by `../.github/workflows/garmin-prg.yml` (below) |
 | `../.github/workflows/android-apk.yml` | the only compiler the Android half has |
 
 `make android-test` runs the core's tests. `make test` does not: the phone
@@ -38,6 +39,30 @@ the derivation, held to one set of numbers.
 3. Open **zwana quota**, enter the portal login (the same `zwana_username` /
    `zwana_password` as the `.env`), and press **Save and read**.
 4. Long-press the home screen → Widgets → **zwana quota**. Tap it to read again.
+
+### The data switch and the device list
+
+Once the portal has been read, a switch sits beside the figure:
+
+- **● Data on**: this phone is on the data session. Tapping asks first, then
+  turns data off for **every device** if this phone switched it on (as the
+  portal's own switch does), or takes **only this phone** off if it joined
+  someone else's session.
+- **○ Data off**: tapping switches data on, with this phone as the one that
+  switched it on. No question asked.
+- **+ Join**: data is on for another device and not this one. Tapping joins.
+
+Before anything is sent, the session is read again. If it changed since the
+widget was drawn (someone else switched data off, say), nothing is sent and
+the footnote says `changed elsewhere: nothing done`.
+
+The line under the reset says who is on: `This phone + 1 device`. Resized to
+about 4 x 3 cells (Android 12 and later), the widget lists them instead, up
+to three rows. Each device is shown by the name the ship's network gives it,
+else by its IP, never its MAC. The name is asked three ways: reverse DNS from
+the Wi-Fi's DNS server, mDNS from the device itself (phones, Macs, Linux),
+and NetBIOS (Windows). A network that keeps its clients apart answers none of
+them, and the IPs are what you see.
 
 The login is kept only on this phone, encrypted with a key in the Android
 Keystore. Backups and device transfer are switched off, so it does not travel.
@@ -90,16 +115,18 @@ once, and every build after installs in place.
 
 ### What it shows
 
-The glance shows the figure, and under it the reset time, with the share of
-today when there is room:
+The glance is laid out as Garmin's Body Battery glance is: a title, a bar
+that is full at the reset and empties as the day's data is used, and under it what is left and
+tonight's grant with the time it lands:
 
 ```
-1.68 GiB
-95% left, resets 05:30
+Data Left
+[############........]
+301 MiB     +763 @ 00:00
 ```
 
-When the reading cannot be taken at face value, the reason replaces the
-share, and the reset time stays:
+When the reading cannot be taken at face value, the reason is shown at the
+right of the title row:
 
 - `new day`: the reset has passed since the reading. The figure is
   yesterday's, and the grant it does not count has already landed.

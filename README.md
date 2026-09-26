@@ -72,5 +72,18 @@ AngularJS SPA the portal is):
 Useful endpoints: `Balance/GetForCurrentUser`, `UserProvider/GetStatus`,
 `Allocation/GetHistoryForCurrentUser`, `account/getcurrent`.
 
+The data session (2026-09-26, read off the portal's own `mainCtrl.js` and
+`deviceService.js` with `tools/portal_source.py` and `portal_probe.py`):
+
+- `GET UserProvider/GetStatus` is `{ip, provider, status}`. `status` is `off`
+  with data off; otherwise `ip` is the device that switched it on.
+- `GET UserProvider/GetClientIP` is `{ip}`: the caller, as the portal sees it.
+- `GET Device/GetJoinedDevices` maps each joined device's IP to
+  `{Joined, Mac}`, and is a **404** when nothing has joined.
+- `POST Account/UpdateForCurrentUser {Started, ProviderNo}` is the portal's
+  own on/off switch. Off is off for **every** device on the session.
+- `POST Device/JoinDevice {ip}` and `Device/RemoveDevice {ip}` put one
+  device on or take it off (400 with data off; 409 if not joined).
+
 The daily grant (763 MiB) lands at **00:02:19 UTC** and leftover quota does
 not roll over — which is the whole reason the `dlq` repo exists.
