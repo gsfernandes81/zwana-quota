@@ -98,6 +98,30 @@ jobs:
           "$apksigner" verify --verbose --print-certs zwana-quota.apk > signer.txt 2>&1
           cat signer.txt
 
+      # The app's screen drawn on the JVM (app/src/test/.../ScreensTest.kt), so
+      # it can be looked at without a phone. Printed into the log as small
+      # JPEGs between markers; not gating, since it is a picture, not a test.
+      - name: Render the screens
+        continue-on-error: true
+        run: |
+          ./gradlew :app:testReleaseUnitTest --tests '*ScreensTest*'
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          import base64, glob, io, os
+          from PIL import Image
+          for path in sorted(glob.glob("app/build/screens/*.png")):
+              im = Image.open(path).convert("RGB")
+              w = 480
+              im = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
+              buf = io.BytesIO(); im.save(buf, "JPEG", quality=62, optimize=True)
+              data = base64.b64encode(buf.getvalue()).decode()
+              name = os.path.basename(path)
+              print(f"=== SCREEN {name} {im.size} {len(buf.getvalue())} bytes")
+              for i in range(0, len(data), 120):
+                  print(data[i:i + 120])
+              print(f"=== END {name}")
+          PY
+
       - name: Lint (reported, not gating)
         continue-on-error: true
         run: |

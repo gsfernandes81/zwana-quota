@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3, light and dark from the system. The app applies dynamic
+         colour on top where the phone has it (Android 12+), so the chrome
+         follows the wallpaper; these are what it falls back to. -->
+    <style name="Theme.Zwana" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/seed_primary</item>
+        <item name="colorOnPrimary">@color/seed_on_primary</item>
+        <item name="colorPrimaryContainer">@color/seed_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/seed_on_primary_container</item>
+        <item name="colorSecondary">@color/seed_secondary</item>
+        <item name="colorSecondaryContainer">@color/seed_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/seed_on_secondary_container</item>
+        <item name="android:colorBackground">@color/seed_surface</item>
+        <item name="colorSurface">@color/seed_surface</item>
+        <item name="colorOnSurface">@color/seed_on_surface</item>
+        <item name="colorSurfaceVariant">@color/seed_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/seed_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/seed_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/seed_surface_container_high</item>
+        <item name="colorOutline">@color/seed_outline</item>
+        <item name="colorOutlineVariant">@color/seed_outline_variant</item>
+    </style>
+
+    <!-- A label/value row in the diagnostics. -->
+    <style name="Zwana.Label" parent="">
+        <item name="android:layout_width">112dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAppearance">?attr/textAppearanceLabelLarge</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <style name="Zwana.Value" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textIsSelectable">true</item>
+    </style>
+
+    <style name="Zwana.SectionTitle" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAppearance">?attr/textAppearanceTitleMedium</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="Zwana.Support" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+</resources>

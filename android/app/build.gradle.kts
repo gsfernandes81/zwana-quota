@@ -51,6 +51,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        // Robolectric renders the screens from the real resources (ScreensTest).
+        unitTests.isIncludeAndroidResources = true
+    }
+
     lint {
         // Lint runs as its own CI step, which prints this text report into the
         // job log; it does not stand between a build and its artifact.
@@ -72,7 +77,17 @@ dependencies {
     implementation("io.github.gsfernandes81.zwanaquota:core")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("androidx.work:work-runtime:2.10.0")
+    // Material 3 for the app screen: cards, the switch, the chip, the meter,
+    // and dynamic colour from the wallpaper. The widget does not use it.
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
     // Garmin's Connect IQ Mobile SDK, from Maven Central. Its own manifest
     // brings the <queries> entry for Garmin Connect; nothing else is needed.
     implementation("com.garmin.connectiq:ciq-companion-app-sdk:2.4.0@aar")
+
+    // Renders the screen to PNGs on the JVM so it can be looked at without a
+    // phone: Robolectric's native graphics draw real pixels.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("androidx.test:core:1.6.1")
 }

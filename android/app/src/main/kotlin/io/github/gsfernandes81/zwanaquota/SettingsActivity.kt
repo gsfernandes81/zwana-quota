@@ -1,135 +1,156 @@
 package io.github.gsfernandes81.zwanaquota
 
-import android.app.Activity
 import android.content.Intent
-import android.graphics.Typeface
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
-import android.text.InputType
 import android.view.View
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.Button
-import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
+import androidx.annotation.ColorRes
+import androidx.annotation.DrawableRes
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.NestedScrollView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.Chip
+import com.google.android.material.color.DynamicColors
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.textfield.TextInputEditText
 import io.github.gsfernandes81.zwanaquota.core.Credentials
-import io.github.gsfernandes81.zwanaquota.core.PortalClient
+import io.github.gsfernandes81.zwanaquota.core.Face
+import io.github.gsfernandes81.zwanaquota.core.Level
+import io.github.gsfernandes81.zwanaquota.core.Pipeline
+import java.time.Instant
+import java.time.ZoneId
 import java.util.concurrent.Executors
 
 /**
- * Sign in, switch the watch on, and see what the app has been doing.
+ * The app's one screen: today's reading, the portal login, the watch, and
+ * what the app has been doing.
  *
- * The lower half is the diagnostics: the latest word on every subject (the
- * portal read, the watch send, the background worker, Garmin Connect) and the
- * journal behind them. Nobody using this has logcat, so anything that can
- * fail says so here, in words, including the failures that are not the app's
- * -- Garmin Connect missing, the watch disconnected, the phone putting the
- * app to sleep.
- *
- * Built in code rather than XML: it is a form and a log, and this keeps the
- * whole screen in one place.
+ * The reading leads, drawn from the same [Face] the widget draws, so the two
+ * never disagree. Its state is a chip with an icon and a label as well as a
+ * colour, so it never rests on colour alone. The diagnostics are folded away
+ * until asked for. They are still the only window anyone has into this app,
+ * since nobody using it has logcat, so every failure that can happen says so
+ * there in words, including the ones that are not the app's: Garmin Connect
+ * missing, the watch disconnected, the phone putting the app to sleep.
  */
-class SettingsActivity : Activity() {
+class SettingsActivity : AppCompatActivity() {
     private val store by lazy { Store(this) }
     private val vault by lazy { Vault(this) }
     private val background = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
-    private lateinit var username: EditText
-    private lateinit var password: EditText
-    private lateinit var account: TextView
-    private lateinit var watch: Switch
-    private lateinit var diagnostics: TextView
+    private val figure by view<TextView>(R.id.figure)
+    private val level by view<Chip>(R.id.level)
+    private val meter by view<LinearProgressIndicator>(R.id.meter)
+    private val status by view<TextView>(R.id.status)
+    private val reset by view<TextView>(R.id.reset)
+    private val footnote by view<TextView>(R.id.footnote)
+    private val readNow by view<MaterialButton>(R.id.read_now)
+    private val account by view<TextView>(R.id.account)
+    private val loginForm by view<View>(R.id.login_form)
+    private val signedInActions by view<View>(R.id.signed_in_actions)
+    private val username by view<TextInputEditText>(R.id.username)
+    private val password by view<TextInputEditText>(R.id.password)
+    private val watchSwitch by view<MaterialSwitch>(R.id.watch_switch)
+    private val watchStatus by view<TextView>(R.id.watch_status)
+    private val watchCheck by view<TextView>(R.id.watch_check)
+    private val diagnosticsBody by view<View>(R.id.diagnostics_body)
+    private val diagnosticsSummary by view<TextView>(R.id.diagnostics_summary)
+    private val chevron by view<ImageView>(R.id.diagnostics_chevron)
+    private val rows by view<LinearLayout>(R.id.rows)
+    private val battery by view<MaterialButton>(R.id.battery)
+    private val journal by view<TextView>(R.id.journal)
+
+    /** Changing the login shows the form again while still signed in. */
+    private var editingLogin = false
+
+    /** The portal note when "Read now" was pressed; the read is over when it changes. */
+    private var readingSince: String? = null
+    private var readingStarted = 0L
+
     private var garminLines: List<String> = emptyList()
 
     private val tick = object : Runnable {
         override fun run() {
-            showDiagnostics()
+            render()
             main.postDelayed(this, 2_000)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The wallpaper's colours where the phone has them (Android 12+), the
+        // teal fallback in themes.xml where it does not.
+        DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
-        val column = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(32))
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        setContentView(R.layout.activity_settings)
+
+        // Edge to edge: the app bar takes the status bar's inset itself; the
+        // scrolling column keeps its last card clear of the navigation bar.
+        val scroll = findViewById<NestedScrollView>(R.id.scroll)
+        val bottom = scroll.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, v.paddingTop, bars.right, bottom + bars.bottom)
+            insets
         }
 
-        column += heading("Portal login")
-        account = TextView(this)
-        column += account
-        username = EditText(this).apply {
-            hint = "zwana_username"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-            isSingleLine = true
+        readNow.setOnClickListener {
+            readingSince = store.notes()["read"]
+            readingStarted = System.currentTimeMillis()
+            Work.refresh(this, force = true, trigger = "button")
+            render()
         }
-        password = EditText(this).apply {
-            hint = "zwana_password"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            isSingleLine = true
-        }
-        column += username
-        column += password
-        column += row(
-            button("Save and read") { save() },
-            button("Sign out") {
-                vault.signOut()
-                store.note("account", "signed out")
-                showAccount()
-                QuotaWidget.draw(this, Refresher.cachedFace(this), busy = false)
-            },
-        )
-        column += note("Kept on this phone only, encrypted with a key in the Android Keystore. " +
-            "The portal is ${PortalClient.PORTAL_URL}")
 
-        column += heading("Garmin watch")
-        watch = Switch(this).apply {
-            text = "Send the reading to the watch every ${Refresher.EVERY_MINUTES} minutes, and on every tap"
-            isChecked = store.watchEnabled
-            setOnCheckedChangeListener { _, on ->
-                store.watchEnabled = on
-                Work.schedule(this@SettingsActivity)
-                store.note("watch", if (on) "switched on" else "switched off")
-                if (on) Work.pushNow(this@SettingsActivity)
-            }
+        findViewById<MaterialButton>(R.id.sign_in).setOnClickListener { signIn() }
+        findViewById<MaterialButton>(R.id.change_login).setOnClickListener {
+            editingLogin = true
+            render()
         }
-        column += watch
-        column += row(
-            button("Send now") { Work.pushNow(this) },
-            button("Check watch") { checkWatch() },
-        )
-        column += note("Needs Garmin Connect signed in and the zwana quota watch app installed and opened once. " +
-            "The widget works without any of it. Watch app id: ${Garmin.APP_ID}")
+        findViewById<MaterialButton>(R.id.sign_out).setOnClickListener {
+            vault.signOut()
+            editingLogin = false
+            username.text?.clear()
+            store.note("account", "signed out")
+            QuotaWidget.draw(this, Refresher.cachedFace(this), busy = false)
+            render()
+        }
 
-        column += heading("Diagnostics")
-        column += row(
-            button("Read now") { Work.refresh(this, force = true, trigger = "button") },
-            button("Share log") { shareLog() },
-        )
-        column += button("Battery: let it run in the background") {
-            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        watchSwitch.isChecked = store.watchEnabled
+        watchSwitch.setOnCheckedChangeListener { _, on ->
+            store.watchEnabled = on
+            Work.schedule(this)
+            store.note("watch", if (on) "switched on" else "switched off")
+            if (on) Work.pushNow(this)
+            render()
         }
-        diagnostics = TextView(this).apply {
-            typeface = Typeface.MONOSPACE
-            textSize = 12f
-            setTextIsSelectable(true)
-        }
-        column += diagnostics
+        findViewById<MaterialButton>(R.id.send_now).setOnClickListener { Work.pushNow(this) }
+        findViewById<MaterialButton>(R.id.check_watch).setOnClickListener { checkWatch() }
 
-        setContentView(ScrollView(this).apply {
-            // Edge to edge is enforced from Android 15; this keeps the form
-            // out from under the status and navigation bars.
-            fitsSystemWindows = true
-            addView(column)
-        })
-        showAccount()
+        findViewById<View>(R.id.diagnostics_header).setOnClickListener {
+            val open = diagnosticsBody.visibility != View.VISIBLE
+            diagnosticsBody.visibility = if (open) View.VISIBLE else View.GONE
+            chevron.animate().rotation(if (open) 180f else 0f).setDuration(150).start()
+        }
+        battery.setOnClickListener { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+        findViewById<MaterialButton>(R.id.share_log).setOnClickListener { shareLog() }
+
+        vault.credentials()?.let { username.setText(it.username) }
+        render()
     }
 
     override fun onResume() {
@@ -147,29 +168,142 @@ class SettingsActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun save() {
-        val user = username.text.toString().trim()
-        val pass = password.text.toString()
+    /** Everything on the screen, from what is stored. Cheap, so it runs every two seconds. */
+    private fun render() {
+        renderReading()
+        renderAccount()
+        renderWatch()
+        renderDiagnostics()
+    }
+
+    private fun renderReading() {
+        val now = Instant.now()
+        val zone = ZoneId.systemDefault()
+        val reading = store.reading()
+        val doc = reading?.let { Pipeline.derive(it, Pipeline.epochSeconds(now) - it.ts, false, now) }
+        val face = doc?.let { Face.of(it, zone) } ?: Refresher.cachedFace(this)
+        figure.text = face.figure
+        status.text = face.status
+        reset.text = face.reset
+        footnote.text = face.footnote
+
+        val colour = ContextCompat.getColor(this, statusColour(face.level))
+        val mark = doc?.let { Face.mark(it) }
+        val (icon, label) = when {
+            doc == null -> R.drawable.ic_unknown to getString(R.string.level_unknown)
+            mark == "offline" -> R.drawable.ic_offline to getString(R.string.offline)
+            mark != null -> R.drawable.ic_stale to getString(R.string.out_of_date, mark)
+            face.level == Level.OK -> R.drawable.ic_ok to getString(R.string.level_ok)
+            face.level == Level.LOW -> R.drawable.ic_low to getString(R.string.level_low)
+            else -> R.drawable.ic_critical to getString(R.string.level_critical)
+        }
+        chip(icon, label, if (mark != null && doc != null) ContextCompat.getColor(this, R.color.status_unknown) else colour)
+
+        val share = doc?.let { it.remainderBytes.toDouble() / maxOf(1L, it.poolBytes) } ?: 0.0
+        meter.setProgressCompat((share.coerceIn(0.0, 1.0) * 1000).toInt(), false)
+        meter.setIndicatorColor(colour)
+        // The unfilled track is a lighter step of the fill's own colour, so the
+        // state reads across the whole bar and not only its filled part.
+        meter.trackColor = ColorUtils.setAlphaComponent(colour, 0x3D)
+
+        val busy = readingSince != null &&
+            store.notes()["read"] == readingSince &&
+            System.currentTimeMillis() - readingStarted < READ_TIMEOUT_MS
+        if (!busy) readingSince = null
+        readNow.isEnabled = !busy
+        readNow.text = getString(if (busy) R.string.reading else R.string.read_now)
+    }
+
+    private fun chip(@DrawableRes icon: Int, label: String, colour: Int) {
+        level.text = label
+        level.setChipIconResource(icon)
+        level.chipIconTint = ColorStateList.valueOf(colour)
+        level.contentDescription = label
+    }
+
+    @ColorRes
+    private fun statusColour(level: Level): Int = when (level) {
+        Level.OK -> R.color.status_good
+        Level.LOW -> R.color.status_warning
+        Level.CRITICAL -> R.color.status_critical
+        Level.UNKNOWN -> R.color.status_unknown
+    }
+
+    private fun renderAccount() {
+        val login = vault.credentials()
+        val showForm = login == null || editingLogin
+        account.text = if (login == null) getString(R.string.signed_out) else getString(R.string.signed_in_as, login.username)
+        loginForm.visibility = if (showForm) View.VISIBLE else View.GONE
+        signedInActions.visibility = if (showForm) View.GONE else View.VISIBLE
+    }
+
+    private fun renderWatch() {
+        val last = store.notes()["watch"]
+        watchStatus.text = when {
+            last != null -> last
+            store.watchEnabled -> getString(R.string.watch_never)
+            else -> getString(R.string.watch_off)
+        }
+        watchCheck.visibility = if (garminLines.isEmpty()) View.GONE else View.VISIBLE
+        watchCheck.text = garminLines.joinToString("\n")
+    }
+
+    private fun renderDiagnostics() {
+        val notes = store.notes()
+        val unrestricted = getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) == true
+        diagnosticsSummary.text = notes["read"] ?: getString(R.string.nothing_yet)
+
+        val table = listOf(
+            R.string.row_portal to (notes["read"] ?: getString(R.string.nothing_yet)),
+            R.string.row_watch to (notes["watch"] ?: getString(R.string.nothing_yet)),
+            R.string.row_background to (notes["worker"] ?: getString(R.string.nothing_yet)),
+            R.string.row_garmin to Garmin.state,
+            R.string.row_battery to getString(if (unrestricted) R.string.battery_free else R.string.battery_held),
+            R.string.row_version to (packageManager.getPackageInfo(packageName, 0).versionName ?: "?"),
+        )
+        if (rows.childCount != table.size) {
+            rows.removeAllViews()
+            table.forEach { rows.addView(row()) }
+        }
+        table.forEachIndexed { i, (label, value) ->
+            val row = rows.getChildAt(i) as LinearLayout
+            (row.getChildAt(0) as TextView).setText(label)
+            (row.getChildAt(1) as TextView).text = value
+        }
+        battery.visibility = if (unrestricted) View.GONE else View.VISIBLE
+
+        val text = store.journal().trimEnd().lines().takeLast(JOURNAL_LINES).joinToString("\n")
+        if (journal.text.toString() != text) journal.text = text.ifEmpty { getString(R.string.nothing_yet) }
+    }
+
+    /** One label/value line of the diagnostics table. */
+    private fun row(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        addView(TextView(context, null, 0, R.style.Zwana_Label), LinearLayout.LayoutParams(dp(112), WRAP_CONTENT))
+        addView(TextView(context, null, 0, R.style.Zwana_Value), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+    }
+
+    private fun signIn() {
+        val user = username.text?.toString()?.trim().orEmpty()
+        val pass = password.text?.toString().orEmpty()
         if (user.isEmpty() || pass.isEmpty()) {
-            account.text = "Enter both the username and the password."
+            account.text = getString(R.string.missing_login)
             return
         }
         vault.setCredentials(Credentials(user, pass))
-        password.text.clear()
+        password.text?.clear()
+        editingLogin = false
         store.note("account", "login saved for $user")
-        showAccount()
+        readingSince = store.notes()["read"]
+        readingStarted = System.currentTimeMillis()
         Work.refresh(this, force = true, trigger = "sign-in")
-    }
-
-    private fun showAccount() {
-        val login = vault.credentials()
-        account.text = if (login == null) "Not signed in." else "Signed in as ${login.username}."
-        if (login != null && username.text.isEmpty()) username.setText(login.username)
+        render()
     }
 
     /** Straight from this screen rather than through the worker, so the two paths can be told apart. */
     private fun checkWatch() {
-        garminLines = listOf("checking...")
+        garminLines = listOf(getString(R.string.checking))
+        render()
         background.execute {
             val lines = try {
                 Garmin.check(applicationContext)
@@ -177,24 +311,11 @@ class SettingsActivity : Activity() {
                 listOf("check failed: ${e.javaClass.simpleName} ${e.message.orEmpty()}")
             }
             store.log("check: ${lines.joinToString("; ")}")
-            main.post { garminLines = lines }
+            main.post {
+                garminLines = lines
+                render()
+            }
         }
-    }
-
-    private fun showDiagnostics() {
-        val power = getSystemService(PowerManager::class.java)
-        val unrestricted = power?.isIgnoringBatteryOptimizations(packageName) == true
-        val text = buildString {
-            appendLine("reading  ${store.reading()?.let { "remainder ${it.remainder} B, taken at ts ${it.ts.toLong()}" } ?: "none"}")
-            store.notes().forEach { (subject, line) -> appendLine("${subject.padEnd(8)} $line") }
-            appendLine("battery  ${if (unrestricted) "unrestricted" else "optimised: periodic sends may be held back"}")
-            appendLine("garmin   ${Garmin.state}")
-            garminLines.forEach { appendLine("         $it") }
-            appendLine()
-            appendLine("journal (newest last)")
-            append(store.journal().lines().takeLast(60).joinToString("\n"))
-        }
-        if (diagnostics.text.toString() != text) diagnostics.text = text
     }
 
     private fun shareLog() {
@@ -207,35 +328,15 @@ class SettingsActivity : Activity() {
             append(store.journal())
         }
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body)
-        startActivity(Intent.createChooser(send, "Share the zwana quota log"))
+        startActivity(Intent.createChooser(send, getString(R.string.share_title)))
     }
 
-    private fun heading(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 18f
-        setTypeface(typeface, Typeface.BOLD)
-        setPadding(0, dp(20), 0, dp(6))
-    }
-
-    private fun note(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 12f
-        alpha = 0.7f
-        setPadding(0, dp(4), 0, dp(4))
-    }
-
-    private fun button(text: String, onClick: () -> Unit) = Button(this).apply {
-        this.text = text
-        isAllCaps = false
-        setOnClickListener { onClick() }
-    }
-
-    private fun row(vararg views: View) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        views.forEach { addView(it, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)) }
-    }
-
-    private operator fun LinearLayout.plusAssign(view: View) = addView(view, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    private fun <T : View> view(id: Int) = lazy(LazyThreadSafetyMode.NONE) { findViewById<T>(id) }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val JOURNAL_LINES = 40
+        const val READ_TIMEOUT_MS = 45_000L
+    }
 }

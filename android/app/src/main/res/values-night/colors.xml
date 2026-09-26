@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dark fallback: its own steps of the same teal, not an inversion. -->
+    <color name="seed_primary">#82D5D2</color>
+    <color name="seed_on_primary">#003736</color>
+    <color name="seed_primary_container">#00504F</color>
+    <color name="seed_on_primary_container">#9EF2EE</color>
+    <color name="seed_secondary">#B0CCCA</color>
+    <color name="seed_secondary_container">#324B4A</color>
+    <color name="seed_on_secondary_container">#CCE8E6</color>
+    <color name="seed_surface">#0E1514</color>
+    <color name="seed_on_surface">#DDE4E2</color>
+    <color name="seed_surface_variant">#3F4948</color>
+    <color name="seed_on_surface_variant">#BEC9C7</color>
+    <color name="seed_surface_container">#1A2120</color>
+    <color name="seed_surface_container_high">#252B2A</color>
+    <color name="seed_outline">#889392</color>
+    <color name="seed_outline_variant">#3F4948</color>
+</resources>

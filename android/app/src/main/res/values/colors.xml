@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Status: good / warning / critical, fixed and never themed. They only
+         ever appear beside an icon and a label (the chip) or as a meter's
+         fill, so the state never rests on colour alone. -->
+    <color name="status_good">#0CA30C</color>
+    <color name="status_warning">#FAB219</color>
+    <color name="status_critical">#D03B3B</color>
+    <color name="status_unknown">#7A7F8C</color>
+
+    <!-- The fallback scheme, for phones without dynamic colour. A sea-glass
+         teal: the portal lives on a ship, and nothing else on the screen is
+         allowed to compete with the status colours. -->
+    <color name="seed_primary">#006B69</color>
+    <color name="seed_on_primary">#FFFFFF</color>
+    <color name="seed_primary_container">#9EF2EE</color>
+    <color name="seed_on_primary_container">#00201F</color>
+    <color name="seed_secondary">#4A6362</color>
+    <color name="seed_secondary_container">#CCE8E6</color>
+    <color name="seed_on_secondary_container">#051F1F</color>
+    <color name="seed_surface">#F4FBF9</color>
+    <color name="seed_on_surface">#161D1C</color>
+    <color name="seed_surface_variant">#DAE5E3</color>
+    <color name="seed_on_surface_variant">#3F4948</color>
+    <color name="seed_surface_container">#E9EFED</color>
+    <color name="seed_surface_container_high">#E3EAE8</color>
+    <color name="seed_outline">#6F7978</color>
+    <color name="seed_outline_variant">#BEC9C7</color>
+</resources>

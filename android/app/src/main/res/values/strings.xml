@@ -2,4 +2,50 @@
 <resources>
     <string name="app_name">zwana quota</string>
     <string name="widget_description">What is left of today\'s data, and when it resets. Tap to read again.</string>
+
+    <string name="left_today">Left today</string>
+    <string name="read_now">Read now</string>
+    <string name="reading">Reading…</string>
+    <string name="level_ok">Plenty left</string>
+    <string name="level_low">Running low</string>
+    <string name="level_critical">Almost gone</string>
+    <string name="level_unknown">No reading yet</string>
+    <string name="offline">Session offline</string>
+    <string name="out_of_date">Read %1$s</string>
+
+    <string name="portal_login">Portal login</string>
+    <string name="signed_out">Sign in with the login you use for the crew portal.</string>
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="sign_in">Sign in and read</string>
+    <string name="change_login">Change login</string>
+    <string name="sign_out">Sign out</string>
+    <string name="missing_login">Enter both the username and the password.</string>
+    <string name="login_privacy">Kept on this phone only, encrypted by the Android Keystore. Never backed up.</string>
+
+    <string name="send_to_watch">Send to my watch</string>
+    <string name="send_to_watch_detail">Every 30 minutes, and whenever you tap the widget.</string>
+    <string name="send_now">Send now</string>
+    <string name="check_watch">Check watch</string>
+    <string name="checking">Checking…</string>
+    <string name="watch_never">Nothing sent yet</string>
+    <string name="watch_off">Sending is off</string>
+    <string name="watch_needs">Needs Garmin Connect signed in, and the zwana quota app installed on the watch and opened once. The widget works without any of it.</string>
+
+    <string name="diagnostics">Diagnostics</string>
+    <string name="journal">Journal, newest last</string>
+    <string name="share_log">Share log</string>
+    <string name="battery_allow">Let it run in the background</string>
+    <string name="share_title">Share the zwana quota log</string>
+
+    <string name="row_portal">Portal</string>
+    <string name="row_watch">Watch</string>
+    <string name="row_background">Background</string>
+    <string name="row_garmin">Garmin Connect</string>
+    <string name="row_battery">Battery</string>
+    <string name="row_version">Version</string>
+    <string name="battery_free">Unrestricted</string>
+    <string name="battery_held">Optimised: sends may be held back</string>
+    <string name="nothing_yet">Nothing yet</string>
 </resources>
