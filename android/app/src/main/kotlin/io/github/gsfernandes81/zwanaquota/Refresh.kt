@@ -12,10 +12,12 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import io.github.gsfernandes81.zwanaquota.core.Face
+import io.github.gsfernandes81.zwanaquota.core.FallbackTransport
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.PortalClient
 import io.github.gsfernandes81.zwanaquota.core.PortalError
 import io.github.gsfernandes81.zwanaquota.core.Reading
+import io.github.gsfernandes81.zwanaquota.core.Route
 import io.github.gsfernandes81.zwanaquota.core.UrlConnectionTransport
 import io.github.gsfernandes81.zwanaquota.core.WatchPayload
 import java.net.URL
@@ -50,9 +52,19 @@ class Refresher(context: Context) {
                 why = "sign in: open the app"
                 store.note("read", "not signed in")
             } else {
-                val (open, network) = Networks.opener(app)
+                val path = Networks.path(app)
+                var network = path.label
+                val direct = UrlConnectionTransport()
+                val transport = path.pinned?.let { pinned ->
+                    // Pinning can still be refused (a VPN Android did not report
+                    // as the default); then the default route, which never
+                    // reached the portal the first time, so nothing is sent twice.
+                    FallbackTransport(UrlConnectionTransport(pinned), direct) {
+                        network = "the default route (the phone refused Wi-Fi pinning: ${it.message})"
+                    }
+                } ?: direct
                 val client = PortalClient(
-                    UrlConnectionTransport(open),
+                    transport,
                     vault.cookies(),
                     credentials = { vault.credentials() },
                     saveSession = { vault.saveCookies(it) },
@@ -116,23 +128,42 @@ class Refresher(context: Context) {
 }
 
 /**
- * Requests go out over the Wi-Fi network when there is one: the portal is the
- * vessel's own, on its Wi-Fi. A captive Wi-Fi that Android does not consider
- * connected to the internet can leave the default route on cellular, where
- * the portal either cannot be reached or, worse, is reached over the metered
- * radio.
+ * Which way the portal is reached: [Route.choose] decides, from what the
+ * phone says about its networks. Pinned to the Wi-Fi only around a default
+ * route that is neither the Wi-Fi nor a VPN; a VPN firewall (GlassWire and
+ * the like) is gone through, since Android refuses a socket bound around it.
  */
 object Networks {
-    fun opener(context: Context): Pair<(URL) -> URLConnection, String> {
-        val fallback: Pair<(URL) -> URLConnection, String> =
-            Pair({ url: URL -> url.openConnection() }, "the default network (no Wi-Fi)")
-        val cm: ConnectivityManager = context.getSystemService(ConnectivityManager::class.java) ?: return fallback
+    class Path(val route: Route, val label: String, val pinned: ((URL) -> URLConnection)?)
+
+    fun path(context: Context): Path {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+            ?: return Path(Route.DEFAULT, "the default route", null)
+        val active = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        val vpn = active?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        val wifiDefault = !vpn && active?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
         @Suppress("DEPRECATION")
-        val networks = cm.allNetworks
-        val wifi = networks.firstOrNull { network ->
-            cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-        } ?: return fallback
-        return Pair({ url: URL -> wifi.openConnection(url) }, "Wi-Fi")
+        val wifi = cm.allNetworks.firstOrNull { network ->
+            val caps = cm.getNetworkCapabilities(network)
+            caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        }
+        return when (Route.choose(vpn, wifiDefault, wifi != null)) {
+            Route.PIN_WIFI -> Path(
+                Route.PIN_WIFI,
+                "Wi-Fi (pinned: the default route is not Wi-Fi)",
+                pinned = { url: URL -> wifi!!.openConnection(url) },
+            )
+            Route.DEFAULT -> Path(
+                Route.DEFAULT,
+                when {
+                    vpn -> "a VPN (a firewall like GlassWire?)"
+                    wifiDefault -> "Wi-Fi"
+                    else -> "mobile data (no Wi-Fi)"
+                },
+                null,
+            )
+        }
     }
 }
 

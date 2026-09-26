@@ -83,9 +83,21 @@ matters.
 ### The network the request goes over
 
 A captive Wi-Fi that Android has not validated can leave the default route on
-cellular. The portal is then either unreachable or reached over the metered
-radio. Requests are bound to the Wi-Fi network when one exists, and the
-diagnostics screen says which network each read used.
+mobile data, where the portal is either unreachable or reached over the
+metered radio. So a request is pinned to the Wi-Fi network, but only then:
+when the default route is neither the Wi-Fi nor a VPN (`Route.choose` in
+`core/.../Route.kt`).
+
+**Never around a VPN.** A VPN-based firewall (GlassWire, NetGuard,
+RethinkDNS) is a VPN, and Android refuses to let an app it covers bind a
+socket around it: `Binding socket to network N failed: EPERM`, whatever the
+firewall's own rules allow. The first build pinned to the Wi-Fi whenever one
+existed, which failed every read on a phone running GlassWire (2026-09-27).
+With a VPN as the default route the request now goes through it, and the
+firewall forwards what it permits. If pinning is refused anyway,
+`FallbackTransport` retries on the default route. It retries only on that
+refusal, which happens before a byte is sent, so a login is never posted
+twice. The diagnostics say which way each read went.
 
 ### What the watch is sent
 
