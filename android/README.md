@@ -117,12 +117,13 @@ once, and every build after installs in place.
 ### What it shows
 
 The glance is laid out as Garmin's Body Battery glance is: a title, a bar
-that is full at the reset and empties as the day's data is used, and under
-it what is left and, after a reset icon, when tonight's grant lands:
+whose thick part is what is left and thin part what has gone (full at the
+reset), and under it what is left and, after a reset icon, when tonight's
+grant lands:
 
 ```
 Data Left
-[########............]
+████████━━━━━━━━━━━━━━
 301 MiB         ↻@00:00
 ```
 

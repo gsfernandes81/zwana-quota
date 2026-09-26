@@ -5,8 +5,9 @@ import Toybox.WatchUi;
 // The glance, laid out as Garmin's own Body Battery glance is:
 //
 //   Data Left                 2h ago     title; why not to believe it, if so
-//   [#########...........]              what is left of today: full at the
-//                                       reset, emptying as data is used
+//   ==========----------                what is left of today, thick, then
+//                                       what has gone, thin: full at the
+//                                       reset, thinning as data is used
 //   301 MiB             (reset)@00:00   what is left; when the grant lands
 //
 // Every row is the text font: the number fonts may hold digits and little
@@ -48,17 +49,23 @@ class QuotaGlance extends WatchUi.GlanceView {
         }
         dc.drawText(0, top, font, title, Graphics.TEXT_JUSTIFY_LEFT);
 
-        // The bar: an outline, filled from the left by the share left, so it
-        // empties as the day's data goes. No reading, no fill.
+        // The bar, as Body Battery draws its own: what is left is the thick
+        // part, from the left; what has gone is a thin line after it, the
+        // same length the thick part has lost. No reading, all thin.
         var y = top + line + gap;
-        dc.setPenWidth(1);
-        dc.drawRoundedRectangle(0, y, width, bar, bar / 2);
+        var thin = bar / 3;
+        if (thin < 1) {
+            thin = 1;
+        }
         var share = Quota.left(d);
-        if (share > 0.0) {
-            var fill = (share * width).toNumber();
-            if (fill < bar) {
-                fill = bar;
-            }
+        var fill = (share > 0.0) ? (share * width).toNumber() : 0;
+        if (fill > 0 && fill < bar) {
+            fill = bar;
+        }
+        if (fill < width) {
+            dc.fillRectangle(fill, y + (bar - thin) / 2, width - fill, thin);
+        }
+        if (fill > 0) {
             dc.fillRoundedRectangle(0, y, fill, bar, bar / 2);
         }
 
