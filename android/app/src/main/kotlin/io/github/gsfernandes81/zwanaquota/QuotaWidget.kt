@@ -38,7 +38,13 @@ class QuotaWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         draw(context, Refresher.cachedFace(context))
         Work.refresh(context, force = false, trigger = "widget update")
+        Work.schedule(context)
     }
+
+    /** The first widget placed, or the last removed: start or stop keeping it fresh. */
+    override fun onEnabled(context: Context) = Work.schedule(context)
+
+    override fun onDisabled(context: Context) = Work.schedule(context)
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
@@ -72,6 +78,10 @@ class QuotaWidget : AppWidgetProvider() {
 
         /** The device rows the large face has; one more device than fits makes the last "+N more". */
         private val DEVICE_ROWS = listOf(R.id.device1, R.id.device2, R.id.device3)
+
+        /** Whether any copy of the widget is on a home screen. */
+        fun placed(context: Context): Boolean =
+            AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, QuotaWidget::class.java)).isNotEmpty()
 
         fun actionOf(intent: Intent): SessionAction? =
             intent.getStringExtra(EXTRA_ACTION)?.let { name -> SessionAction.entries.firstOrNull { it.name == name } }

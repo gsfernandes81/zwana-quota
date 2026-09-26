@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.PowerManager
 import android.text.format.DateFormat
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -183,6 +184,7 @@ class Refresher(context: Context) {
         val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, live, now)
         val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
         val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS)
+        store.lastPush = now.epochSecond
         store.note("watch", Garmin.send(app, payload).joinToString("; "))
     }
 
@@ -205,6 +207,13 @@ class Refresher(context: Context) {
          */
         const val EVERY_MINUTES = 30L
         const val EVERY_SECONDS = (EVERY_MINUTES * 60).toInt()
+
+        /**
+         * How often the widget is kept fresh while the screen is on: the
+         * Tasker tile's cadence, and WorkManager's shortest period. The
+         * system's own widget update (updatePeriodMillis) cannot go below 30.
+         */
+        const val KEEP_FRESH_MINUTES = 15L
 
         const val NAMED_FOR_SECONDS = 6 * 3600L
         const val UNNAMED_FOR_SECONDS = 3600L
@@ -321,12 +330,25 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         val trigger = inputData.getString(TRIGGER) ?: "?"
         try {
             val refresher = Refresher(applicationContext)
-            val pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled
             val action = inputData.getString(ACTION)?.let { name -> SessionAction.entries.firstOrNull { it.name == name } }
-            if (action != null) {
-                refresher.switch(action, pushWanted, trigger)
-            } else {
-                refresher.run(force = inputData.getBoolean(FORCE, false), pushWanted = pushWanted, trigger = trigger)
+            when {
+                action != null -> refresher.switch(action, store.watchEnabled, trigger)
+                inputData.getBoolean(PERIODIC, false) -> {
+                    // Screen on: read, as the Tasker tile's profile does, and
+                    // send the watch the result too. Screen off: nobody is
+                    // looking at the widget, so nothing -- unless the watch has
+                    // gone its send interval without one.
+                    val screenOn = applicationContext.getSystemService(PowerManager::class.java)?.isInteractive != false
+                    val watchDue = store.watchEnabled &&
+                        Instant.now().epochSecond - store.lastPush >= Refresher.EVERY_SECONDS - 5 * 60
+                    if (!screenOn && !watchDue) return Result.success()
+                    refresher.run(force = false, pushWanted = store.watchEnabled, trigger = trigger)
+                }
+                else -> refresher.run(
+                    force = inputData.getBoolean(FORCE, false),
+                    pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled,
+                    trigger = trigger,
+                )
             }
             store.note("worker", "ran ($trigger)")
         } catch (e: Exception) {
@@ -342,6 +364,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         const val PUSH = "push"
         const val TRIGGER = "trigger"
         const val ACTION = "action"
+        const val PERIODIC = "periodic"
     }
 }
 
@@ -349,7 +372,10 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
 object Work {
     private const val REFRESH = "refresh"
     private const val PUSH = "push-now"
-    private const val WATCH = "watch-every-30m"
+    private const val KEEP_FRESH = "keep-fresh"
+
+    /** The watch-only periodic send before the widget had one of its own. */
+    private const val OLD_WATCH = "watch-every-30m"
     private const val SWITCH = "data-switch"
 
     fun refresh(context: Context, force: Boolean, trigger: String) = enqueue(context, REFRESH, force, false, trigger)
@@ -367,17 +393,29 @@ object Work {
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)
 
-    /** The periodic send runs only while the watch switch is on, and never otherwise. */
+    /**
+     * The one periodic job, every [Refresher.KEEP_FRESH_MINUTES] (WorkManager's
+     * shortest), while there is anything to keep fresh: a widget on the home
+     * screen or the watch switched on. What each run does is the worker's
+     * call ([QuotaWorker]): a read while the screen is on, as the Tasker tile
+     * does, and with it off nothing, unless the watch is due a send.
+     */
     fun schedule(context: Context) {
         val manager = WorkManager.getInstance(context)
-        if (Store(context).watchEnabled) {
+        manager.cancelUniqueWork(OLD_WATCH)
+        if (Store(context).watchEnabled || QuotaWidget.placed(context)) {
             val request = PeriodicWorkRequestBuilder<QuotaWorker>(
-                Refresher.EVERY_MINUTES, TimeUnit.MINUTES,
-                10, TimeUnit.MINUTES,
-            ).setInputData(input(false, true, "every ${Refresher.EVERY_MINUTES}m")).build()
-            manager.enqueueUniquePeriodicWork(WATCH, ExistingPeriodicWorkPolicy.UPDATE, request)
+                Refresher.KEEP_FRESH_MINUTES, TimeUnit.MINUTES,
+                5, TimeUnit.MINUTES,
+            ).setInputData(
+                Data.Builder()
+                    .putAll(input(false, false, "every ${Refresher.KEEP_FRESH_MINUTES}m"))
+                    .putBoolean(QuotaWorker.PERIODIC, true)
+                    .build(),
+            ).build()
+            manager.enqueueUniquePeriodicWork(KEEP_FRESH, ExistingPeriodicWorkPolicy.KEEP, request)
         } else {
-            manager.cancelUniqueWork(WATCH)
+            manager.cancelUniqueWork(KEEP_FRESH)
         }
     }
 

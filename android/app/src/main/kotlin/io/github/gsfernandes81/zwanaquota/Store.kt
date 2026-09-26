@@ -88,6 +88,11 @@ class Store(context: Context) {
         get() = prefs.getBoolean("watch", false)
         set(value) = prefs.edit().putBoolean("watch", value).apply()
 
+    /** When the watch was last sent a reading, in epoch seconds; 0 for never. */
+    var lastPush: Long
+        get() = prefs.getLong("lastPush", 0)
+        set(value) = prefs.edit().putLong("lastPush", value).apply()
+
     /** A counter the watch shows, so a message can be told from the one before it. */
     @Synchronized
     fun nextSequence(): Int {
