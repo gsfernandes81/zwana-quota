@@ -57,8 +57,9 @@ did not import, which is not a state to push a deploy in.
 Gradle, Maven Central only) and is **not** in `make check`: the phone that
 pushes has neither. CI runs it before building the APK
 (`.github/workflows/android-apk.yml`), which is the only place the Android app
-is compiled. The watch app is compiled nowhere automatic — its device files
-need a Garmin login.
+is compiled. The watch app is compiled by `.github/workflows/garmin-prg.yml`,
+which signs in to Garmin with the `garmin` environment's secrets (the device
+files need a login and cannot be committed) and does nothing without them.
 
 `quota_widget.py --self-test` came out on 2026-09-02 and `tests/` replaced it
 on 2026-09-03. Not a transcription of it: the suite tests **behaviour and

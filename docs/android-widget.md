@@ -123,9 +123,19 @@ Gradle configures every project in a build before running any task, and a
 resolved. The APK is signed with a stable key from the repo's secrets when
 they exist, so updates install over each other.
 
-The watch app is **not** built in CI. Compiling it needs Garmin's device
-definitions, which only the SDK Manager downloads after a login, and which
-cannot go in a public repository.
+The watch app is built by `.github/workflows/garmin-prg.yml`, for USB
+sideloading. Compiling it needs Garmin's device definitions, which only come
+after a Garmin login and cannot go in a public repository, so the job signs in
+with `connect-iq-sdk-manager` (built from source through the Go module proxy,
+so the checksum database pins what runs with the password) and downloads only
+the devices the manifest names. The login is an environment secret, readable
+by that job alone; the account needs two-step sign-in off, since the CLI
+cannot answer a second step.
+
+Which Garmin account builds the app does not matter to the app. A `.prg` is
+signed with the developer key, not with an account, and the key and the app's
+id are what make a new build an update of the old one. The account only
+fetches the SDK and the device files.
 
 ## Not verified on hardware
 

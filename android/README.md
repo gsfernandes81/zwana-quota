@@ -91,42 +91,67 @@ can be told from the last.
 
 ### Building the watch app
 
-This part cannot be done by CI. Compiling needs Garmin's device definitions,
-which only Garmin's SDK Manager downloads, after a Garmin login, and their
-licence keeps them out of a public repository. It needs a desktop that can
-run the SDK. **Mind the link**: the SDK and the device files are a few hundred
-MB, so do this ashore or somewhere unmetered.
+CI builds it: `.github/workflows/garmin-prg.yml` signs in to Garmin, downloads
+the SDK and only the Instinct 3 device files, and compiles one `.prg` per
+model. Garmin's device files need a login and cannot be committed to a public
+repository, which is why the login is involved at all.
 
-1. Install the Connect IQ SDK Manager from Garmin's developer site, sign in,
-   and download the current SDK and the **Instinct 3** devices.
-2. Make a developer key, once, and keep it: the same key must sign every
-   build that is to install over the last.
+**Once, set up the `garmin` environment.** Repository Settings → Environments
+→ New environment, named exactly `garmin`. Environment secrets rather than
+repository ones, so that only this one job can read the Garmin login: not the
+APK build, and not any other workflow. If you restrict its deployment
+branches, include the branch you build from.
 
-   ```sh
-   openssl genrsa -out developer_key.pem 4096
-   openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem \
-           -out developer_key.der -nocrypt
-   ```
+| name | kind | value |
+|---|---|---|
+| `GARMIN_USERNAME` | environment secret | the Garmin account's email |
+| `GARMIN_PASSWORD` | environment secret | its password |
+| `GARMIN_DEVELOPER_KEY` | environment secret | `base64 -w0 developer_key.der` (below) |
+| `GARMIN_AGREEMENT_HASH` | environment variable, optional | pins the SDK licence; the job's log prints the current hash |
+| `GARMIN_SDK_VERSION` | environment variable, optional | an SDK version or range; default `>=8.2.0` |
 
-3. Build for your model: `instinct3solar45mm`, `instinct3amoled45mm` or
-   `instinct3amoled50mm` (`garmin/manifest.xml` lists all three; if the SDK
-   Manager names a different ID for your watch, add it there):
+Use a Garmin account **with two-step sign-in off**: the CLI signs in with the
+password alone and cannot answer a second step. A separate account kept for
+this is better than your own, since the secret is the full password rather
+than a limited token. Any account works: the SDK and device downloads are not
+tied to who you are, and neither is the app.
 
-   ```sh
-   monkeyc -f garmin/monkey.jungle -d instinct3solar45mm \
-           -y developer_key.der -o zwana-quota.prg
-   ```
+**Once, make the developer key**, and keep a copy somewhere safe. The same key
+must sign every build that is to install over the last, so losing it means
+uninstalling the watch app to install the next one. `openssl` is in Termux
+(`pkg install openssl-tool`):
 
-   The VS Code **Monkey C** extension does the same from *Build for Device*,
-   and its simulator runs the glance without a watch.
+```sh
+openssl genrsa -out developer_key.pem 4096
+openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem \
+        -out developer_key.der -nocrypt
+base64 -w0 developer_key.der          # the value of GARMIN_DEVELOPER_KEY
+```
 
-4. Connect the watch by USB and copy `zwana-quota.prg` into `GARMIN/APPS/`.
-   Windows shows the watch as a device in Explorer. From an Android phone it
-   needs an MTP app.
-5. Unplug, then **open the app once** from the watch's apps list. Opening it
+**Each build**: any push that touches `garmin/`, or **Run workflow** on the
+**garmin prg** workflow in the Actions tab. Its `zwana-quota-garmin` artifact
+holds `zwana-quota-instinct3solar45mm.prg` (and one per other model),
+`SHA256SUMS`, and the key's fingerprint. Without the secrets the job says
+which are missing and stops, green.
+
+**Install over USB**:
+
+1. Connect the watch by USB and copy the `.prg` for your model (the Solar
+   45 mm: `zwana-quota-instinct3solar45mm.prg`) into `GARMIN/APPS/`. Windows
+   shows the watch as a device in Explorer; from an Android phone it needs an
+   MTP app.
+2. Unplug, then **open the app once** from the watch's apps list. Opening it
    is what registers for the phone's messages; until then nothing arrives,
    and it looks exactly like a dead link. Then add it to the glance loop
    (Glances → Add → zwana quota).
+
+An update is the same: copy the new `.prg` over the old one.
+
+**Without CI**, on a desktop with Garmin's SDK Manager signed in and the
+Instinct 3 devices downloaded (a few hundred MB, so somewhere unmetered):
+`monkeyc -f garmin/monkey.jungle -d instinct3solar45mm -y developer_key.der
+-o zwana-quota.prg`, or *Build for Device* in the VS Code Monkey C extension,
+whose simulator also runs the glance without a watch.
 
 ### Connecting the two
 

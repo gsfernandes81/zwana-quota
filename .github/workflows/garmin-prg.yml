@@ -1,0 +1,148 @@
+# Build the watch app (garmin/) into one sideloadable .prg per Instinct 3
+# model, to copy onto the watch over USB (android/README.md, "The watch").
+#
+# Compiling Monkey C needs Garmin's device definitions, which only come from
+# Garmin after a login and cannot be committed to this public repository. So
+# this job logs in with connect-iq-sdk-manager (github.com/lindell/
+# connect-iq-sdk-manager-cli), which downloads the SDK and only the devices
+# garmin/manifest.xml names, then runs monkeyc.
+#
+# Everything it needs is in the GitHub environment `garmin`, so only this job
+# can read the Garmin login -- not the APK build, and not any other workflow:
+#
+#   secrets    GARMIN_USERNAME        a Garmin account with two-step sign-in
+#              GARMIN_PASSWORD        off: the CLI signs in with the password
+#                                     alone and cannot answer a second step
+#              GARMIN_DEVELOPER_KEY   base64 of the DER developer key; the same
+#                                     key must sign every build that is to
+#                                     install over the last
+#   variables  GARMIN_AGREEMENT_HASH  optional: pins the SDK licence this was
+#                                     built under; a changed licence then fails
+#                                     the build instead of being accepted blind
+#              GARMIN_SDK_VERSION     optional: an SDK version or range
+#
+# Without the secrets the job says so and stops, green: nothing here is
+# needed for the APK. Credentials never reach a command line or the log.
+
+name: garmin prg
+
+on:
+  push:
+    paths:
+      - 'garmin/**'
+      - '.github/workflows/garmin-prg.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prg:
+    runs-on: ubuntu-latest
+    environment: garmin
+    env:
+      CLI_VERSION: v0.8.4
+      SDK_VERSION: ${{ vars.GARMIN_SDK_VERSION || '>=8.2.0' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Are the Garmin secrets set?
+        id: ready
+        env:
+          GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
+          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          GARMIN_DEVELOPER_KEY: ${{ secrets.GARMIN_DEVELOPER_KEY }}
+        run: |
+          missing=""
+          for name in GARMIN_USERNAME GARMIN_PASSWORD GARMIN_DEVELOPER_KEY; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::notice::Not building the watch app: the garmin environment has no$missing. See android/README.md."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # monkeyc is a Java program.
+      - uses: actions/setup-java@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Built from source through the Go module proxy, so the checksum database
+      # pins exactly what runs with the Garmin password in its environment.
+      - uses: actions/setup-go@v5
+        if: steps.ready.outputs.go == 'true'
+        with:
+          go-version: 'stable'
+          cache: false
+
+      - name: Install connect-iq-sdk-manager ${{ env.CLI_VERSION }}
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          go install "github.com/lindell/connect-iq-sdk-manager-cli@${CLI_VERSION}"
+          echo "CIQ=$(go env GOPATH)/bin/connect-iq-sdk-manager-cli" >> "$GITHUB_ENV"
+
+      - name: Accept the SDK licence
+        if: steps.ready.outputs.go == 'true'
+        env:
+          PINNED: ${{ vars.GARMIN_AGREEMENT_HASH }}
+        run: |
+          # Prints the licence's address and its current hash: read it there,
+          # and set GARMIN_AGREEMENT_HASH to that hash to pin it.
+          "$CIQ" agreement view
+          if [ -n "$PINNED" ]; then
+            "$CIQ" agreement accept --agreement-hash "$PINNED"
+          else
+            echo "::warning::GARMIN_AGREEMENT_HASH is not set, so the current SDK licence was accepted as it stands. Pin the hash printed above to be told when it changes."
+            "$CIQ" agreement accept
+          fi
+
+      - name: Sign in, and fetch the SDK and the Instinct 3 devices
+        if: steps.ready.outputs.go == 'true'
+        env:
+          GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
+          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+        run: |
+          "$CIQ" login
+          "$CIQ" sdk set "$SDK_VERSION"
+          "$CIQ" device download --manifest garmin/manifest.xml
+          # Its log goes to stdout too; at error level, only the path does.
+          bin="$("$CIQ" --log-level error sdk current-path --bin)"
+          test -x "$bin/monkeyc"
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Build a .prg for each model
+        if: steps.ready.outputs.go == 'true'
+        env:
+          GARMIN_DEVELOPER_KEY: ${{ secrets.GARMIN_DEVELOPER_KEY }}
+        run: |
+          key="$RUNNER_TEMP/developer_key.der"
+          printf '%s' "$GARMIN_DEVELOPER_KEY" | base64 -d > "$key"
+          mkdir -p out
+          monkeyc --version || true
+          # One file per model in the manifest; copy the one for your watch.
+          for device in $(grep -o 'iq:product id="[^"]*"' garmin/manifest.xml | cut -d'"' -f2); do
+            echo "::group::$device"
+            monkeyc -f garmin/monkey.jungle -d "$device" -y "$key" -r -w \
+              -o "out/zwana-quota-$device.prg"
+            echo "::endgroup::"
+          done
+          rm -f "$key"
+          cd out
+          sha256sum *.prg > SHA256SUMS
+          cat SHA256SUMS
+          # The key's fingerprint, so a build that will not install over the
+          # last can be told from one signed with a different key.
+          printf '%s' "$GARMIN_DEVELOPER_KEY" | base64 -d | sha256sum | cut -c1-16 | sed 's/^/developer key sha256: /' | tee KEY-FINGERPRINT
+
+      - uses: actions/upload-artifact@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          name: zwana-quota-garmin
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
