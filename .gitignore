@@ -11,3 +11,17 @@ __pycache__/
 # mutation testing (make mutants)
 .poodle-temp/
 .hypothesis/
+
+# Android build output (android/) -- CI builds the APK, see android/README.md
+android/**/.gradle/
+android/**/build/
+android/.kotlin/
+android/**/.kotlin/
+android/local.properties
+*.keystore
+*.jks
+
+# Connect IQ build output and the developer key (garmin/)
+garmin/bin/
+garmin/*.der
+garmin/*.pem
