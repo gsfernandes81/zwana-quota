@@ -94,12 +94,15 @@ jobs:
           sha256sum zwana-quota.apk > zwana-quota.apk.sha256
           ls -l
           # Which key signed it, so a failed upgrade can be told from a bad APK.
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" \
-            verify --print-certs zwana-quota.apk | grep -E 'Signer #1 certificate (DN|SHA-256)' | tee signer.txt
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          "$apksigner" verify --verbose --print-certs zwana-quota.apk > signer.txt 2>&1
+          cat signer.txt
 
       - name: Lint (reported, not gating)
         continue-on-error: true
-        run: ./gradlew :app:lintRelease
+        run: |
+          ./gradlew :app:lintRelease
+          cat app/build/reports/lint-results.txt
 
       - uses: actions/upload-artifact@v4
         with:

@@ -52,9 +52,11 @@ android {
     }
 
     lint {
-        // Lint runs as its own CI step, where its report is kept; it does not
-        // stand between a build and its artifact.
+        // Lint runs as its own CI step, which prints this text report into the
+        // job log; it does not stand between a build and its artifact.
         checkReleaseBuilds = false
+        textReport = true
+        textOutput = file("build/reports/lint-results.txt")
     }
 }
 

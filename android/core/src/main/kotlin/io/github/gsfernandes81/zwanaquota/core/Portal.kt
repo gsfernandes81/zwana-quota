@@ -11,6 +11,7 @@ import kotlinx.serialization.json.buildJsonObject
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.net.URLConnection
 import java.time.Instant
@@ -49,7 +50,7 @@ class UrlConnectionTransport(
     private val timeoutMillis: Int = PortalClient.TIMEOUT_SECONDS * 1000,
 ) : Transport {
     override fun exchange(request: HttpRequest): HttpResponse {
-        val connection = open(URL(request.url)) as HttpURLConnection
+        val connection = open(URI(request.url).toURL()) as HttpURLConnection
         try {
             // An unauthenticated call is answered with 302 to the login page,
             // not 401. Followed, that is the HTML shell and a baffling parse
