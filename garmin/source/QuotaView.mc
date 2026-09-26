@@ -22,6 +22,20 @@ class QuotaView extends WatchUi.View {
         var height = dc.getFontHeight(big) + lines.size() * dc.getFontHeight(small);
         var y = (dc.getHeight() - height) / 2;
         var x = dc.getWidth() / 2;
+        // The Instinct's sub-window (the small round inset, top right) is
+        // drawn over whatever is under it: start below it, as long as the
+        // block still ends on the screen.
+        if (WatchUi has :getSubscreen) {
+            var sub = WatchUi.getSubscreen();
+            if (sub != null) {
+                var below = sub.y + sub.height + 2;
+                var last = dc.getHeight() - height - 4;
+                y = (y < below) ? ((below < last) ? below : last) : y;
+            }
+        }
+        if (y < 0) {
+            y = 0;
+        }
 
         dc.drawText(x, y, big, Quota.figure(d), Graphics.TEXT_JUSTIFY_CENTER);
         y += dc.getFontHeight(big);
