@@ -72,15 +72,34 @@
                         app:autoSizeMinTextSize="28sp"
                         app:autoSizeTextType="uniform" />
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/level"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
+                    <!-- How much is left, and separately whether the reading can
+                         still be believed: two states, so two chips. -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:clickable="false"
-                        android:focusable="false"
-                        app:chipIconVisible="true" />
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/level"
+                            style="@style/Widget.Material3.Chip.Assist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:clickable="false"
+                            android:focusable="false"
+                            app:chipIconVisible="true" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/freshness"
+                            style="@style/Widget.Material3.Chip.Assist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:clickable="false"
+                            android:focusable="false"
+                            android:visibility="gone"
+                            app:chipIconVisible="true" />
+                    </LinearLayout>
 
                     <com.google.android.material.progressindicator.LinearProgressIndicator
                         android:id="@+id/meter"
@@ -109,10 +128,10 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/read_now"
-                        style="@style/Widget.Material3.Button.TonalButton.Icon"
+                        style="@style/Widget.Material3.Button.Icon"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/read_now"
                         app:icon="@drawable/ic_refresh" />
                 </LinearLayout>

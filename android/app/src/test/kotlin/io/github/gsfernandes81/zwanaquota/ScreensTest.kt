@@ -48,6 +48,63 @@ class ScreensTest {
         shoot("dark-stale", expand = true)
     }
 
+    /**
+     * The launcher icon as launchers draw it: the adaptive layers under a
+     * circle and a rounded-square mask, and the themed (monochrome) layer
+     * Android 13+ tints, side by side on a neutral ground.
+     */
+    @Test
+    fun `the launcher icon under the common masks`() {
+        val size = 288
+        val gap = 48
+        val sheet = Bitmap.createBitmap(gap + 3 * (size + gap), size + 2 * gap, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(sheet)
+        canvas.drawColor(0xFFE6E6E6.toInt())
+        val icon = context.getDrawable(R.drawable.ic_launcher) as android.graphics.drawable.AdaptiveIconDrawable
+        val masks = listOf(
+            android.graphics.Path().apply { addCircle(size / 2f, size / 2f, size / 2f, android.graphics.Path.Direction.CW) },
+            android.graphics.Path().apply {
+                addRoundRect(0f, 0f, size.toFloat(), size.toFloat(), size * 0.3f, size * 0.3f, android.graphics.Path.Direction.CW)
+            },
+        )
+        masks.forEachIndexed { i, mask -> drawLayers(canvas, icon, mask, gap + i * (size + gap), gap, size, themed = false) }
+        drawLayers(canvas, icon, masks[0], gap + 2 * (size + gap), gap, size, themed = true)
+        val out = File("build/screens/icon.png").apply { parentFile?.mkdirs() }
+        out.outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertTrue("nothing was written", out.length() > 0)
+    }
+
+    /** The adaptive icon's 108dp layers, scaled so the 72dp viewport fills [size], clipped to [mask]. */
+    private fun drawLayers(
+        canvas: Canvas,
+        icon: android.graphics.drawable.AdaptiveIconDrawable,
+        mask: android.graphics.Path,
+        x: Int,
+        y: Int,
+        size: Int,
+        themed: Boolean,
+    ) {
+        val full = (size * 108f / 72f).toInt()
+        val inset = (full - size) / 2
+        canvas.save()
+        canvas.translate(x.toFloat(), y.toFloat())
+        canvas.clipPath(mask)
+        if (themed) {
+            canvas.drawColor(0xFFD7E3FF.toInt())
+            icon.monochrome?.mutate()?.apply {
+                setBounds(-inset, -inset, full - inset, full - inset)
+                setTint(0xFF1A3A6B.toInt())
+                draw(canvas)
+            }
+        } else {
+            for (layer in listOfNotNull(icon.background, icon.foreground)) {
+                layer.setBounds(-inset, -inset, full - inset, full - inset)
+                layer.draw(canvas)
+            }
+        }
+        canvas.restore()
+    }
+
     private fun seed(remainder: Long, ageSeconds: Long, notes: Boolean) {
         val now = Instant.now()
         val ts = Pipeline.epochSeconds(now) - ageSeconds

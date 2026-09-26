@@ -29,6 +29,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import io.github.gsfernandes81.zwanaquota.core.Credentials
 import io.github.gsfernandes81.zwanaquota.core.Face
+import io.github.gsfernandes81.zwanaquota.core.Format
 import io.github.gsfernandes81.zwanaquota.core.Level
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import java.time.Instant
@@ -55,6 +56,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private val figure by view<TextView>(R.id.figure)
     private val level by view<Chip>(R.id.level)
+    private val freshness by view<Chip>(R.id.freshness)
     private val meter by view<LinearProgressIndicator>(R.id.meter)
     private val status by view<TextView>(R.id.status)
     private val reset by view<TextView>(R.id.reset)
@@ -183,21 +185,35 @@ class SettingsActivity : AppCompatActivity() {
         val doc = reading?.let { Pipeline.derive(it, Pipeline.epochSeconds(now) - it.ts, false, now) }
         val face = doc?.let { Face.of(it, zone) } ?: Refresher.cachedFace(this)
         figure.text = face.figure
-        status.text = face.status
+        // The widget's face puts the age in front of the share, because it has
+        // no chips; here the freshness chip says it, so the line keeps to the
+        // share and nothing is said twice.
+        status.text = doc?.let {
+            getString(
+                R.string.share_of_pool,
+                Format.percent(it.remainderBytes.toDouble() / maxOf(1L, it.poolBytes)),
+                Format.size(it.poolBytes),
+            )
+        } ?: face.status
         reset.text = face.reset
         footnote.text = face.footnote
 
         val colour = ContextCompat.getColor(this, statusColour(face.level))
-        val mark = doc?.let { Face.mark(it) }
         val (icon, label) = when {
             doc == null -> R.drawable.ic_unknown to getString(R.string.level_unknown)
-            mark == "offline" -> R.drawable.ic_offline to getString(R.string.offline)
-            mark != null -> R.drawable.ic_stale to getString(R.string.out_of_date, mark)
             face.level == Level.OK -> R.drawable.ic_ok to getString(R.string.level_ok)
             face.level == Level.LOW -> R.drawable.ic_low to getString(R.string.level_low)
             else -> R.drawable.ic_critical to getString(R.string.level_critical)
         }
-        chip(icon, label, if (mark != null && doc != null) ContextCompat.getColor(this, R.color.status_unknown) else colour)
+        chip(level, icon, label, colour)
+
+        val mark = doc?.let { Face.mark(it) }
+        freshness.visibility = if (mark == null) View.GONE else View.VISIBLE
+        if (mark != null) {
+            val grey = ContextCompat.getColor(this, R.color.status_unknown)
+            if (mark == "offline") chip(freshness, R.drawable.ic_offline, getString(R.string.offline), grey)
+            else chip(freshness, R.drawable.ic_stale, getString(R.string.out_of_date, mark), grey)
+        }
 
         val share = doc?.let { it.remainderBytes.toDouble() / maxOf(1L, it.poolBytes) } ?: 0.0
         meter.setProgressCompat((share.coerceIn(0.0, 1.0) * 1000).toInt(), false)
@@ -210,15 +226,29 @@ class SettingsActivity : AppCompatActivity() {
             store.notes()["read"] == readingSince &&
             System.currentTimeMillis() - readingStarted < READ_TIMEOUT_MS
         if (!busy) readingSince = null
+        // Signed out, reading is what "Sign in and read" does; this would only fail.
+        readNow.visibility = if (vault.signedIn) View.VISIBLE else View.GONE
         readNow.isEnabled = !busy
         readNow.text = getString(if (busy) R.string.reading else R.string.read_now)
     }
 
-    private fun chip(@DrawableRes icon: Int, label: String, colour: Int) {
-        level.text = label
-        level.setChipIconResource(icon)
-        level.chipIconTint = ColorStateList.valueOf(colour)
-        level.contentDescription = label
+    private fun chip(chip: Chip, @DrawableRes icon: Int, label: String, colour: Int) {
+        chip.text = label
+        chip.setChipIconResource(icon)
+        chip.chipIconTint = ColorStateList.valueOf(colour)
+        chip.contentDescription = label
+    }
+
+    /**
+     * A note as a person reads it: `16:23 ok over Wi-Fi` today, with the date
+     * only when it is not today. The stored stamp is `MM-dd HH:mm:ss`.
+     */
+    private fun readable(note: String?): String? {
+        val parts = note?.split(' ', limit = 3) ?: return null
+        if (parts.size < 3 || parts[0].length != 5 || parts[1].length != 8) return note
+        val today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MM-dd"))
+        val time = parts[1].take(5)
+        return if (parts[0] == today) "$time  ${parts[2]}" else "${parts[0]} $time  ${parts[2]}"
     }
 
     @ColorRes
@@ -238,7 +268,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderWatch() {
-        val last = store.notes()["watch"]
+        val last = readable(store.notes()["watch"])
         watchStatus.text = when {
             last != null -> last
             store.watchEnabled -> getString(R.string.watch_never)
@@ -251,12 +281,13 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderDiagnostics() {
         val notes = store.notes()
         val unrestricted = getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) == true
-        diagnosticsSummary.text = notes["read"] ?: getString(R.string.nothing_yet)
+        diagnosticsSummary.text = readable(notes["read"])?.let { getString(R.string.last_read, it) }
+            ?: getString(R.string.nothing_yet)
 
         val table = listOf(
-            R.string.row_portal to (notes["read"] ?: getString(R.string.nothing_yet)),
-            R.string.row_watch to (notes["watch"] ?: getString(R.string.nothing_yet)),
-            R.string.row_background to (notes["worker"] ?: getString(R.string.nothing_yet)),
+            R.string.row_portal to (readable(notes["read"]) ?: getString(R.string.nothing_yet)),
+            R.string.row_watch to (readable(notes["watch"]) ?: getString(R.string.nothing_yet)),
+            R.string.row_background to (readable(notes["worker"]) ?: getString(R.string.nothing_yet)),
             R.string.row_garmin to Garmin.state,
             R.string.row_battery to getString(if (unrestricted) R.string.battery_free else R.string.battery_held),
             R.string.row_version to (packageManager.getPackageInfo(packageName, 0).versionName ?: "?"),
