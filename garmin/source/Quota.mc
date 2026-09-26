@@ -169,28 +169,14 @@ module Quota {
         return share;
     }
 
-    // The glance's right-hand figure, longest first: tonight's grant and when
-    // it lands. The grant drops its unit when the figure beside it already
-    // says it. Every spelling ends with the time, so whichever fits carries it.
-    function grantAt(d as Dictionary?) as Array<String> {
+    // The glance's right-hand side, after its reset icon, longest first:
+    // when the grant lands. Null for no reading, which says so in words.
+    function resetAt(d as Dictionary?) as Array<String>? {
         if (d == null) {
-            return ["open on phone", "no data"];
+            return null;
         }
         var at = clock(nextReset(d));
-        var grant = str(d, "gfig");
-        if (grant.length() == 0) {
-            return ["@ " + at, at];
-        }
-        var brief = grant;
-        var space = grant.find(" ");
-        if (space != null) {
-            var unit = grant.substring(space, grant.length()) as String;
-            var fig = str(d, "fig");
-            if (fig.length() >= unit.length() && unit.equals(fig.substring(fig.length() - unit.length(), fig.length()))) {
-                brief = grant.substring(0, space) as String;
-            }
-        }
-        return ["+" + brief + " @ " + at, "@ " + at, at];
+        return ["@" + at, at];
     }
 
     function figure(d as Dictionary?) as String {
