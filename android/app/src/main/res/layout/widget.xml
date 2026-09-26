@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The face: the figure, big, and three lines of small print. Each small line
-     is a line of its own and never wraps, so the reset -- which leads its
-     line -- cannot be pushed off by anything else. -->
+     is a line of its own and never wraps, so the reset, which leads its
+     line, cannot be pushed off by anything else. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
