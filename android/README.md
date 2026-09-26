@@ -53,7 +53,7 @@ more over a metered link; the result is the same PKCS12 keystore):
 
 ```sh
 pkg install openssl-tool
-cd ~
+cd ~/zwana-quota                            # the checkout: keys here are gitignored
 openssl req -x509 -newkey rsa:4096 -keyout zwana-key.pem -out zwana-cert.pem \
         -days 10000 -nodes -subj "/CN=zwana quota"
 openssl pkcs12 -export -in zwana-cert.pem -inkey zwana-key.pem \
@@ -72,8 +72,9 @@ In the repository's Settings → Secrets and variables → Actions, add these as
 | `ANDROID_KEY_ALIAS` | `zwana` |
 | `ANDROID_KEY_PASSWORD` | the same password (optional: the job falls back to it) |
 
-The repository is public, so the keystore only ever lives in secrets, never
-as a file in the tree. Keep `zwana.p12` and its password somewhere safe off
+The repository is public, so the keystore reaches CI only as secrets. In the
+checkout it is safe: `*.p12`, `*.pem`, `*.der`, `*.jks` and `*.b64` are all
+gitignored, anywhere in the tree. Keep `zwana.p12` and its password somewhere safe off
 the phone: losing either means one more uninstall. The first build signed
 with it will not install over a build signed with a minted key; uninstall
 once, and every build after installs in place.
@@ -137,6 +138,7 @@ uninstalling the watch app to install the next one. `openssl` is in Termux
 (`pkg install openssl-tool`):
 
 ```sh
+cd ~/zwana-quota          # the checkout: *.pem and *.der are gitignored
 openssl genrsa -out developer_key.pem 4096
 openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem \
         -out developer_key.der -nocrypt

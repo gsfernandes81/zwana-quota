@@ -35,6 +35,14 @@ file_copy_filters = [
     "android/**",
     "garmin/**",
     ".env",
+    # Signing keys may live in the checkout (gitignored); no worker needs one.
+    "*.p12",
+    "*.pfx",
+    "*.der",
+    "*.pem",
+    "*.jks",
+    "*.keystore",
+    "*.b64",
 ]
 
 # The suite runs in about five seconds; the timeout is the clean run times the

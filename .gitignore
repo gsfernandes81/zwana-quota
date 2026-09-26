@@ -21,7 +21,15 @@ android/local.properties
 *.keystore
 *.jks
 
-# Connect IQ build output and the developer key (garmin/)
+# Signing keys, anywhere in the tree, so they can live in the checkout on the
+# phone that makes them: the APK keystore (zwana.p12, android/README.md) and
+# the Garmin developer key (developer_key.der/.pem). The repo is public; they
+# reach CI only as secrets. The .b64 is what `base64 -w0 > file` leaves behind.
+*.p12
+*.pfx
+*.der
+*.pem
+*.b64
+
+# Connect IQ build output (garmin/); its developer key is covered above
 garmin/bin/
-garmin/*.der
-garmin/*.pem
