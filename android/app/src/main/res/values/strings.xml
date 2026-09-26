@@ -12,7 +12,7 @@
     <string name="level_unknown">No reading yet</string>
     <string name="offline">Session offline</string>
     <string name="out_of_date">Read %1$s</string>
-    <string name="share_of_pool">%1$s of today's %2$s left</string>
+    <string name="share_of_pool">%1$s of today\'s %2$s left</string>
     <string name="last_read">Last read %1$s</string>
 
     <string name="portal_login">Portal login</string>
