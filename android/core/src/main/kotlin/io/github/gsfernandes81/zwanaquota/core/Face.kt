@@ -23,7 +23,8 @@ enum class Level(val word: String) {
  * same on the widget as in Termux.
  */
 object Format {
-    private val clockFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
+    private val clock24 = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
+    private val clock12 = DateTimeFormatter.ofPattern("h:mm a", Locale.ROOT)
 
     /** Compact byte count: no decimals below a GiB, two above. */
     fun size(bytes: Long): String = size(bytes.toDouble())
@@ -50,7 +51,13 @@ object Format {
     fun money(credits: Double): String =
         if (credits == Math.floor(credits)) "\$${fixed(credits, 0)}" else "\$${fixed(credits, 2)}"
 
-    fun clock(at: Instant, zone: ZoneId): String = clockFormat.format(at.atZone(zone))
+    /** `14:02`, or `2:02 pm` on a phone set to a 12-hour clock. */
+    fun clock(at: Instant, zone: ZoneId, hour24: Boolean = true): String =
+        if (hour24) clock24.format(at.atZone(zone)) else clock12.format(at.atZone(zone)).lowercase(Locale.ROOT)
+
+    /** When the grant lands: `00:00 hrs` on a 24-hour clock, `12:00 am` on a 12-hour one. */
+    fun resetClock(at: Instant, zone: ZoneId, hour24: Boolean = true): String =
+        if (hour24) "${clock(at, zone, true)} hrs" else clock(at, zone, false)
 
     /** Comfortable, thin, nearly gone -- quota_widget.grade(). */
     fun grade(share: Double): Level = when {
@@ -75,7 +82,9 @@ object Format {
  *
  * - **The reset survives.** It has a line of its own, so nothing a wide figure
  *   or a long warning does can push it off; it is the one thing on the face
- *   that cannot be inferred from the rest.
+ *   that cannot be inferred from the rest. The time *ends* that line
+ *   (`+763 MiB at 00:00 hrs`), and the widget ellipsizes it from the start,
+ *   so a narrow widget loses the grant and never the time.
  * - **A reading that overstates what is left says so**, on the line that
  *   would otherwise carry the share -- it outranks the share.
  * - **Nothing relative is drawn that could go stale.** A home-screen widget is
@@ -100,18 +109,19 @@ data class Face(
         /** Older than this and not live, a reading is drawn as its age. */
         const val STALE_AFTER_SECONDS = 90.0
 
-        fun of(doc: Document, zone: ZoneId): Face {
+        /** [hour24] is the phone's clock setting, which the times follow. */
+        fun of(doc: Document, zone: ZoneId, hour24: Boolean = true): Face {
             val share = doc.remainderBytes.toDouble() / maxOf(1L, doc.poolBytes)
             val percent = Format.percent(share)
             val mark = mark(doc)
-            val resetAt = Format.clock(doc.reset, zone)
+            val resetAt = Format.resetClock(doc.reset, zone, hour24)
             return Face(
                 figure = Format.size(doc.remainderBytes),
                 status = if (mark != null) "$mark, $percent" else "$percent of ${Format.size(doc.poolBytes)}",
-                // The time leads, so a narrow widget ellipsizes the grant and
-                // never the clock.
-                reset = if (doc.grantBytes > 0) "resets $resetAt, +${Format.size(doc.grantBytes)}" else "resets $resetAt",
-                footnote = "read ${Format.clock(doc.readingTaken, zone)}, ${Format.money(doc.credits)} reserve",
+                // The time ends the line, and the line is ellipsized from its
+                // start, so a narrow widget loses the grant and never the clock.
+                reset = if (doc.grantBytes > 0) "+${Format.size(doc.grantBytes)} at $resetAt" else "resets at $resetAt",
+                footnote = "read ${Format.clock(doc.readingTaken, zone, hour24)}, ${Format.money(doc.credits)} reserve",
                 level = Format.grade(share),
                 freeNow = doc.freeLeftBytes > 0,
                 warning = mark != null,
@@ -119,10 +129,10 @@ data class Face(
         }
 
         /** The Termux tile's `quota ? / no reading`, with why on the last line. */
-        fun unknown(now: Instant, zone: ZoneId, why: String): Face = Face(
+        fun unknown(now: Instant, zone: ZoneId, why: String, hour24: Boolean = true): Face = Face(
             figure = "quota ?",
             status = "no reading",
-            reset = "resets ${Format.clock(Pipeline.nextReset(now), zone)}",
+            reset = "resets at ${Format.resetClock(Pipeline.nextReset(now), zone, hour24)}",
             footnote = why,
             level = Level.UNKNOWN,
             freeNow = false,

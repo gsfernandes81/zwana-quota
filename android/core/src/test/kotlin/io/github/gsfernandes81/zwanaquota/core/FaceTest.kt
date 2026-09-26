@@ -86,18 +86,34 @@ class FaceTest {
     }
 
     @Test
-    fun `the reset time is on every face, in every zone`() {
+    fun `the reset time is on every face, in every zone, on either clock`() {
         val docs = listOf(doc(), doc(age = 7200.0, live = false), doc(online = false), doc(0), doc(32L shl 40), doc(grantBytes = 0))
         for (zone in zones) {
-            val at = Format.clock(Pipeline.nextReset(now), zone)
-            for (d in docs) {
-                val reset = Face.of(d, zone).reset
-                assertTrue(at in reset, "$zone $reset")
-                // Ahead of anything else on its line, which is what an
-                // ellipsis at the end cannot reach.
-                assertTrue(reset.indexOf(at) <= reset.indexOfFirst { it.isDigit() }, "$zone $reset")
+            for (hour24 in listOf(true, false)) {
+                val at = Format.resetClock(Pipeline.nextReset(now), zone, hour24)
+                for (d in docs) {
+                    val reset = Face.of(d, zone, hour24).reset
+                    // Last on its line, which the widget ellipsizes from the
+                    // start: the one end an ellipsis cannot reach.
+                    assertTrue(reset.endsWith(at), "$zone $reset")
+                }
+                assertTrue(Face.unknown(now, zone, "why", hour24).reset.endsWith(at))
             }
-            assertTrue(at in Face.unknown(now, zone, "why").reset)
+        }
+    }
+
+    @Test
+    fun `the two clocks name the same minute`() {
+        val zone = ZoneId.of("UTC")
+        for (minute in listOf(0, 1, 59, 60, 719, 720, 721, 1439)) {
+            val at = Instant.ofEpochSecond(minute * 60L)
+            val (h, m) = Format.clock(at, zone, true).split(':').map { it.toInt() }
+            val twelve = Format.clock(at, zone, false)
+            val match = Regex("""(\d{1,2}):(\d{2}) (am|pm)""").matchEntire(twelve)!!
+            val h12 = match.groupValues[1].toInt()
+            assertTrue(h12 in 1..12, twelve)
+            assertEquals(m, match.groupValues[2].toInt())
+            assertEquals(h, h12 % 12 + if (match.groupValues[3] == "pm") 12 else 0, twelve)
         }
     }
 

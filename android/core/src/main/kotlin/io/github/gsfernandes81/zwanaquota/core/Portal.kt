@@ -17,10 +17,10 @@ import java.net.URLConnection
 import java.time.Instant
 
 /** Any failure talking to the portal, already stripped of secrets. */
-open class PortalError(message: String) : Exception(message)
+open class PortalError(message: String, val status: Int? = null) : Exception(message)
 
 /** The portal redirected to its login page instead of answering. */
-class NotAuthenticated(message: String) : PortalError(message)
+class NotAuthenticated(message: String, status: Int? = null) : PortalError(message, status)
 
 /** The login, which is never printed: [toString] leaves the password out. */
 data class Credentials(val username: String, val password: String) {
@@ -189,11 +189,11 @@ class PortalClient(
 
         val text = response.body.toString(Charsets.UTF_8)
         if (response.status in REDIRECTS) {
-            throw NotAuthenticated("$path: session not valid (HTTP ${response.status})")
+            throw NotAuthenticated("$path: session not valid (HTTP ${response.status})", response.status)
         }
         if (response.status >= 400) {
             // Never the request body: it may hold the password.
-            throw PortalError("$path: HTTP ${response.status} ${text.take(300)}".trimEnd())
+            throw PortalError("$path: HTTP ${response.status} ${text.take(300)}".trimEnd(), response.status)
         }
         if (text.isBlank()) return null
         val parsed = try {
@@ -243,6 +243,18 @@ class PortalClient(
         if (!allowLogin) throw e
         logIn()
         request(path)
+    }
+
+    /**
+     * POST [payload] to [path], logging in once if the session has gone stale.
+     * Safe to repeat on that one path only: a 302 to the login page means the
+     * portal did nothing with the first request.
+     */
+    fun send(path: String, payload: JsonElement): JsonElement? = try {
+        request(path, payload)
+    } catch (e: NotAuthenticated) {
+        logIn()
+        request(path, payload)
     }
 
     /**
