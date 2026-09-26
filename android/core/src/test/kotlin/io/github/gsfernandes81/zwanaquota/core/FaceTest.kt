@@ -159,6 +159,14 @@ class FaceTest {
     }
 
     @Test
+    fun `the watch is told whether it may ask, and is never told yes by default`() {
+        val d = doc()
+        val face = Face.of(d, ZoneId.of("UTC"))
+        assertEquals(false, WatchPayload.build(d, face, now, 1, 1800)["ask"])
+        assertEquals(true, WatchPayload.build(d, face, now, 1, 1800, canAsk = true)["ask"])
+    }
+
+    @Test
     fun `the watch is sent only the types the Connect IQ SDK can carry`() {
         for (remainder in listOf(0L, grant, 1L shl 42, Long.MAX_VALUE / 2)) {
             val d = doc(remainder)

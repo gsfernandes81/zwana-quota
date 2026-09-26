@@ -42,8 +42,11 @@ Decisions that travel with this code:
   is sent the figures the phone already spelled, as one payload built in
   `WatchPayload` — no Long in the Connect IQ SDK, so KiB and epoch-second
   Ints. It decides only what only it can: whether the reading is still
-  believable *now* (`new day`, `2h ago`). The payload's keys are the wire
-  contract; renaming one blanks the glance without an error anywhere.
+  believable *now* (`new day`, `2h ago`). It may ask for a reading only when
+  the payload's `ask` says the phone is listening (`WatchListener`, behind a
+  setting that is off by default), and shows nothing about asking otherwise.
+  The payload's keys are the wire contract; renaming one blanks the glance
+  without an error anywhere (`tests/test_watch_contract.py` catches it).
 
 ## Checks
 

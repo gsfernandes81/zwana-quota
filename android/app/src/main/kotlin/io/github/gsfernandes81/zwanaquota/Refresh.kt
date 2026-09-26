@@ -183,7 +183,8 @@ class Refresher(context: Context) {
     private fun push(reading: Reading, live: Boolean, now: Instant) {
         val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, live, now)
         val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
-        val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS)
+        val canAsk = store.watchEnabled && store.watchCanAsk
+        val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk)
         store.lastPush = now.epochSecond
         store.note("watch", Garmin.send(app, payload).joinToString("; "))
     }
@@ -351,6 +352,8 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 )
             }
             store.note("worker", "ran ($trigger)")
+            // The listener, if it should be running and the system stopped it.
+            WatchListener.sync(applicationContext, "worker")
         } catch (e: Exception) {
             // A failure here is drawn and noted, never retried in a loop: the
             // next tap or the next period is the retry.
@@ -377,6 +380,7 @@ object Work {
     /** The watch-only periodic send before the widget had one of its own. */
     private const val OLD_WATCH = "watch-every-30m"
     private const val SWITCH = "data-switch"
+    private const val ASKED = "watch-asked"
 
     fun refresh(context: Context, force: Boolean, trigger: String) = enqueue(context, REFRESH, force, false, trigger)
 
@@ -389,6 +393,9 @@ object Work {
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
+
+    /** The watch asked for a reading: read now and send it back. */
+    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

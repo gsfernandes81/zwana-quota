@@ -17,10 +17,24 @@ phone stays the client and the watch is sent the result, over Bluetooth,
 through Garmin Connect. That is the Connect IQ Mobile SDK
 (`com.garmin.connectiq:ciq-companion-app-sdk`, on Maven Central).
 
-The watch cannot ask for a reading either. The SDK has a binder service that
-would let Garmin Connect wake the companion for a watch-originated message,
-and its javadoc marks it "DO NOT USE without prior approval from Garmin". So
-the phone pushes, on its own schedule.
+The phone pushes, on its own schedule. The watch can also ask, but only
+with help: Garmin Connect hands a watch's message only to a companion that
+is running and listening. The SDK has a binder service that would let Garmin
+Connect wake the companion instead, and its javadoc marks it "DO NOT USE
+without prior approval from Garmin".
+
+So asking is a setting, off by default: **Let the watch ask for a reading**.
+While it (and sending) is on, `WatchListener` runs as a foreground service
+of type `connectedDevice` holding the SDK's app-event listener, re-registered
+every 15 minutes in case Garmin Connect restarted, and started again at boot
+and after an update. A message from the watch app enqueues a read-and-send,
+at most one per 20 seconds. The app does not ask for permission to post
+notifications, so on Android 13+ the service's notification is not shown.
+
+The watch offers to ask only when the phone's last reading says it is
+listening (the payload's `ask`), so the setting is also what shows the offer:
+with it off, nothing on the watch mentions asking. Turning sending off with
+asking on sends one last reading, which withdraws the offer.
 
 ## Decisions
 

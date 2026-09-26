@@ -27,7 +27,13 @@
     <string name="login_privacy">Kept on this phone only, encrypted by the Android Keystore. Never backed up.</string>
 
     <string name="send_to_watch">Send to my watch</string>
-    <string name="send_to_watch_detail">Every 30 minutes, and whenever you tap the widget.</string>
+    <string name="send_to_watch_detail">Every 15 minutes while the screen is on, at least every 30 minutes otherwise, and whenever you tap the widget.</string>
+    <string name="watch_can_ask">Let the watch ask for a reading</string>
+    <string name="watch_can_ask_detail">Press START on the watch app to get a fresh reading. Keeps a small listener running; Android may show it as a silent notification.</string>
+    <string name="listener_channel">Watch listener</string>
+    <string name="listener_title">Listening for your watch</string>
+    <string name="listener_text">So the watch can ask for a fresh reading.</string>
+    <string name="row_listener">Watch asks</string>
     <string name="send_now">Send now</string>
     <string name="check_watch">Check watch</string>
     <string name="checking">Checking…</string>

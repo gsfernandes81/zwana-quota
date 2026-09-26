@@ -179,6 +179,12 @@ module Quota {
         return ["@" + at, at];
     }
 
+    // Whether the phone said it is listening for the watch to ask. Only a
+    // true Boolean counts: a phone that never sent `ask` is not listening.
+    function canAsk(d as Dictionary?) as Boolean {
+        return d != null && d.get("ask") == true;
+    }
+
     function figure(d as Dictionary?) as String {
         return (d == null) ? "quota ?" : str(d, "fig");
     }

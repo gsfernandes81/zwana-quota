@@ -18,6 +18,17 @@ class QuotaView extends WatchUi.View {
         var big = Graphics.FONT_MEDIUM;
         var small = Graphics.FONT_XTINY;
         var lines = Quota.more(d);
+        // Asking for a reading, only when the phone said it is listening.
+        // On a view that already has a status line the read time goes to
+        // make room: the status says the reading's age, and five lines
+        // under the Solar's sub-window would run off the round screen.
+        var asking = Ask.line(d);
+        if (asking != null) {
+            if (lines.size() >= 4) {
+                lines = lines.slice(0, lines.size() - 1);
+            }
+            lines.add(asking as String);
+        }
 
         var height = dc.getFontHeight(big) + lines.size() * dc.getFontHeight(small);
         var y = (dc.getHeight() - height) / 2;

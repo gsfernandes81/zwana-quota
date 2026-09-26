@@ -119,6 +119,46 @@ object Garmin {
         }
     }
 
+    /**
+     * Listen for the watch app on every paired watch, calling [asked] (on
+     * the main thread) when it sends anything -- asking for a reading is the
+     * only thing it sends. Registering again replaces the listener, so this
+     * is safe to repeat, which is how a watch paired later or a Garmin
+     * Connect restart is picked up. Returns what happened, in words.
+     */
+    fun listen(context: Context, asked: (String) -> Unit): String {
+        val iq = ready(context) ?: return state
+        val devices = try {
+            iq.knownDevices.orEmpty()
+        } catch (e: Exception) {
+            return "cannot list watches: ${e.javaClass.simpleName}"
+        }
+        if (devices.isEmpty()) return "no watch is paired with Garmin Connect"
+        val app = IQApp(APP_ID)
+        val listener = ConnectIQ.IQApplicationEventListener { device, _, message, status ->
+            if (status == ConnectIQ.IQMessageStatus.SUCCESS && !message.isNullOrEmpty()) {
+                asked(device?.friendlyName ?: "a watch")
+            }
+        }
+        val outcome = AtomicReference<String>()
+        val done = CountDownLatch(1)
+        main.post {
+            outcome.set(
+                devices.joinToString("; ") { device ->
+                    try {
+                        iq.registerForAppEvents(device, app, listener)
+                        "${device.friendlyName}: listening"
+                    } catch (e: Exception) {
+                        "${device.friendlyName}: not listening (${e.javaClass.simpleName})"
+                    }
+                },
+            )
+            done.countDown()
+        }
+        done.await(10, TimeUnit.SECONDS)
+        return outcome.get() ?: "no answer registering"
+    }
+
     private fun statusOf(iq: ConnectIQ, device: IQDevice): String = try {
         iq.getDeviceStatus(device)?.name ?: "UNKNOWN"
     } catch (e: Exception) {

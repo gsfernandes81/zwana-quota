@@ -7,6 +7,19 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Only for "Let the watch ask for a reading": Garmin Connect hands a
+         watch's message only to a companion that is running, so the app
+         runs a foreground service while that is on (WatchListener). Its
+         type is connectedDevice, which Android 14 allows only to an app
+         declaring one of a few permissions; CHANGE_NETWORK_STATE is the one
+         that grants nothing this app uses otherwise. Started again at boot
+         and after an update. No POST_NOTIFICATIONS: without it, Android 13+
+         runs the service without showing its notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- No backups and no device transfer: the login is encrypted with a key
          that stays in this phone's Keystore, so a copy elsewhere is noise at
          best and a leak at worst. -->
@@ -36,6 +49,20 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@style/Theme.Zwana.Confirm" />
+
+        <service
+            android:name=".WatchListener"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".ListenerRestart"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".QuotaWidget"

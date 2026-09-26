@@ -69,6 +69,8 @@ class SettingsActivity : AppCompatActivity() {
     private val password by view<TextInputEditText>(R.id.password)
     private val watchSwitch by view<MaterialSwitch>(R.id.watch_switch)
     private val watchStatus by view<TextView>(R.id.watch_status)
+    private val watchAskSwitch by view<MaterialSwitch>(R.id.watch_ask_switch)
+    private val watchAskDetail by view<TextView>(R.id.watch_ask_detail)
     private val watchCheck by view<TextView>(R.id.watch_check)
     private val diagnosticsBody by view<View>(R.id.diagnostics_body)
     private val diagnosticsSummary by view<TextView>(R.id.diagnostics_summary)
@@ -138,7 +140,20 @@ class SettingsActivity : AppCompatActivity() {
             store.watchEnabled = on
             Work.schedule(this)
             store.note("watch", if (on) "switched on" else "switched off")
-            if (on) Work.pushNow(this)
+            // Switched off with asking on, one last send tells the watch to
+            // stop offering to ask: nothing will be listening.
+            if (on || store.watchCanAsk) Work.pushNow(this)
+            WatchListener.sync(this, "settings")
+            render()
+        }
+        watchAskSwitch.isChecked = store.watchCanAsk
+        watchAskSwitch.setOnCheckedChangeListener { _, on ->
+            store.watchCanAsk = on
+            store.note("listener", if (on) "switched on" else "switched off")
+            WatchListener.sync(this, "settings")
+            // The watch learns whether to offer asking from the next reading
+            // it is sent, so send one now.
+            if (store.watchEnabled) Work.pushNow(this)
             render()
         }
         findViewById<MaterialButton>(R.id.send_now).setOnClickListener { Work.pushNow(this) }
@@ -269,6 +284,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderWatch() {
+        // Asking needs sending: with sending off, the second switch is greyed.
+        watchAskSwitch.isEnabled = store.watchEnabled
+        watchAskDetail.isEnabled = store.watchEnabled
         val last = readable(store.notes()["watch"])
         watchStatus.text = when {
             last != null -> last
@@ -289,6 +307,7 @@ class SettingsActivity : AppCompatActivity() {
             R.string.row_portal to (readable(notes["read"]) ?: getString(R.string.nothing_yet)),
             R.string.row_session to (readable(notes["session"]) ?: getString(R.string.nothing_yet)),
             R.string.row_watch to (readable(notes["watch"]) ?: getString(R.string.nothing_yet)),
+            R.string.row_listener to (readable(notes["listener"]) ?: getString(R.string.nothing_yet)),
             R.string.row_background to (readable(notes["worker"]) ?: getString(R.string.nothing_yet)),
             R.string.row_garmin to Garmin.state,
             R.string.row_battery to getString(if (unrestricted) R.string.battery_free else R.string.battery_held),

@@ -213,6 +213,16 @@ straight away, then every 15 minutes while the phone's screen is on and at
 least every 30 minutes while it is off, and on every tap of the widget.
 Switched off, the SDK is never touched.
 
+**Asking from the watch.** Switch on **Let the watch ask for a reading** as
+well, and the watch app's full view gains a last line, `START: refresh`:
+press START (or tap) and the phone reads the portal and sends the result,
+usually within ten seconds. The watch says `asking phone...` meanwhile, and
+`no answer` after a minute. With the setting off the watch shows none of
+this. It keeps a small listener running on the phone (Garmin Connect only
+delivers a watch's message to an app that is running), so set the app's
+battery use to Unrestricted or One UI may stop it; the diagnostics' "Watch
+asks" row says whether it is listening.
+
 ## First install: what to check, in order
 
 The settings screen is the diagnostics screen: nobody using this has logcat,

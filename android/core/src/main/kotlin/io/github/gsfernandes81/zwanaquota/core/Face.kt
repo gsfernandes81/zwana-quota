@@ -161,11 +161,23 @@ data class Face(
  *
  * The watch works out staleness itself, from `ts`: it never trusts `live`,
  * which was true when the phone sent it and says nothing about now.
+ *
+ * `ask` says whether the phone is listening for the watch to ask for a
+ * reading. The watch offers to ask only when it is true, so the setting that
+ * turns the listener on is also what shows the offer: nothing on the watch
+ * mentions asking unless the phone would answer.
  */
 object WatchPayload {
     const val VERSION = 1
 
-    fun build(doc: Document, face: Face, now: Instant, sequence: Int, everySeconds: Int): HashMap<String, Any> =
+    fun build(
+        doc: Document,
+        face: Face,
+        now: Instant,
+        sequence: Int,
+        everySeconds: Int,
+        canAsk: Boolean = false,
+    ): HashMap<String, Any> =
         hashMapOf(
             "v" to VERSION,
             "n" to sequence,
@@ -183,6 +195,7 @@ object WatchPayload {
             "share" to Format.percent(doc.remainderBytes.toDouble() / maxOf(1L, doc.poolBytes)),
             "gfig" to Format.size(doc.grantBytes),
             "level" to face.level.word,
+            "ask" to canAsk,
         )
 
     private fun kib(bytes: Long): Int = (maxOf(0L, bytes) / 1024).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()

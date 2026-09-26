@@ -88,6 +88,19 @@ class Store(context: Context) {
         get() = prefs.getBoolean("watch", false)
         set(value) = prefs.edit().putBoolean("watch", value).apply()
 
+    /**
+     * Whether the watch may ask for a reading. Only means anything with
+     * [watchEnabled] on; [WatchListener] runs only while both are.
+     */
+    var watchCanAsk: Boolean
+        get() = prefs.getBoolean("watchCanAsk", false)
+        set(value) = prefs.edit().putBoolean("watchCanAsk", value).apply()
+
+    /** When the watch last asked, in epoch seconds: so a burst of presses is one read. */
+    var lastAsk: Long
+        get() = prefs.getLong("lastAsk", 0)
+        set(value) = prefs.edit().putLong("lastAsk", value).apply()
+
     /** When the watch was last sent a reading, in epoch seconds; 0 for never. */
     var lastPush: Long
         get() = prefs.getLong("lastPush", 0)
