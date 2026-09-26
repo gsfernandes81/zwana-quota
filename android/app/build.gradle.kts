@@ -29,10 +29,15 @@ android {
     signingConfigs {
         if (keystore != null) {
             create("release") {
+                // A keystore made without a password is opened with an empty
+                // one: Java reads that, and refuses a missing (null) one. So
+                // an unset password is empty, the key's password is the
+                // store's, and the alias is the README's.
+                val store = System.getenv("ANDROID_KEYSTORE_PASSWORD").orEmpty()
                 storeFile = file(keystore)
-                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                storePassword = store
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "zwana"
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.takeIf { it.isNotEmpty() } ?: store
             }
         }
     }

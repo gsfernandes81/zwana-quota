@@ -8,9 +8,10 @@
 # tests `make android-test` runs -- so an APK is never built from a port that
 # has drifted from the Python.
 #
-# Signing: a stable key from the repository secrets ANDROID_KEYSTORE_BASE64,
-# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD, so
-# each build installs over the last. Without them a key is minted for the run,
+# Signing: a stable key from the repository secret ANDROID_KEYSTORE_BASE64
+# (and ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# only if the keystore has a password or another alias), so each build
+# installs over the last. Without them a key is minted for the run,
 # and that build will not upgrade over any other: uninstall first. The repo is
 # public, so the keystore is only ever a secret, never a file.
 
@@ -58,30 +59,29 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          store="$RUNNER_TEMP/release.jks"
+          store="$RUNNER_TEMP/release.p12"
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "Signing with the keystore from the repository secrets."
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$store"
-            {
-              echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
-              echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS"
-              echo "ANDROID_KEY_PASSWORD=${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}"
-            } >> "$GITHUB_ENV"
           else
             echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: this APK is signed with a key minted for this run, and will not install over any other build. See android/README.md."
-            password="$(openssl rand -hex 24)"
-            echo "::add-mask::$password"
-            keytool -genkeypair -noprompt -keystore "$store" -storetype PKCS12 \
-              -storepass "$password" -keypass "$password" -alias zwana \
-              -keyalg RSA -keysize 4096 -validity 10000 \
-              -dname "CN=zwana quota (minted for run ${{ github.run_id }})"
-            {
-              echo "ANDROID_KEYSTORE_PASSWORD=$password"
-              echo "ANDROID_KEY_ALIAS=zwana"
-              echo "ANDROID_KEY_PASSWORD=$password"
-            } >> "$GITHUB_ENV"
+            # Minted exactly as android/README.md makes yours -- openssl, no
+            # password, alias zwana -- so every run without the secret also
+            # proves that a keystore made that way signs.
+            openssl req -x509 -newkey rsa:4096 -keyout "$RUNNER_TEMP/k.pem" -out "$RUNNER_TEMP/c.pem" \
+              -days 10000 -nodes -subj "/CN=zwana quota (minted for run ${{ github.run_id }})" 2>/dev/null
+            openssl pkcs12 -export -in "$RUNNER_TEMP/c.pem" -inkey "$RUNNER_TEMP/k.pem" \
+              -name zwana -out "$store" -passout pass:
+            rm -f "$RUNNER_TEMP/k.pem" "$RUNNER_TEMP/c.pem"
           fi
-          echo "ANDROID_KEYSTORE_FILE=$store" >> "$GITHUB_ENV"
+          # Passwords and the alias are optional: unset means no password and
+          # the alias zwana (android/app/build.gradle.kts).
+          {
+            echo "ANDROID_KEYSTORE_FILE=$store"
+            echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+            echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
 
       - name: Build the APK
         run: |

@@ -57,20 +57,25 @@ cd ~/zwana-quota                            # the checkout: keys here are gitign
 openssl req -x509 -newkey rsa:4096 -keyout zwana-key.pem -out zwana-cert.pem \
         -days 10000 -nodes -subj "/CN=zwana quota"
 openssl pkcs12 -export -in zwana-cert.pem -inkey zwana-key.pem \
-        -name zwana -out zwana.p12          # asks for a password: remember it
+        -name zwana -out zwana.p12          # Enter twice for no password
 rm zwana-key.pem zwana-cert.pem             # the .p12 holds both now
 base64 -w0 zwana.p12                        # the value of ANDROID_KEYSTORE_BASE64
 ```
 
-In the repository's Settings → Secrets and variables → Actions, add these as
-**repository** secrets (the APK job uses no environment):
+In the repository's Settings → Secrets and variables → Actions, add it as a
+**repository** secret (the APK job uses no environment):
 
 | name | value |
 |---|---|
-| `ANDROID_KEYSTORE_BASE64` | the `base64 -w0` output |
-| `ANDROID_KEYSTORE_PASSWORD` | the password you gave `openssl pkcs12` |
-| `ANDROID_KEY_ALIAS` | `zwana` |
-| `ANDROID_KEY_PASSWORD` | the same password (optional: the job falls back to it) |
+| `ANDROID_KEYSTORE_BASE64` | the `base64 -w0` output; the only one needed |
+| `ANDROID_KEYSTORE_PASSWORD` | only if you gave `openssl pkcs12` a password |
+| `ANDROID_KEY_ALIAS` | only if you used a `-name` other than `zwana` |
+| `ANDROID_KEY_PASSWORD` | only if it differs from the keystore's |
+
+A keystore without a password is protected by where it is kept and nothing
+else: here, the gitignored checkout on the phone and a repository secret.
+CI's own fallback key is made the same way, so every build without the
+secret also proves that a password-less keystore signs.
 
 The repository is public, so the keystore reaches CI only as secrets. In the
 checkout it is safe: `*.p12`, `*.pem`, `*.der`, `*.jks` and `*.b64` are all
