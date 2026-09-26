@@ -156,8 +156,8 @@ and what the diagnostics screen will show if it is wrong:
 
 - that `sendMessage` reaches a **sideloaded** watch app (Check watch, then
   Send now);
-- the Instinct 3 product IDs in `garmin/manifest.xml`, and whether the Solar
-  50 mm has its own;
+- whether the Solar 50 mm has a product ID of its own (the three in
+  `garmin/manifest.xml` all compiled with SDK 9.2.0 on 2026-09-26);
 - that the watch's background service may write `Application.Storage` (it
   also hands the message on through `Background.exit`, which covers it if
   not);
