@@ -81,6 +81,32 @@ module Quota {
         return (v instanceof Number) ? v as Number : 0;
     }
 
+    function arr(d as Dictionary, key as String) as Array {
+        var v = d.get(key);
+        return (v instanceof Array) ? v as Array : [];
+    }
+
+    // The string at [i], or "" for anything else there or nothing at all.
+    function item(a as Array, i as Number) as String {
+        if (i < 0 || i >= a.size()) {
+            return "";
+        }
+        var v = a[i];
+        return (v instanceof String) ? v as String : "";
+    }
+
+    // Whether the phone sent the data session (`dat`): only then are there
+    // pages for it.
+    function hasSession(d as Dictionary?) as Boolean {
+        return d != null && str(d, "dat").length() > 0;
+    }
+
+    // Whether the phone lets the watch switch data and take devices off.
+    // Only a true Boolean counts, as for `ask`.
+    function canControl(d as Dictionary?) as Boolean {
+        return d != null && d.get("ctl") == true && hasSession(d);
+    }
+
     function str(d as Dictionary, key as String) as String {
         var v = d.get(key);
         return (v instanceof String) ? v as String : "";
@@ -100,12 +126,6 @@ module Quota {
         }
         var h = hour % 12;
         return (h == 0 ? 12 : h).toString() + ":" + min + (hour < 12 ? " am" : " pm");
-    }
-
-    // When the grant lands, as the phone's widget says it: 00:00 hrs on a
-    // 24-hour clock, 12:00 am on a 12-hour one.
-    function resetClock(epoch as Number) as String {
-        return hour24() ? clock(epoch) + " hrs" : clock(epoch);
     }
 
     // The next reset still ahead: the one the phone sent, moved on by whole
@@ -189,22 +209,4 @@ module Quota {
         return (d == null) ? "quota ?" : str(d, "fig");
     }
 
-    // The full view's lines, below the figure.
-    function more(d as Dictionary?) as Array<String> {
-        if (d == null) {
-            return ["no reading yet", "send one from the", "zwana quota app"];
-        }
-        var lines = [] as Array<String>;
-        var m = mark(d);
-        if (m != null) {
-            lines.add(m as String);
-        }
-        // After the reset the share is yesterday's, and says so.
-        lines.add(str(d, "share") + (m != null && m.equals("new day") ? " left yesterday" : " of today left"));
-        var grant = str(d, "gfig");
-        var at = resetClock(nextReset(d));
-        lines.add(grant.length() > 0 ? "+" + grant + " at " + at : "resets at " + at);
-        lines.add("read " + clock(num(d, "ts")) + ", #" + num(d, "n").toString());
-        return lines;
-    }
 }

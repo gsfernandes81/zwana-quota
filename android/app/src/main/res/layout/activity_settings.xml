@@ -275,6 +275,19 @@
                         style="@style/Zwana.Support"
                         android:text="@string/watch_can_ask_detail" />
 
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/watch_control_switch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/watch_can_control"
+                        android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                    <TextView
+                        android:id="@+id/watch_control_detail"
+                        style="@style/Zwana.Support"
+                        android:text="@string/watch_can_control_detail" />
+
                     <TextView
                         android:id="@+id/watch_status"
                         style="@style/Zwana.Support"

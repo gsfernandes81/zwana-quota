@@ -71,6 +71,8 @@ class SettingsActivity : AppCompatActivity() {
     private val watchStatus by view<TextView>(R.id.watch_status)
     private val watchAskSwitch by view<MaterialSwitch>(R.id.watch_ask_switch)
     private val watchAskDetail by view<TextView>(R.id.watch_ask_detail)
+    private val watchControlSwitch by view<MaterialSwitch>(R.id.watch_control_switch)
+    private val watchControlDetail by view<TextView>(R.id.watch_control_detail)
     private val watchCheck by view<TextView>(R.id.watch_check)
     private val diagnosticsBody by view<View>(R.id.diagnostics_body)
     private val diagnosticsSummary by view<TextView>(R.id.diagnostics_summary)
@@ -153,6 +155,15 @@ class SettingsActivity : AppCompatActivity() {
             WatchListener.sync(this, "settings")
             // The watch learns whether to offer asking from the next reading
             // it is sent, so send one now.
+            if (store.watchEnabled) Work.pushNow(this)
+            render()
+        }
+        watchControlSwitch.isChecked = store.watchCanControl
+        watchControlSwitch.setOnCheckedChangeListener { _, on ->
+            store.watchCanControl = on
+            store.note("listener", if (on) "watch may switch data" else "watch may not switch data")
+            // As with asking: the watch shows the controls only once a
+            // reading says it may.
             if (store.watchEnabled) Work.pushNow(this)
             render()
         }
@@ -287,6 +298,8 @@ class SettingsActivity : AppCompatActivity() {
         // Asking needs sending: with sending off, the second switch is greyed.
         watchAskSwitch.isEnabled = store.watchEnabled
         watchAskDetail.isEnabled = store.watchEnabled
+        watchControlSwitch.isEnabled = store.watchEnabled && store.watchCanAsk
+        watchControlDetail.isEnabled = store.watchEnabled && store.watchCanAsk
         val last = readable(store.notes()["watch"])
         watchStatus.text = when {
             last != null -> last

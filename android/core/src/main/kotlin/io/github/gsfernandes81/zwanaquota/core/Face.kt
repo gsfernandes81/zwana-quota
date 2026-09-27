@@ -162,6 +162,8 @@ data class Face(
  * The watch works out staleness itself, from `ts`: it never trusts `live`,
  * which was true when the phone sent it and says nothing about now.
  *
+ * `session` is [WatchSession.fields], when the session is known.
+ *
  * `ask` says whether the phone is listening for the watch to ask for a
  * reading. The watch offers to ask only when it is true, so the setting that
  * turns the listener on is also what shows the offer: nothing on the watch
@@ -177,8 +179,9 @@ object WatchPayload {
         sequence: Int,
         everySeconds: Int,
         canAsk: Boolean = false,
+        session: Map<String, Any> = emptyMap(),
     ): HashMap<String, Any> =
-        hashMapOf(
+        hashMapOf<String, Any>(
             "v" to VERSION,
             "n" to sequence,
             "ts" to epochInt(doc.readingTaken),
@@ -196,7 +199,7 @@ object WatchPayload {
             "gfig" to Format.size(doc.grantBytes),
             "level" to face.level.word,
             "ask" to canAsk,
-        )
+        ).apply { putAll(session) }
 
     private fun kib(bytes: Long): Int = (maxOf(0L, bytes) / 1024).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 

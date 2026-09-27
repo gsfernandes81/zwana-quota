@@ -174,3 +174,23 @@ private fun started(on: Boolean, provider: Int) = buildJsonObject {
 }
 
 private fun ip(address: String) = buildJsonObject { put("ip", JsonPrimitive(address)) }
+
+/**
+ * Take another device off the session: [ipToRemove] only, and only if it is
+ * still a joined device other than this phone and other than the one that
+ * switched data on (which leaves only by data going off, [SessionAction]).
+ * Checked against the session as it is now, as [apply] is, so a list drawn
+ * minutes ago cannot remove a device that has since become something else.
+ */
+fun PortalClient.remove(ipToRemove: String): Session {
+    val now = session()
+    if (!now.removable(ipToRemove)) {
+        throw SessionChanged("$ipToRemove is not a device this phone can take off now; nothing was done")
+    }
+    send("Device/RemoveDevice", ip(ipToRemove))
+    return session()
+}
+
+/** Whether [address] is a joined device other than this phone and the primary: what [remove] may take off. */
+fun Session.removable(address: String): Boolean =
+    on && Names.reverseName(address) != null && address in joined && address != myIp && address != primaryIp

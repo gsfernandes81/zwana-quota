@@ -30,6 +30,8 @@
     <string name="send_to_watch_detail">Every 15 minutes while the screen is on, at least every 30 minutes otherwise, and whenever you tap the widget.</string>
     <string name="watch_can_ask">Let the watch ask for a reading</string>
     <string name="watch_can_ask_detail">Press START on the watch app to get a fresh reading. Keeps a small listener running; Android may show it as a silent notification.</string>
+    <string name="watch_can_control">Let the watch switch data and disconnect devices</string>
+    <string name="watch_can_control_detail">The watch app gets a data on/off page and can take other devices off, asking first. The phone checks each request against the portal before sending it.</string>
     <string name="listener_channel">Watch listener</string>
     <string name="listener_title">Listening for your watch</string>
     <string name="listener_text">So the watch can ask for a fresh reading.</string>

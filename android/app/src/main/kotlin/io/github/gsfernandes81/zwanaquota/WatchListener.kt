@@ -16,6 +16,7 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import io.github.gsfernandes81.zwanaquota.core.WatchCommand
 import java.time.Instant
 
 /**
@@ -80,21 +81,34 @@ class WatchListener : Service() {
 
     private fun listen(why: String) {
         Thread {
-            val outcome = Garmin.listen(this) { watch -> asked(watch) }
+            val outcome = Garmin.listen(this) { watch, message -> asked(watch, message) }
             if (outcome != lastOutcome) Store(this).note("listener", "$outcome ($why)")
             lastOutcome = outcome
         }.start()
     }
 
-    private fun asked(watch: String) {
+    private fun asked(watch: String, message: List<Any?>) {
         val store = Store(this)
         if (!wanted(store)) return
+        val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
         val now = Instant.now().epochSecond
-        // A burst of presses is one read.
-        if (now - store.lastAsk < ASK_GAP_SECONDS) return
-        store.lastAsk = now
-        store.note("listener", "$watch asked for a reading")
-        Work.askedByWatch(this)
+        when (command) {
+            WatchCommand.Refresh -> {
+                // A burst of presses is one read.
+                if (now - store.lastAsk < ASK_GAP_SECONDS) return
+                store.lastAsk = now
+                store.note("listener", "$watch asked for a reading")
+                Work.askedByWatch(this)
+            }
+            else -> {
+                // Switching and removing only with their own setting on. The
+                // watch only offers them then, so this refuses a stale watch
+                // that still thinks it may.
+                if (!store.watchCanControl) return store.note("listener", "$watch asked to $command; not allowed in settings")
+                store.note("listener", "$watch asked to $command")
+                Work.fromWatch(this, command)
+            }
+        }
     }
 
     override fun onDestroy() {

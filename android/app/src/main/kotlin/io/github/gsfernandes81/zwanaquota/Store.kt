@@ -96,6 +96,14 @@ class Store(context: Context) {
         get() = prefs.getBoolean("watchCanAsk", false)
         set(value) = prefs.edit().putBoolean("watchCanAsk", value).apply()
 
+    /**
+     * Whether the watch may also switch data and take devices off. Only
+     * means anything with [watchCanAsk] on: the listener is how it asks.
+     */
+    var watchCanControl: Boolean
+        get() = prefs.getBoolean("watchCanControl", false)
+        set(value) = prefs.edit().putBoolean("watchCanControl", value).apply()
+
     /** When the watch last asked, in epoch seconds: so a burst of presses is one read. */
     var lastAsk: Long
         get() = prefs.getLong("lastAsk", 0)

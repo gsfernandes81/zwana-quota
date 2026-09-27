@@ -121,12 +121,12 @@ object Garmin {
 
     /**
      * Listen for the watch app on every paired watch, calling [asked] (on
-     * the main thread) when it sends anything -- asking for a reading is the
-     * only thing it sends. Registering again replaces the listener, so this
+     * the main thread) with whatever it sends; [WatchCommand.parse] decides
+     * what that is. Registering again replaces the listener, so this
      * is safe to repeat, which is how a watch paired later or a Garmin
      * Connect restart is picked up. Returns what happened, in words.
      */
-    fun listen(context: Context, asked: (String) -> Unit): String {
+    fun listen(context: Context, asked: (String, List<Any?>) -> Unit): String {
         val iq = ready(context) ?: return state
         val devices = try {
             iq.knownDevices.orEmpty()
@@ -137,7 +137,7 @@ object Garmin {
         val app = IQApp(APP_ID)
         val listener = ConnectIQ.IQApplicationEventListener { device, _, message, status ->
             if (status == ConnectIQ.IQMessageStatus.SUCCESS && !message.isNullOrEmpty()) {
-                asked(device?.friendlyName ?: "a watch")
+                asked(device?.friendlyName ?: "a watch", message)
             }
         }
         val outcome = AtomicReference<String>()

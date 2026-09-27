@@ -27,7 +27,10 @@ import io.github.gsfernandes81.zwanaquota.core.SessionAction
 import io.github.gsfernandes81.zwanaquota.core.SessionChanged
 import io.github.gsfernandes81.zwanaquota.core.session
 import io.github.gsfernandes81.zwanaquota.core.UrlConnectionTransport
+import io.github.gsfernandes81.zwanaquota.core.WatchCommand
 import io.github.gsfernandes81.zwanaquota.core.WatchPayload
+import io.github.gsfernandes81.zwanaquota.core.WatchSession
+import io.github.gsfernandes81.zwanaquota.core.remove
 import io.github.gsfernandes81.zwanaquota.core.apply
 import java.io.IOException
 import java.net.DatagramPacket
@@ -119,6 +122,29 @@ class Refresher(context: Context) {
         run(force = true, pushWanted, trigger, notice)
     }
 
+    /**
+     * Take one other device off the session, then read everything again so
+     * the widget and the watch show it. [remove] checks the device is still
+     * one this phone may take off.
+     */
+    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String) {
+        if (!vault.signedIn) return run(force = false, pushWanted, trigger)
+        val (client, network) = connect(Networks.path(app))
+        val notice = try {
+            store.save(client.remove(ip))
+            store.note("session", "removed $ip over ${network()} ($trigger)")
+            null
+        } catch (e: SessionChanged) {
+            store.note("session", "remove $ip not sent: ${e.message}")
+            readSession(client)
+            "changed elsewhere: nothing done"
+        } catch (e: PortalError) {
+            store.note("session", "remove $ip failed over ${network()}: ${e.message}")
+            "remove failed: ${e.message}"
+        }
+        run(force = true, pushWanted, trigger, notice)
+    }
+
     /** A client over the route [Networks.path] chose, and which route it ended up on. */
     private fun connect(path: Networks.Path): Pair<PortalClient, () -> String> {
         var network = path.label
@@ -184,7 +210,11 @@ class Refresher(context: Context) {
         val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, live, now)
         val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
         val canAsk = store.watchEnabled && store.watchCanAsk
-        val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk)
+        val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
+        val session = store.session()?.takeIf { vault.signedIn }
+            ?.let { WatchSession.fields(it, names, canControl = canAsk && store.watchCanControl) }
+            .orEmpty()
+        val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
         store.lastPush = now.epochSecond
         store.note("watch", Garmin.send(app, payload).joinToString("; "))
     }
@@ -332,8 +362,10 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         try {
             val refresher = Refresher(applicationContext)
             val action = inputData.getString(ACTION)?.let { name -> SessionAction.entries.firstOrNull { it.name == name } }
+            val remove = inputData.getString(REMOVE)
             when {
                 action != null -> refresher.switch(action, store.watchEnabled, trigger)
+                remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger)
                 inputData.getBoolean(PERIODIC, false) -> {
                     // Screen on: read, as the Tasker tile's profile does, and
                     // send the watch the result too. Screen off: nobody is
@@ -368,6 +400,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         const val TRIGGER = "trigger"
         const val ACTION = "action"
         const val PERIODIC = "periodic"
+        const val REMOVE = "remove"
     }
 }
 
@@ -391,6 +424,22 @@ object Work {
     fun switch(context: Context, action: SessionAction) {
         val input = Data.Builder().putAll(input(true, false, "widget switch")).putString(QuotaWorker.ACTION, action.name).build()
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
+        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
+    }
+
+    /**
+     * The watch asked to switch data or take a device off. KEEP, as for the
+     * widget's switch: a second press while the first is on its way is
+     * dropped, and the worker checks either against the portal first.
+     */
+    fun fromWatch(context: Context, command: WatchCommand) {
+        val data = Data.Builder().putAll(input(true, true, "watch"))
+        when (command) {
+            is WatchCommand.Act -> data.putString(QuotaWorker.ACTION, command.action.name)
+            is WatchCommand.Remove -> data.putString(QuotaWorker.REMOVE, command.ip)
+            WatchCommand.Refresh -> return askedByWatch(context)
+        }
+        val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build()
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 

@@ -15,7 +15,10 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "garmin" / "manifest.xml"
 QUOTA_MC = ROOT / "garmin" / "source" / "Quota.mc"
 GARMIN_KT = ROOT / "android" / "app" / "src" / "main" / "kotlin" / "io" / "github" / "gsfernandes81" / "zwanaquota" / "Garmin.kt"
-FACE_KT = ROOT / "android" / "core" / "src" / "main" / "kotlin" / "io" / "github" / "gsfernandes81" / "zwanaquota" / "core" / "Face.kt"
+CORE = ROOT / "android" / "core" / "src" / "main" / "kotlin" / "io" / "github" / "gsfernandes81" / "zwanaquota" / "core"
+FACE_KT = CORE / "Face.kt"
+WATCH_KT = CORE / "Watch.kt"
+WATCH_SOURCES = sorted((ROOT / "garmin" / "source").glob("*.mc"))
 
 
 def payload_block() -> str:
@@ -31,11 +34,19 @@ def test_the_phone_sends_to_the_app_the_watch_installs():
     assert watch.group(1) == phone.group(1)
 
 
+def session_block() -> str:
+    text = WATCH_KT.read_text()
+    start = text.index("object WatchSession")
+    return text[start : text.index("\n}\n", start)]
+
+
 def test_every_key_the_watch_reads_is_one_the_phone_sends():
-    sent = set(re.findall(r'"(\w+)"\s+to\b', payload_block()))
-    read = set(re.findall(r'(?:num|str)\(\w+,\s*"(\w+)"\)|\.get\("(\w+)"\)', QUOTA_MC.read_text()))
+    blocks = payload_block() + session_block()
+    sent = set(re.findall(r'"(\w+)"\s+to\b', blocks)) | set(re.findall(r'out\["(\w+)"\]', blocks))
+    source = "\n".join(p.read_text() for p in WATCH_SOURCES)
+    read = set(re.findall(r'(?:num|str|arr)\(\w+,\s*"(\w+)"\)|\.get\("(\w+)"\)', source))
     read = {a or b for a, b in read}
-    assert read, "found no keys in Quota.mc"
+    assert read, "found no keys in the watch's sources"
     assert read <= sent, f"read by the watch, never sent: {sorted(read - sent)}"
 
 
