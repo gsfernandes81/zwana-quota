@@ -103,6 +103,12 @@ class QuotaView extends WatchUi.View {
             y = below + 1;
         }
         var text = Draw.fit(dc, font, ladder as Array<String>, Draw.chord(dc, y, fh));
+        // Nothing fits down at the narrow bottom: try just under the page's
+        // content, where the round screen is wider.
+        if (text == null && below + 3 < y) {
+            y = below + 3;
+            text = Draw.fit(dc, font, ladder as Array<String>, Draw.chord(dc, y, fh));
+        }
         if (text == null) {
             return;
         }
@@ -192,7 +198,7 @@ class QuotaView extends WatchUi.View {
         var w = dc.getWidth();
         var on = Quota.str(d, "dat").equals("on");
         var act = Quota.canControl(d) ? Quota.str(d, "act") : "";
-        title(dc, ["CONNECTION", "DATA"], sub);
+        title(dc, ["CONNECTION", "INTERNET"], sub);
 
         // The sub-window: the power symbol when START switches, else a
         // filled dot for on and a ring for off.

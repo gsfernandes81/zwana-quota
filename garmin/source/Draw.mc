@@ -121,21 +121,21 @@ module Draw {
     }
 
     // Page dots down the left edge, the current one filled, sized to the
-    // screen: 3px dots 9px apart on the Solar.
+    // screen: radius 3, 10px apart on the Solar.
     function pageDots(dc as Graphics.Dc, page as Number, count as Number) as Void {
         if (count < 2) {
             return;
         }
         var h = dc.getHeight();
-        var r = h / 60 > 2 ? h / 60 : 2;
-        var gap = h / 20;
+        var r = h / 60 > 3 ? h / 60 : 3;
+        var gap = 3 * r + 1;
         var y = h / 2 - (count - 1) * gap / 2;
         var x = 2 * r + 2;
         for (var i = 0; i < count; i++) {
             if (i == page) {
                 dc.fillCircle(x, y + i * gap, r);
             } else {
-                dc.drawCircle(x, y + i * gap, r - 1);
+                dc.drawCircle(x, y + i * gap, r);
             }
         }
     }
