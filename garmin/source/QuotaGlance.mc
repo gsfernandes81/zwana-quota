@@ -25,15 +25,12 @@ class QuotaGlance extends WatchUi.GlanceView {
         var width = dc.getWidth();
         var font = Graphics.FONT_GLANCE;
         var line = dc.getFontHeight(font);
-        // The bar's radius: 9px tall on the Solar's glance, 7 on a short one.
-        var r = (dc.getHeight() >= 56) ? 4 : 3;
+        // The bar's height: 8px on the Solar's glance, 6 on a short one.
+        var bh = (dc.getHeight() >= 56) ? 8 : 6;
         var gap = 3;
-        var top = (dc.getHeight() - 2 * line - (2 * r + 1) - 2 * gap) / 2;
+        var top = (dc.getHeight() - 2 * line - bh - 2 * gap) / 2;
         if (top < 0) {
             top = 0;
-        }
-        if (dc has :setAntiAlias) {
-            dc.setAntiAlias(true);
         }
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
 
@@ -50,10 +47,10 @@ class QuotaGlance extends WatchUi.GlanceView {
 
         // The bar, as Body Battery draws its own (Draw.bar).
         var y = top + line + gap;
-        Draw.bar(dc, 0, y, width, r, Quota.left(d));
+        Draw.bar(dc, 0, y, width, bh, Quota.left(d));
 
         // What is left, and when the grant lands.
-        y += 2 * r + 1 + gap;
+        y += bh + gap;
         var figure = Quota.figure(d);
         dc.drawText(0, y, font, figure, Graphics.TEXT_JUSTIFY_LEFT);
         var room = width - dc.getTextWidthInPixels(figure, font) - 6;

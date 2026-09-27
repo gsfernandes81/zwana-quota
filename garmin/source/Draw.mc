@@ -4,51 +4,39 @@ import Toybox.Math;
 import Toybox.WatchUi;
 
 // The shapes the glance and the pages share, drawn the way the Instinct's
-// own screens draw theirs: rounded ends on every bar and ring, white on
-// black, and the round sub-window (top right on the Solar, beside the START
+// own screens draw theirs: square ends and right angles, crisp on its MIP
+// screen, white on black, and the round sub-window (top right on the Solar, beside the START
 // button) used for one thing at a time -- a gauge, a count, or what START
 // does -- white with black inside, as the watch's own sub-window is.
 //
 // Every size is worked out from what it is given; nothing assumes a screen.
 (:glance)
 module Draw {
-    // The Body Battery bar: what is left as a thick bar from the left, what
-    // has gone as a thin line after it, both with round ends, and the thin
-    // line starting under the thick one's end so there is no notch between
-    // them. [r] is the thick bar's radius: it is 2r+1 pixels tall. [share]
-    // is 0 to 1, or below 0 for no reading, drawn as the thin line alone.
-    function bar(dc as Graphics.Dc, x as Number, y as Number, w as Number, r as Number, share as Float) as Void {
-        var cy = y + r;
-        var t = (r >= 4) ? 1 : 0;           // the thin line's radius: 3px, or 1px on a small bar
+    // The Body Battery bar, as the watch draws its own on a MIP screen:
+    // square ends and right angles, pixel-crisp. What is left is a thick bar
+    // from the left; then a small gap; then what has gone as a thin line to
+    // the right end, level with the thick bar's bottom edge. [h] is the thick
+    // bar's height; the thin line and the gap are a third of it. [share] is
+    // 0 to 1, or below 0 for no reading, drawn as the thin line alone.
+    function bar(dc as Graphics.Dc, x as Number, y as Number, w as Number, h as Number, share as Float) as Void {
+        var thin = h / 3 > 2 ? h / 3 : 2;
+        var gap = h / 3 > 2 ? h / 3 : 2;
         var fill = 0;
         if (share > 0.0) {
             fill = (share * w).toNumber();
-            if (fill < 2 * r + 1) {
-                fill = 2 * r + 1;
+            if (fill < 2) {
+                fill = 2;
             }
             if (fill > w) {
                 fill = w;
             }
         }
-        // The thin line, from under the thick bar's round end to its own.
-        var from = (fill > 0) ? x + fill - r - 1 : x + t;
-        var to = x + w - t - 1;
-        if (to > from) {
-            dc.fillRectangle(from, cy - t, to - from + 1, 2 * t + 1);
-            if (t > 0) {
-                dc.fillCircle(to, cy, t);
-                if (fill == 0) {
-                    dc.fillCircle(from, cy, t);
-                }
-            }
-        }
-        // The thick bar: a rectangle between two round ends.
         if (fill > 0) {
-            dc.fillCircle(x + r, cy, r);
-            dc.fillCircle(x + fill - r - 1, cy, r);
-            if (fill - 2 * r - 1 > 0) {
-                dc.fillRectangle(x + r, y, fill - 2 * r - 1, 2 * r + 1);
-            }
+            dc.fillRectangle(x, y, fill, h);
+        }
+        var from = (fill > 0) ? fill + gap : 0;
+        if (from < w) {
+            dc.fillRectangle(x + from, y + h - thin, w - from, thin);
         }
     }
 
@@ -73,25 +61,34 @@ module Draw {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
     }
 
-    // A ring gauge, the bar bent round: a thin full circle, and over it a
-    // thick arc from twelve o'clock, clockwise, for what is left.
+    // A ring gauge, the bar bent round: a thick arc clockwise from twelve
+    // o'clock for what is left, a small gap, and a thin arc for what has gone.
     function ring(dc as Graphics.Dc, cx as Number, cy as Number, r as Number, share as Float) as Void {
+        var gap = 10;
         dc.setPenWidth(1);
-        dc.drawCircle(cx, cy, r);
         if (share <= 0.0) {
+            dc.drawCircle(cx, cy, r);
             return;
         }
         dc.setPenWidth(4);
         if (share >= 0.995) {
             dc.drawCircle(cx, cy, r);
-        } else {
-            var end = 90 - (share * 360).toNumber();
-            if (end < 0) {
-                end += 360;
-            }
-            dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 90, end);
+            dc.setPenWidth(1);
+            return;
         }
+        var sweep = (share * 360).toNumber();
+        var end = norm(90 - sweep);
+        dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 90, end);
         dc.setPenWidth(1);
+        if (sweep + 2 * gap < 360) {
+            dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, norm(end - gap), norm(90 + gap));
+        }
+    }
+
+    // [degrees] as 0 to 359.
+    function norm(degrees as Number) as Number {
+        var d = degrees % 360;
+        return d < 0 ? d + 360 : d;
     }
 
     // A circular arrow, clockwise: an open ring with a head at its gap.

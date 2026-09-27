@@ -39,9 +39,6 @@ class QuotaView extends WatchUi.View {
     function onUpdate(dc as Graphics.Dc) as Void {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
-        if (dc has :setAntiAlias) {
-            dc.setAntiAlias(true);
-        }
         var d = Quota.last();
         if (page >= pages()) {
             page = 0;
@@ -158,10 +155,10 @@ class QuotaView extends WatchUi.View {
         y += bh + 2;
 
         // The bar, and where there is no sub-window, the share beside it.
-        var r = (w >= 300) ? 7 : 4;
+        var barH = (w >= 300) ? 14 : 8;
         var bx = w / 7;
-        Draw.bar(dc, bx, y, w - 2 * bx, r, share);
-        y += 2 * r + 1 + 3;
+        Draw.bar(dc, bx, y, w - 2 * bx, barH, share);
+        y += barH + 3;
 
         // When the grant lands.
         if (d != null) {
