@@ -399,6 +399,16 @@ def test_the_probe_log_says_what_the_launcher_gave_us(capsys):
     assert report["env"] and "PATH" in report["env"]
 
 
+def test_the_probe_log_never_holds_a_credential_and_is_private(capsys, monkeypatch):
+    """The password may come from the environment, and the probe dumps it."""
+    monkeypatch.setenv("zwana_password", "hunter2-secret")
+    monkeypatch.setenv("SOME_API_TOKEN", "tok-secret")
+    run(["--probe"], capsys)
+    text = qw.PROBE_LOG.read_text()
+    assert "hunter2-secret" not in text and "tok-secret" not in text
+    assert qw.PROBE_LOG.stat().st_mode & 0o077 == 0
+
+
 def test_the_ruler_pages_are_ten_characters_of_one_glyph_each(capsys):
     for page, tests in qw.GLYPH_PAGES.items():
         code, out, _ = run(["--probe", page], capsys)

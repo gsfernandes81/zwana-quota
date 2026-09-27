@@ -75,4 +75,24 @@ class RouteTest {
         client.request("Balance/GetForCurrentUser")
         assertEquals(1, second.calls)
     }
+
+    @Test
+    fun `once refused, the pinned way is not tried again by the same client`() {
+        var pinnedTries = 0
+        val pinned = Transport {
+            pinnedTries++
+            throw java.io.IOException("Binding socket to network 785 failed: EPERM (Operation not permitted)")
+        }
+        val direct = Transport { HttpResponse(200, emptyMap(), ByteArray(0)) }
+        val transport = FallbackTransport(pinned, direct)
+        repeat(3) { transport.exchange(HttpRequest("https://x/", "GET", emptyMap(), null)) }
+        kotlin.test.assertEquals(1, pinnedTries)
+    }
+
+    @Test
+    fun `a body is read only so far`() {
+        val big = java.io.ByteArrayInputStream(ByteArray(100_000))
+        kotlin.test.assertEquals(1000, readAtMost(big, 1000).size)
+        kotlin.test.assertEquals(5, readAtMost(java.io.ByteArrayInputStream(ByteArray(5)), 1000).size)
+    }
 }

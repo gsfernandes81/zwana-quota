@@ -67,7 +67,8 @@ class UrlConnectionTransport(
             }
             val status = connection.responseCode
             val stream: InputStream? = if (status >= 400) connection.errorStream else connection.inputStream
-            val body = stream?.use { it.readBytes() } ?: ByteArray(0)
+            // Bounded: a captive page in front of the portal is not ours to trust.
+            val body = stream?.use { readAtMost(it, MAX_BODY_BYTES) } ?: ByteArray(0)
             val headers = connection.headerFields
                 .filterKeys { it != null }
                 .map { (k, v) -> k.lowercase() to v }
@@ -78,6 +79,21 @@ class UrlConnectionTransport(
             connection.disconnect()
         }
     }
+}
+
+/** The most of a response that is read; the largest real one is tens of kilobytes. */
+const val MAX_BODY_BYTES = 8 * 1024 * 1024
+
+/** Up to [limit] bytes of [input]. InputStream.readNBytes would do, but is Android 13 and later. */
+fun readAtMost(input: InputStream, limit: Int): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(16 * 1024)
+    while (out.size() < limit) {
+        val n = input.read(buffer, 0, minOf(buffer.size, limit - out.size()))
+        if (n < 0) break
+        out.write(buffer, 0, n)
+    }
+    return out.toByteArray()
 }
 
 /**

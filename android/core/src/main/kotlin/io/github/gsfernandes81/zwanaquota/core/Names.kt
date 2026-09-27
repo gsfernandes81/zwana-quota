@@ -75,7 +75,7 @@ object Names {
         val label = full.substringBefore('.').trim()
         if (label.isEmpty() || label.any { it.isISOControl() }) return null
         val octets = ip.split('.')
-        if (octets.size == 4 && Regex(octets.joinToString("[-_.]")).containsMatchIn(full)) return null
+        if (octets.size == 4 && Regex(octets.joinToString("[-_.]") { Regex.escape(it) }).containsMatchIn(full)) return null
         return if (label == label.uppercase()) label.lowercase() else label
     }
 

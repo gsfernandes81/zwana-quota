@@ -86,6 +86,10 @@ BYTES_PER_CREDIT = 419_430_400
 
 TIMEOUT_SECONDS = 30
 
+#: The most of a response that is read. The largest real one, the allocation
+#: history, is tens of kilobytes.
+MAX_BODY_BYTES = 8 * 1024 * 1024
+
 
 class PortalError(RuntimeError):
     """Any failure talking to the portal, already stripped of secrets."""
@@ -174,7 +178,8 @@ def request(path: str, payload: Any = None) -> Any:
     req = urllib.request.Request(BASE_URL + path, data=data, headers=headers)
     try:
         with _opener.open(req, timeout=TIMEOUT_SECONDS) as response:
-            body = response.read().decode("utf-8", errors="replace")
+            # Bounded: a captive page in front of the portal is not ours to trust.
+            body = response.read(MAX_BODY_BYTES).decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         if exc.code in (301, 302, 303, 307, 308):
             raise NotAuthenticated(
@@ -215,8 +220,12 @@ def save_session() -> None:
     # Create the file with restrictive permissions *before* the jar writes to
     # it: MozillaCookieJar.save() opens with the process umask, which would
     # otherwise leave a window where the session cookie is world-readable.
-    os.close(os.open(COOKIE_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
-    _jar.save(ignore_discard=True, ignore_expires=False)
+    # Saved beside it and renamed into place, so a concurrent reader never
+    # finds the file empty and logs in again for nothing.
+    tmp = COOKIE_FILE.with_name(COOKIE_FILE.name + ".tmp")
+    os.close(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
+    _jar.save(str(tmp), ignore_discard=True, ignore_expires=False)
+    os.replace(tmp, COOKIE_FILE)
 
 
 def log_in(env_path: Path) -> None:

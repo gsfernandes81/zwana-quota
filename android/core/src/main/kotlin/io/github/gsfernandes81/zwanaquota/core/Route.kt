@@ -43,12 +43,20 @@ class FallbackTransport(
     private val second: Transport,
     private val fellBack: (IOException) -> Unit = {},
 ) : Transport {
-    override fun exchange(request: HttpRequest): HttpResponse = try {
-        first.exchange(request)
-    } catch (e: IOException) {
-        if (!refusedLocally(e)) throw e
-        fellBack(e)
-        second.exchange(request)
+    /** Once refused, the rest of this client's requests go the second way: the refusal will not change mid-read. */
+    @Volatile
+    private var refused = false
+
+    override fun exchange(request: HttpRequest): HttpResponse {
+        if (refused) return second.exchange(request)
+        return try {
+            first.exchange(request)
+        } catch (e: IOException) {
+            if (!refusedLocally(e)) throw e
+            refused = true
+            fellBack(e)
+            second.exchange(request)
+        }
     }
 
     companion object {

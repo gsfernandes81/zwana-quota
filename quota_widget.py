@@ -42,6 +42,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -303,7 +304,7 @@ def cached(max_age: float) -> dict | None:
         data = json.loads(CACHE.read_text())
     except (OSError, ValueError):
         return None
-    if not isinstance(data, dict) or "ts" not in data:
+    if not isinstance(data, dict) or not isinstance(data.get("ts"), (int, float)):
         return None
     return data if time.time() - data["ts"] <= max_age else None
 
@@ -313,12 +314,25 @@ def stale() -> dict | None:
     return cached(float("inf"))
 
 
+def _write_private(path: Path, text: str) -> None:
+    """Write *text* to *path*, readable only by this user, and whole.
+
+    Written beside it and renamed into place, so a reader -- the tile's
+    ``cached`` read racing the detached refresher -- sees the old file or the
+    new one, never an empty one.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
 def store(data: dict) -> None:
     """Persist a reading, readable only by this user."""
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     CACHE.parent.chmod(0o700)
-    os.close(os.open(CACHE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
-    CACHE.write_text(json.dumps(data))
+    _write_private(CACHE, json.dumps(data))
 
 
 def spawn_refresh() -> None:
@@ -1026,6 +1040,10 @@ def render_line(doc: dict, paint: Paint) -> str:
 
 PROBE_LOG = Path.home() / ".cache" / "zwana" / "probe.txt"
 
+#: Environment variables ``--probe`` leaves out of its report: anything that
+#: could be a credential. ``zwana_password`` may be set in the environment.
+SECRET_ENV = re.compile(r"(?i)pass|token|secret|key|cookie|auth|credential|session")
+
 #: Ten characters each, nine tests to a page. Nine because the ruler is longer
 #: than the tile and wraps to three rows of its own, which leaves nine of the
 #: twelve readable rows — a tenth test would be drawn half off the bottom.
@@ -1115,10 +1133,11 @@ def probe(page: str = "ascii") -> str:
         "ppid": os.getppid(),
         "parent_cmdline": parent,
         "cwd": os.getcwd(),
-        "env": dict(sorted(os.environ.items())),
+        # Never a secret: zwana_password can come from the environment.
+        "env": {k: v for k, v in sorted(os.environ.items()) if not SECRET_ENV.search(k)},
     }
     PROBE_LOG.parent.mkdir(parents=True, exist_ok=True)
-    PROBE_LOG.write_text(json.dumps(report, indent=2))
+    _write_private(PROBE_LOG, json.dumps(report, indent=2))
     return "\n".join(lines)
 
 

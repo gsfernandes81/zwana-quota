@@ -45,7 +45,7 @@ jobs:
       SDK_VERSION: ${{ vars.GARMIN_SDK_VERSION || '>=8.2.0' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Are the Garmin secrets set?
         id: ready
@@ -66,7 +66,7 @@ jobs:
           fi
 
       # monkeyc is a Java program.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         if: steps.ready.outputs.go == 'true'
         with:
           distribution: temurin
@@ -74,7 +74,7 @@ jobs:
 
       # Built from source through the Go module proxy, so the checksum database
       # pins exactly what runs with the Garmin password in its environment.
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.ready.outputs.go == 'true'
         with:
           go-version: 'stable'
@@ -137,9 +137,9 @@ jobs:
           cat SHA256SUMS
           # The key's fingerprint, so a build that will not install over the
           # last can be told from one signed with a different key.
-          printf '%s' "$GARMIN_DEVELOPER_KEY" | base64 -d | sha256sum | cut -c1-16 | sed 's/^/developer key sha256: /' | tee KEY-FINGERPRINT
+          printf '%s' "$GARMIN_DEVELOPER_KEY" | base64 -d | openssl pkey -inform DER -pubout -outform DER | sha256sum | cut -c1-16 | sed 's/^/developer public key sha256: /' | tee KEY-FINGERPRINT
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: steps.ready.outputs.go == 'true'
         with:
           name: zwana-quota-garmin

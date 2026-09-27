@@ -46,6 +46,22 @@ class SessionTest {
     }
 
     @Test
+    fun `a provider the portal did not state is never guessed, so data is not switched`() {
+        val noProvider = json("""{"ip": "$me", "status": "quota"}""")
+        val on = Session.from(noProvider, client(me), null)
+        assertEquals(Role.PRIMARY, on.role)
+        assertNull(on.action)
+        val off = Session.from(json("""{"ip": null, "status": "off"}"""), client(me), null)
+        assertNull(off.action)
+        assertEquals(off, Session.fromJson(off.toJson()))
+    }
+
+    @Test
+    fun `a blank status is not data on`() {
+        assertFalse(Session.from(json("""{"ip": "$other", "provider": 0, "status": ""}"""), client(me), null).on)
+    }
+
+    @Test
     fun `only a change that takes a device off asks first`() {
         assertTrue(SessionAction.TURN_OFF_EVERYWHERE.confirm)
         assertTrue(SessionAction.LEAVE.confirm)

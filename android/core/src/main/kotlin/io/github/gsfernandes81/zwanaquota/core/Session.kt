@@ -27,7 +27,8 @@ import kotlinx.serialization.json.buildJsonObject
 data class Session(
     val on: Boolean,
     val primaryIp: String?,
-    val provider: Int,
+    /** The provider the portal reported; null if it did not say, and then data is not switched. */
+    val provider: Int?,
     val myIp: String?,
     val joined: List<String>,
 ) {
@@ -43,8 +44,10 @@ data class Session(
     /** What tapping the switch does from here, or null if nothing safely can. */
     val action: SessionAction?
         get() = when (role) {
-            Role.OFF -> SessionAction.TURN_ON
-            Role.PRIMARY -> SessionAction.TURN_OFF_EVERYWHERE
+            // The account switch names a provider; one that is not known is
+            // not guessed at.
+            Role.OFF -> SessionAction.TURN_ON.takeIf { provider != null }
+            Role.PRIMARY -> SessionAction.TURN_OFF_EVERYWHERE.takeIf { provider != null }
             Role.JOINED -> SessionAction.LEAVE
             Role.OUTSIDE -> SessionAction.JOIN
             Role.UNKNOWN -> null
@@ -79,7 +82,7 @@ data class Session(
     fun toJson(): JsonObject = buildJsonObject {
         put("on", JsonPrimitive(on))
         put("primary", primaryIp?.let(::JsonPrimitive) ?: JsonNull)
-        put("provider", JsonPrimitive(provider))
+        put("provider", provider?.let(::JsonPrimitive) ?: JsonNull)
         put("me", myIp?.let(::JsonPrimitive) ?: JsonNull)
         put("joined", JsonArray(joined.map(::JsonPrimitive)))
     }
@@ -92,7 +95,7 @@ data class Session(
             return Session(
                 on = o["on"].truthy(),
                 primaryIp = o["primary"]?.takeUnless { it is JsonNull }?.pyStr(),
-                provider = o["provider"].number()?.truncate()?.toInt() ?: 0,
+                provider = o["provider"]?.takeUnless { it is JsonNull }.number()?.truncate()?.toInt(),
                 myIp = o["me"]?.takeUnless { it is JsonNull }?.pyStr(),
                 joined = o["joined"].list()?.map { it.pyStr() }.orEmpty(),
             )
@@ -103,9 +106,10 @@ data class Session(
             val s = status.obj()
             val state = s?.get("status")?.pyStr()
             return Session(
-                on = state != null && state != "off",
+                // Only a status that says something is on: blank is not.
+                on = !state.isNullOrBlank() && state != "off",
                 primaryIp = s?.get("ip")?.takeUnless { it is JsonNull }?.pyStr()?.ifBlank { null },
-                provider = s?.get("provider").number()?.truncate()?.toInt() ?: 0,
+                provider = s?.get("provider")?.takeUnless { it is JsonNull }.number()?.truncate()?.toInt(),
                 myIp = clientIp.obj()?.get("ip")?.takeUnless { it is JsonNull }?.pyStr()?.ifBlank { null },
                 joined = joinedDevices.obj()?.keys?.sorted().orEmpty(),
             )
@@ -158,8 +162,8 @@ fun PortalClient.apply(action: SessionAction): Session {
         throw SessionChanged("the session changed since the widget was drawn (now ${now.role.name.lowercase()}); nothing was done")
     }
     when (action) {
-        SessionAction.TURN_ON -> send("Account/UpdateForCurrentUser", started(true, now.provider))
-        SessionAction.TURN_OFF_EVERYWHERE -> send("Account/UpdateForCurrentUser", started(false, now.provider))
+        SessionAction.TURN_ON -> send("Account/UpdateForCurrentUser", started(true, now.provider!!))
+        SessionAction.TURN_OFF_EVERYWHERE -> send("Account/UpdateForCurrentUser", started(false, now.provider!!))
         SessionAction.LEAVE -> send("Device/RemoveDevice", ip(now.myIp!!))
         SessionAction.JOIN -> send("Device/JoinDevice", ip(now.myIp!!))
     }

@@ -282,8 +282,8 @@ class FakeResponse:
     def __init__(self, body: bytes) -> None:
         self.body = body
 
-    def read(self) -> bytes:
-        return self.body
+    def read(self, size: int = -1) -> bytes:
+        return self.body if size < 0 else self.body[:size]
 
     def __enter__(self) -> FakeResponse:
         return self
