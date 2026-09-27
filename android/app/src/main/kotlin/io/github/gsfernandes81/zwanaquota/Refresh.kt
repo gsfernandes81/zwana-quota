@@ -131,7 +131,7 @@ class Refresher(context: Context) {
         if (!vault.signedIn) return run(force = false, pushWanted, trigger)
         val (client, network) = connect(Networks.path(app))
         val notice = try {
-            store.save(client.remove(ip))
+            store.save(client.remove(ip, expectedMac = store.offeredMacs[ip]))
             store.note("session", "removed $ip over ${network()} ($trigger)")
             null
         } catch (e: SessionChanged) {
@@ -209,11 +209,17 @@ class Refresher(context: Context) {
     private fun push(reading: Reading, live: Boolean, now: Instant) {
         val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, live, now)
         val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
-        val canAsk = store.watchEnabled && store.watchCanAsk
+        // Offered only while the listener is actually up, not merely switched
+        // on: Android can refuse to restart it, and a watch should not offer
+        // what nobody will hear.
+        val canAsk = store.watchEnabled && store.watchCanAsk && WatchListener.running
         val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
-        val session = store.session()?.takeIf { vault.signedIn }
-            ?.let { WatchSession.fields(it, names, canControl = canAsk && store.watchCanControl) }
-            .orEmpty()
+        val known = store.session()?.takeIf { vault.signedIn }
+        val canControl = canAsk && store.watchCanControl
+        val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
+        // Which device each offered address was, so a removal asked for later
+        // cannot take off whoever has the address by then.
+        store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
         val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
         store.lastPush = now.epochSecond
         store.note("watch", Garmin.send(app, payload).joinToString("; "))
@@ -363,6 +369,15 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             val refresher = Refresher(applicationContext)
             val action = inputData.getString(ACTION)?.let { name -> SessionAction.entries.firstOrNull { it.name == name } }
             val remove = inputData.getString(REMOVE)
+            // A switch runs soon after it was asked for, or not at all: one the
+            // system held back for minutes is one the person has given up on,
+            // and may since have done another way.
+            val askedAt = inputData.getLong(ASKED_AT, 0)
+            if ((action != null || remove != null) && Instant.now().epochSecond - askedAt > SWITCH_LIFETIME_SECONDS) {
+                store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} asked ${Instant.now().epochSecond - askedAt}s ago; too late, nothing done")
+                QuotaWidget.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
+                return Result.success()
+            }
             when {
                 action != null -> refresher.switch(action, store.watchEnabled, trigger)
                 remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger)
@@ -390,6 +405,11 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             // A failure here is drawn and noted, never retried in a loop: the
             // next tap or the next period is the retry.
             store.note("worker", "failed ($trigger): ${e.javaClass.simpleName} ${e.message.orEmpty()}")
+            // Never leave "reading the portal..." standing.
+            try {
+                QuotaWidget.draw(applicationContext, Refresher.cachedFace(applicationContext))
+            } catch (_: Exception) {
+            }
         }
         return Result.success()
     }
@@ -401,6 +421,10 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         const val ACTION = "action"
         const val PERIODIC = "periodic"
         const val REMOVE = "remove"
+        const val ASKED_AT = "askedAt"
+
+        /** How long after it was asked for a switch may still run. */
+        const val SWITCH_LIFETIME_SECONDS = 180L
     }
 }
 
@@ -422,7 +446,8 @@ object Work {
      * on its way is dropped rather than sent after it.
      */
     fun switch(context: Context, action: SessionAction) {
-        val input = Data.Builder().putAll(input(true, false, "widget switch")).putString(QuotaWorker.ACTION, action.name).build()
+        val input = Data.Builder().putAll(input(true, false, "widget switch")).putString(QuotaWorker.ACTION, action.name)
+            .putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond).build()
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
@@ -433,7 +458,7 @@ object Work {
      * dropped, and the worker checks either against the portal first.
      */
     fun fromWatch(context: Context, command: WatchCommand) {
-        val data = Data.Builder().putAll(input(true, true, "watch"))
+        val data = Data.Builder().putAll(input(true, true, "watch")).putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond)
         when (command) {
             is WatchCommand.Act -> data.putString(QuotaWorker.ACTION, command.action.name)
             is WatchCommand.Remove -> data.putString(QuotaWorker.REMOVE, command.ip)

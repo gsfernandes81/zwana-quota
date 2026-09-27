@@ -63,17 +63,34 @@ module Quota {
         } catch (e instanceof Lang.Exception) {
             return false;
         }
+        if (remember) {
+            memo = d;
+        }
         return true;
     }
 
+    // The foreground app keeps the message in memory once read, since a page
+    // is drawn from it several times over; store() updates it. Off in the
+    // glance and the background, which are separate processes that must see
+    // what the other wrote.
+    var memo as Dictionary? = null;
+    var remember as Boolean = false;
+
     function last() as Dictionary? {
+        if (remember && memo != null) {
+            return memo;
+        }
         var d = null;
         try {
             d = Application.Storage.getValue(KEY);
         } catch (e instanceof Lang.Exception) {
             return null;
         }
-        return (d instanceof Dictionary) ? d as Dictionary : null;
+        var kept = (d instanceof Dictionary) ? d as Dictionary : null;
+        if (remember) {
+            memo = kept;
+        }
+        return kept;
     }
 
     function num(d as Dictionary, key as String) as Number {
@@ -158,7 +175,11 @@ module Quota {
         if (every <= 0 || every > DAY) {
             every = 1800;
         }
-        var age = now - num(d, "ts");
+        var ts = num(d, "ts");
+        if (ts <= 0) {
+            return "no time";
+        }
+        var age = now - ts;
         if (age > 2 * every) {
             return ago(age);
         }

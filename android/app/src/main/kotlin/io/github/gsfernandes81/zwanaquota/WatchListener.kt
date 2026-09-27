@@ -81,7 +81,8 @@ class WatchListener : Service() {
 
     private fun listen(why: String) {
         Thread {
-            val outcome = Garmin.listen(this) { watch, message -> asked(watch, message) }
+            // The SDK calls back on the main thread; the journal is file I/O.
+            val outcome = Garmin.listen(this) { watch, message -> Thread { asked(watch, message) }.start() }
             if (outcome != lastOutcome) Store(this).note("listener", "$outcome ($why)")
             lastOutcome = outcome
         }.start()
@@ -155,6 +156,9 @@ class WatchListener : Service() {
         var running = false
             private set
 
+        @Volatile
+        private var lastRefusal = 0L
+
         private fun wanted(store: Store) = store.watchEnabled && store.watchCanAsk
 
         /**
@@ -175,7 +179,13 @@ class WatchListener : Service() {
             try {
                 ContextCompat.startForegroundService(app, intent)
             } catch (e: Exception) {
-                store.note("listener", "not started ($why): ${e.javaClass.simpleName}")
+                // Refused from the background (battery-restricted): noted once
+                // an hour at most, not on every periodic run.
+                val now = System.currentTimeMillis()
+                if (now - lastRefusal > 3_600_000) {
+                    lastRefusal = now
+                    store.note("listener", "not started ($why): ${e.javaClass.simpleName}; set battery use to Unrestricted")
+                }
             }
         }
     }

@@ -73,7 +73,8 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
         for (var i = 0; i < n; i++) {
             var ip = Quota.item(ips, i);
             if (ip.length() > 0) {
-                out.add([Quota.item(names, i), ip]);
+                var name = Quota.item(names, i);
+                out.add([name.length() > 0 ? name : ip, ip]);
             }
         }
         return out;

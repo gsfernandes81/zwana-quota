@@ -26,6 +26,7 @@ class QuotaView extends WatchUi.View {
         return Quota.hasSession(Quota.last()) ? 3 : 1;
     }
 
+
     function turn(by as Number) as Void {
         var p = page + by;
         var n = pages();
@@ -175,11 +176,11 @@ class QuotaView extends WatchUi.View {
         }
 
         var status = Ask.status();
-        if (status == null && d != null) {
-            status = Quota.mark(d as Dictionary);
-        }
+        var mark = (d == null) ? null : Quota.mark(d as Dictionary);
         if (status != null) {
-            footer(dc, [status as String], y);
+            footer(dc, status, y);
+        } else if (mark != null) {
+            footer(dc, [mark as String], y);
         } else if (d == null) {
             footer(dc, ["open zwana quota on phone", "open on phone"], y);
         } else if (Quota.canAsk(d)) {
@@ -230,7 +231,7 @@ class QuotaView extends WatchUi.View {
         // say which way it goes, where they fit.
         var status = Ask.status();
         if (status != null) {
-            footer(dc, [status as String], y);
+            footer(dc, status, y);
         } else if (act.length() > 0) {
             var label = Quota.str(d, "actl");
             footer(dc, ["START: " + label, label], y);
@@ -285,7 +286,7 @@ class QuotaView extends WatchUi.View {
 
         var status = Ask.status();
         if (status != null) {
-            footer(dc, [status as String], y);
+            footer(dc, status, y);
         } else if (Quota.canControl(d) && QuotaDelegate.removable(d).size() > 0) {
             footer(dc, ["START: disconnect", "disconnect"], y);
         }

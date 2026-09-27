@@ -24,6 +24,7 @@ class QuotaApp extends Application.AppBase {
         if (Communications has :registerForPhoneAppMessages) {
             Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
         }
+        Quota.remember = true;
         var view = new QuotaView();
         return [view, new QuotaDelegate(view)];
     }

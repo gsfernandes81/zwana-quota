@@ -104,6 +104,13 @@ class Store(context: Context) {
         get() = prefs.getBoolean("watchCanControl", false)
         set(value) = prefs.edit().putBoolean("watchCanControl", value).apply()
 
+    /** The MAC of each device the watch was last offered to take off, by IP. */
+    var offeredMacs: Map<String, String>
+        get() = prefs.getString("offeredMacs", null)?.lines()?.mapNotNull { line ->
+            line.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] }
+        }?.toMap().orEmpty()
+        set(value) = prefs.edit().putString("offeredMacs", value.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
+
     /** When the watch last asked, in epoch seconds: so a burst of presses is one read. */
     var lastAsk: Long
         get() = prefs.getLong("lastAsk", 0)

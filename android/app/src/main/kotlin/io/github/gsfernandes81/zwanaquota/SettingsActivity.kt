@@ -358,7 +358,7 @@ class SettingsActivity : AppCompatActivity() {
         vault.setCredentials(Credentials(user, pass))
         password.text?.clear()
         editingLogin = false
-        store.note("account", "login saved for $user")
+        store.note("account", "login saved")
         readingSince = store.notes()["read"]
         readingStarted = System.currentTimeMillis()
         Work.refresh(this, force = true, trigger = "sign-in")

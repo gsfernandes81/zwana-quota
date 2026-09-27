@@ -83,7 +83,7 @@ class WatchTest {
             when (path) {
                 "UserProvider/GetStatus" -> ok("""{"ip": ${primary?.let { "\"$it\"" } ?: "null"}, "provider": 0, "status": "${if (on) "quota" else "off"}"}""")
                 "UserProvider/GetClientIP" -> ok("""{"ip": "$me"}""")
-                "Device/GetJoinedDevices" -> if (joined.isEmpty()) HttpResponse(404, emptyMap(), ByteArray(0)) else ok(joined.joinToString(",", "{", "}") { "\"$it\": {}" })
+                "Device/GetJoinedDevices" -> if (joined.isEmpty()) HttpResponse(404, emptyMap(), ByteArray(0)) else ok(joined.joinToString(",", "{", "}") { "\"$it\": {\"Mac\": \"mac-$it\"}" })
                 else -> {
                     posts += path to r.body!!.decodeToString()
                     ok("")
@@ -112,5 +112,20 @@ class WatchTest {
             assertFailsWith<SessionChanged> { c.remove(ip) }
         }
         assertTrue(posts.isEmpty())
+    }
+
+    @Test
+    fun `an address handed to a different device since it was offered is not removed`() {
+        val posts = mutableListOf<Pair<String, String>>()
+        assertFailsWith<SessionChanged> { client(true, me, setOf(laptop), posts).remove(laptop, expectedMac = "mac-someone-else") }
+        assertTrue(posts.isEmpty())
+        client(true, me, setOf(laptop), posts).remove(laptop, expectedMac = "MAC-$laptop")
+        assertEquals(1, posts.size)
+    }
+
+    @Test
+    fun `the MACs survive the session's storage`() {
+        val s = Session(true, me, 0, me, listOf(laptop), mapOf(laptop to "aa:bb"))
+        assertEquals(s, Session.fromJson(s.toJson()))
     }
 }

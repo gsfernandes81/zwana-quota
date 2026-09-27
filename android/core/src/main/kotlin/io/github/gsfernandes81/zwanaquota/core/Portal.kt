@@ -209,7 +209,7 @@ class PortalClient(
         }
         if (response.status >= 400) {
             // Never the request body: it may hold the password.
-            throw PortalError("$path: HTTP ${response.status} ${text.take(300)}".trimEnd(), response.status)
+            throw PortalError("$path: HTTP ${response.status} ${text.take(120)}".trimEnd(), response.status)
         }
         if (text.isBlank()) return null
         val parsed = try {

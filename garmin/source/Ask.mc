@@ -68,19 +68,19 @@ module Ask {
         WatchUi.requestUpdate();
     }
 
-    // How the last ask stands, in a few words, or null when there is
-    // nothing to say (never asked, or answered).
-    function status() as String? {
+    // How the last ask stands, longest spelling first for the footer to fit,
+    // or null when there is nothing to say (never asked, or answered).
+    function status() as Array<String>? {
         if (at == 0 || answered()) {
             return null;
         }
         if (failed) {
-            return "phone not reached";
+            return ["phone not reached", "no phone"];
         }
         if (waiting()) {
-            return what.equals("refresh") ? "asking phone..." : what + "...";
+            return what.equals("refresh") ? ["asking phone...", "asking..."] : [what + "...", "sending..."];
         }
-        return "no answer from phone";
+        return ["no answer from phone", "no answer"];
     }
 }
 

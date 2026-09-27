@@ -31,6 +31,8 @@ data class Session(
     val provider: Int?,
     val myIp: String?,
     val joined: List<String>,
+    /** Each joined device's MAC, by IP, as the portal lists it: what an IP handed out again cannot fake. */
+    val macs: Map<String, String> = emptyMap(),
 ) {
     val role: Role
         get() = when {
@@ -85,6 +87,7 @@ data class Session(
         put("provider", provider?.let(::JsonPrimitive) ?: JsonNull)
         put("me", myIp?.let(::JsonPrimitive) ?: JsonNull)
         put("joined", JsonArray(joined.map(::JsonPrimitive)))
+        put("macs", JsonObject(macs.mapValues { JsonPrimitive(it.value) }))
     }
 
     companion object {
@@ -98,6 +101,7 @@ data class Session(
                 provider = o["provider"]?.takeUnless { it is JsonNull }.number()?.truncate()?.toInt(),
                 myIp = o["me"]?.takeUnless { it is JsonNull }?.pyStr(),
                 joined = o["joined"].list()?.map { it.pyStr() }.orEmpty(),
+                macs = o["macs"].obj()?.mapValues { it.value.pyStr() }.orEmpty(),
             )
         }
 
@@ -112,6 +116,9 @@ data class Session(
                 provider = s?.get("provider")?.takeUnless { it is JsonNull }.number()?.truncate()?.toInt(),
                 myIp = clientIp.obj()?.get("ip")?.takeUnless { it is JsonNull }?.pyStr()?.ifBlank { null },
                 joined = joinedDevices.obj()?.keys?.sorted().orEmpty(),
+                macs = joinedDevices.obj().orEmpty()
+                    .mapNotNull { (ip, v) -> v.obj()?.get("Mac")?.takeUnless { it is JsonNull }?.pyStr()?.let { ip to it } }
+                    .toMap(),
             )
         }
     }
@@ -180,16 +187,22 @@ private fun started(on: Boolean, provider: Int) = buildJsonObject {
 private fun ip(address: String) = buildJsonObject { put("ip", JsonPrimitive(address)) }
 
 /**
- * Take another device off the session: [ipToRemove] only, and only if it is
+ * Take another device off the session: [ipToRemove] only, and only the
+ * device with [expectedMac] when that is given, and only if it is
  * still a joined device other than this phone and other than the one that
  * switched data on (which leaves only by data going off, [SessionAction]).
  * Checked against the session as it is now, as [apply] is, so a list drawn
  * minutes ago cannot remove a device that has since become something else.
  */
-fun PortalClient.remove(ipToRemove: String): Session {
+fun PortalClient.remove(ipToRemove: String, expectedMac: String? = null): Session {
     val now = session()
     if (!now.removable(ipToRemove)) {
         throw SessionChanged("$ipToRemove is not a device this phone can take off now; nothing was done")
+    }
+    // The address was offered for one device; if the portal now lists another
+    // MAC at it, the address has been handed out again and this is not it.
+    if (expectedMac != null && now.macs[ipToRemove]?.equals(expectedMac, ignoreCase = true) == false) {
+        throw SessionChanged("$ipToRemove is now a different device; nothing was done")
     }
     send("Device/RemoveDevice", ip(ipToRemove))
     return session()
