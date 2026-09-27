@@ -1,5 +1,6 @@
 import Toybox.Graphics;
 import Toybox.Lang;
+import Toybox.Math;
 import Toybox.WatchUi;
 
 // The shapes the glance and the pages share, drawn the way the Instinct's
@@ -119,21 +120,65 @@ module Draw {
         dc.setPenWidth(1);
     }
 
-    // Page dots down the left edge: the current one filled.
+    // Page dots down the left edge, the current one filled, sized to the
+    // screen: 3px dots 9px apart on the Solar.
     function pageDots(dc as Graphics.Dc, page as Number, count as Number) as Void {
         if (count < 2) {
             return;
         }
-        var gap = 9;
-        var y = dc.getHeight() / 2 - (count - 1) * gap / 2;
-        var x = 7;
+        var h = dc.getHeight();
+        var r = h / 60 > 2 ? h / 60 : 2;
+        var gap = h / 20;
+        var y = h / 2 - (count - 1) * gap / 2;
+        var x = 2 * r + 2;
         for (var i = 0; i < count; i++) {
             if (i == page) {
-                dc.fillCircle(x, y + i * gap, 3);
+                dc.fillCircle(x, y + i * gap, r);
             } else {
-                dc.drawCircle(x, y + i * gap, 2);
+                dc.drawCircle(x, y + i * gap, r - 1);
             }
         }
+    }
+
+    // How wide the round screen is across a text row from [y] to
+    // [y] + [height], less a margin: the narrower of the row's two edges.
+    function chord(dc as Graphics.Dc, y as Number, height as Number) as Number {
+        var r = dc.getWidth() / 2;
+        var cy = dc.getHeight() / 2;
+        var dy = (y - cy).abs();
+        var dy2 = (y + height - cy).abs();
+        if (dy2 > dy) {
+            dy = dy2;
+        }
+        if (dy >= r) {
+            return 0;
+        }
+        return 2 * Math.sqrt(r * r - dy * dy).toNumber() - 8;
+    }
+
+    // [text], shortened with an ellipsis until it is no wider than [width].
+    // Bounded by the text's length, so it always ends.
+    function clip(dc as Graphics.Dc, font as Graphics.FontType, text as String, width as Number) as String {
+        if (dc.getTextWidthInPixels(text, font) <= width) {
+            return text;
+        }
+        for (var n = text.length() - 1; n > 0; n--) {
+            var cut = (text.substring(0, n) as String) + "...";
+            if (dc.getTextWidthInPixels(cut, font) <= width) {
+                return cut;
+            }
+        }
+        return "";
+    }
+
+    // The longest of [ladder] no wider than [width]; null if none is.
+    function fit(dc as Graphics.Dc, font as Graphics.FontType, ladder as Array<String>, width as Number) as String? {
+        for (var i = 0; i < ladder.size(); i++) {
+            if (dc.getTextWidthInPixels(ladder[i], font) <= width) {
+                return ladder[i];
+            }
+        }
+        return null;
     }
 
     // Digits, and the point and separator a figure can hold, and nothing else:

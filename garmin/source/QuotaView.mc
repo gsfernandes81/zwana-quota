@@ -59,16 +59,22 @@ class QuotaView extends WatchUi.View {
 
     // The page's title: beside the sub-window where there is one, centred
     // near the top where there is not.
-    function title(dc as Graphics.Dc, text as String, sub as Array<Number>?) as Void {
+    // [titles] is the title, longest first: the first that fits is drawn.
+    function title(dc as Graphics.Dc, titles as Array<String>, sub as Array<Number>?) as Void {
         var font = Graphics.FONT_XTINY;
+        var fh = dc.getFontHeight(font);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         if (sub != null) {
             var s = sub as Array<Number>;
-            var y = s[1] - dc.getFontHeight(font) / 2;
-            var right = s[0] - s[2] - 4;
-            dc.drawText(right, y, font, text, Graphics.TEXT_JUSTIFY_RIGHT);
+            var y = s[1] - fh / 2;
+            var right = s[0] - s[2] - 5;
+            var left = (dc.getWidth() - Draw.chord(dc, y, fh)) / 2;
+            var text = Draw.fit(dc, font, titles, right - left);
+            if (text != null) {
+                dc.drawText(right, y, font, text as String, Graphics.TEXT_JUSTIFY_RIGHT);
+            }
         } else {
-            dc.drawText(dc.getWidth() / 2, dc.getHeight() / 9, font, text, Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(dc.getWidth() / 2, dc.getHeight() / 9, font, titles[0], Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
@@ -82,21 +88,31 @@ class QuotaView extends WatchUi.View {
     }
 
     // One small line at the bottom: why the reading is doubtful, how an ask
-    // stands, or what START does. Nothing when there is nothing to say.
-    function footer(dc as Graphics.Dc, text as String?) as Void {
-        if (text == null) {
+    // stands, or what START does -- the first of [ladder] that fits the
+    // round screen at that height, and nothing if none does. Never above
+    // [below], the bottom of what the page drew.
+    function footer(dc as Graphics.Dc, ladder as Array<String>?, below as Number) as Void {
+        if (ladder == null) {
             return;
         }
         var font = Graphics.FONT_XTINY;
+        var fh = dc.getFontHeight(font);
+        var y = dc.getHeight() - fh - dc.getHeight() / 12;
+        if (y < below + 1) {
+            y = below + 1;
+        }
+        var text = Draw.fit(dc, font, ladder as Array<String>, Draw.chord(dc, y, fh));
+        if (text == null) {
+            return;
+        }
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, dc.getHeight() - dc.getFontHeight(font) - dc.getHeight() / 12, font,
-            text as String, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(dc.getWidth() / 2, y, font, text as String, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function dataLeft(dc as Graphics.Dc, d as Dictionary?, sub as Array<Number>?) as Void {
         var w = dc.getWidth();
         var share = Quota.left(d);
-        title(dc, "DATA LEFT", sub);
+        title(dc, ["DATA LEFT", "DATA"], sub);
 
         // The sub-window: the share left, as the bar bent into a ring.
         if (sub != null) {
@@ -132,13 +148,13 @@ class QuotaView extends WatchUi.View {
             // Bottoms level with the number's.
             dc.drawText(x + nw, y + bh - dc.getFontHeight(small) - bh / 10, small, " " + unit, Graphics.TEXT_JUSTIFY_LEFT);
         }
-        y += bh + 4;
+        y += bh + 2;
 
         // The bar, and where there is no sub-window, the share beside it.
         var r = (w >= 300) ? 7 : 4;
         var bx = w / 7;
         Draw.bar(dc, bx, y, w - 2 * bx, r, share);
-        y += 2 * r + 1 + 6;
+        y += 2 * r + 1 + 3;
 
         // When the grant lands.
         if (d != null) {
@@ -149,30 +165,33 @@ class QuotaView extends WatchUi.View {
             }
             var fh = dc.getFontHeight(font);
             var ir = fh * 3 / 10;
+            // The arrowhead reaches past the ring by about half its radius.
+            var icon = 2 * ir + ir / 2 + 5;
             var tw = dc.getTextWidthInPixels(at, font);
-            var left = (w - tw - 2 * ir - 6) / 2;
+            var left = (w - tw - icon) / 2;
             Draw.resetIcon(dc, left + ir, y + fh / 2, ir);
-            dc.drawText(left + 2 * ir + 6, y, font, at, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(left + icon, y, font, at, Graphics.TEXT_JUSTIFY_LEFT);
+            y += fh;
         }
 
         var status = Ask.status();
         if (status == null && d != null) {
             status = Quota.mark(d as Dictionary);
         }
-        if (status == null && d == null) {
-            status = "open zwana quota on phone";
+        if (status != null) {
+            footer(dc, [status as String], y);
+        } else if (d == null) {
+            footer(dc, ["open zwana quota on phone", "open on phone"], y);
+        } else if (Quota.canAsk(d)) {
+            footer(dc, ["START: refresh", "refresh"], y);
         }
-        if (status == null && Quota.canAsk(d)) {
-            status = "START: refresh";
-        }
-        footer(dc, status);
     }
 
     function connection(dc as Graphics.Dc, d as Dictionary, sub as Array<Number>?) as Void {
         var w = dc.getWidth();
         var on = Quota.str(d, "dat").equals("on");
         var act = Quota.canControl(d) ? Quota.str(d, "act") : "";
-        title(dc, "CONNECTION", sub);
+        title(dc, ["CONNECTION", "DATA"], sub);
 
         // The sub-window: the power symbol when START switches, else a
         // filled dot for on and a ring for off.
@@ -204,20 +223,25 @@ class QuotaView extends WatchUi.View {
         var n = Quota.num(d, "dx");
         if (on) {
             dc.drawText(w / 2, y, small, n == 1 ? "1 device" : n.toString() + " devices", Graphics.TEXT_JUSTIFY_CENTER);
+            y += dc.getFontHeight(small);
         }
 
+        // The sub-window's power symbol is the hint beside START; the words
+        // say which way it goes, where they fit.
         var status = Ask.status();
-        if (status == null && act.length() > 0) {
-            status = "START: " + Quota.str(d, "actl");
+        if (status != null) {
+            footer(dc, [status as String], y);
+        } else if (act.length() > 0) {
+            var label = Quota.str(d, "actl");
+            footer(dc, ["START: " + label, label], y);
         }
-        footer(dc, status);
     }
 
     function devices(dc as Graphics.Dc, d as Dictionary, sub as Array<Number>?) as Void {
         var w = dc.getWidth();
         var names = Quota.arr(d, "dn");
         var total = Quota.num(d, "dx");
-        title(dc, "DEVICES", sub);
+        title(dc, ["DEVICES"], sub);
 
         // The sub-window: how many.
         if (sub != null) {
@@ -234,26 +258,36 @@ class QuotaView extends WatchUi.View {
         if (names.size() == 0) {
             dc.drawText(w / 2, y, font, Quota.str(d, "dat").equals("on") ? "none listed" : "data is off", Graphics.TEXT_JUSTIFY_CENTER);
         }
-        // As many rows as fit above the footer, the last saying how many more.
-        var room = (dc.getHeight() - dc.getHeight() / 12 - fh - y) / fh - 1;
-        var shown = names.size() < room ? names.size() : room;
-        if (shown < names.size() || total > names.size()) {
-            shown = (room - 1 < shown) ? room - 1 : shown;
+        // As many rows as fit above the footer, the last saying how many
+        // more when not all do. Each name is cut to the round edge.
+        var rows = (dc.getHeight() - dc.getHeight() / 12 - fh - y) / fh;
+        var shown = names.size();
+        if (total > rows) {
+            shown = rows - 1;
+        }
+        if (shown > names.size()) {
+            shown = names.size();
+        }
+        if (shown < 0) {
+            shown = 0;
         }
         var x = w / 5;
         for (var i = 0; i < shown; i++) {
+            var room = (w + Draw.chord(dc, y, fh)) / 2 - (x + 7);
             dc.fillCircle(x, y + fh / 2, 2);
-            dc.drawText(x + 7, y, font, Quota.item(names, i), Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(x + 7, y, font, Draw.clip(dc, font, Quota.item(names, i), room), Graphics.TEXT_JUSTIFY_LEFT);
             y += fh;
         }
-        if (total > shown && shown >= 0 && names.size() > 0) {
+        if (total > shown && names.size() > 0 && rows > 0) {
             dc.drawText(x + 7, y, font, "+" + (total - shown).toString() + " more", Graphics.TEXT_JUSTIFY_LEFT);
+            y += fh;
         }
 
         var status = Ask.status();
-        if (status == null && Quota.canControl(d) && QuotaDelegate.removable(d).size() > 0) {
-            status = "START: disconnect";
+        if (status != null) {
+            footer(dc, [status as String], y);
+        } else if (Quota.canControl(d) && QuotaDelegate.removable(d).size() > 0) {
+            footer(dc, ["START: disconnect", "disconnect"], y);
         }
-        footer(dc, status);
     }
 }

@@ -65,10 +65,11 @@ class QuotaGlance extends WatchUi.GlanceView {
             if (ir < 3) {
                 ir = 3;
             }
-            var text = fit(dc, font, ladder as Array<String>, room - 2 * ir - 4);
+            // The arrowhead reaches past the ring by about half its radius.
+            var text = fit(dc, font, ladder as Array<String>, room - 2 * ir - ir / 2 - 4);
             var x = width - dc.getTextWidthInPixels(text, font);
             dc.drawText(width, y, font, text, Graphics.TEXT_JUSTIFY_RIGHT);
-            Draw.resetIcon(dc, x - 2 - ir, y + line / 2, ir);
+            Draw.resetIcon(dc, x - 3 - ir - ir / 2, y + line / 2, ir);
         }
     }
 
