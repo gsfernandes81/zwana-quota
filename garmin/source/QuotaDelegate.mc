@@ -12,6 +12,22 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
         view = v;
     }
 
+    // UP and DOWN are taken here as well as through onNextPage and
+    // onPreviousPage: which of the two a watch's firmware delivers for its
+    // buttons varies, and a press handled here does not arrive again there.
+    function onKey(evt as WatchUi.KeyEvent) as Boolean {
+        var key = evt.getKey();
+        if (key == WatchUi.KEY_DOWN) {
+            view.turn(1);
+            return true;
+        }
+        if (key == WatchUi.KEY_UP) {
+            view.turn(-1);
+            return true;
+        }
+        return BehaviorDelegate.onKey(evt);
+    }
+
     function onNextPage() as Boolean {
         view.turn(1);
         return true;

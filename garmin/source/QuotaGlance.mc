@@ -25,8 +25,8 @@ class QuotaGlance extends WatchUi.GlanceView {
         var width = dc.getWidth();
         var font = Graphics.FONT_GLANCE;
         var line = dc.getFontHeight(font);
-        // The bar's height: 8px on the Solar's glance, 6 on a short one.
-        var bh = (dc.getHeight() >= 56) ? 8 : 6;
+        // The bar's height: 6px on the Solar's glance, 4 on a short one.
+        var bh = (dc.getHeight() >= 56) ? 6 : 4;
         var gap = 3;
         var top = (dc.getHeight() - 2 * line - bh - 2 * gap) / 2;
         if (top < 0) {

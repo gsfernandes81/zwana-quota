@@ -22,29 +22,24 @@ class QuotaView extends WatchUi.View {
         View.initialize();
     }
 
-    function pages() as Number {
-        return Quota.hasSession(Quota.last()) ? 3 : 1;
-    }
+    // Always three, so UP and DOWN always move: a page whose data the phone
+    // has not sent yet says so rather than being missing.
+    const PAGES = 3;
 
-
+    // One page on, round from the last to the first and back.
     function turn(by as Number) as Void {
-        var p = page + by;
-        var n = pages();
-        if (p >= 0 && p < n) {
-            page = p;
-            WatchUi.requestUpdate();
-        }
+        page = (page + by + PAGES) % PAGES;
+        WatchUi.requestUpdate();
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
         var d = Quota.last();
-        if (page >= pages()) {
-            page = 0;
-        }
         var sub = Draw.subscreen();
-        if (page == 1) {
+        if (page != 0 && !Quota.hasSession(d)) {
+            noSession(dc, sub, page == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES"]);
+        } else if (page == 1) {
             connection(dc, d as Dictionary, sub);
         } else if (page == 2) {
             devices(dc, d as Dictionary, sub);
@@ -52,7 +47,28 @@ class QuotaView extends WatchUi.View {
             dataLeft(dc, d, sub);
         }
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        Draw.pageDots(dc, page, pages());
+        Draw.pageDots(dc, page, PAGES);
+    }
+
+    // A session page before the phone has sent the session: say so.
+    function noSession(dc as Graphics.Dc, sub as Array<Number>?, titles as Array<String>) as Void {
+        title(dc, titles, sub);
+        if (sub != null) {
+            var s = sub as Array<Number>;
+            Draw.subBackground(dc, s);
+            dc.drawText(s[0], s[1], Graphics.FONT_MEDIUM, "?", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        }
+        var font = Graphics.FONT_XTINY;
+        var fh = dc.getFontHeight(font);
+        var y = dc.getHeight() / 2 - fh;
+        var w = dc.getWidth();
+        var lines = ["not sent yet:", "update the phone app,", "then Send now"];
+        for (var i = 0; i < lines.size(); i++) {
+            var text = Draw.clip(dc, font, lines[i], Draw.chord(dc, y, fh));
+            dc.drawText(w / 2, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);
+            y += fh;
+        }
     }
 
     // The page's title: beside the sub-window where there is one, centred
@@ -155,7 +171,7 @@ class QuotaView extends WatchUi.View {
         y += bh + 2;
 
         // The bar, and where there is no sub-window, the share beside it.
-        var barH = (w >= 300) ? 14 : 8;
+        var barH = (w >= 300) ? 10 : 6;
         var bx = w / 7;
         Draw.bar(dc, bx, y, w - 2 * bx, barH, share);
         y += barH + 3;

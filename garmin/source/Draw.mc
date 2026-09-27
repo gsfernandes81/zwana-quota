@@ -15,12 +15,12 @@ module Draw {
     // The Body Battery bar, as the watch draws its own on a MIP screen:
     // square ends and right angles, pixel-crisp. What is left is a thick bar
     // from the left; then a small gap; then what has gone as a thin line to
-    // the right end, level with the thick bar's bottom edge. [h] is the thick
-    // bar's height; the thin line and the gap are a third of it. [share] is
-    // 0 to 1, or below 0 for no reading, drawn as the thin line alone.
+    // the right end, centred on the thick bar's height. [h] is the thick
+    // bar's height; the thin line is 2px (3 on a big screen), the gap 2px.
+    // [share] is 0 to 1, or below 0 for no reading: the thin line alone.
     function bar(dc as Graphics.Dc, x as Number, y as Number, w as Number, h as Number, share as Float) as Void {
-        var thin = h / 3 > 2 ? h / 3 : 2;
-        var gap = h / 3 > 2 ? h / 3 : 2;
+        var thin = h >= 9 ? 3 : 2;
+        var gap = h >= 9 ? 3 : 2;
         var fill = 0;
         if (share > 0.0) {
             fill = (share * w).toNumber();
@@ -36,7 +36,7 @@ module Draw {
         }
         var from = (fill > 0) ? fill + gap : 0;
         if (from < w) {
-            dc.fillRectangle(x + from, y + h - thin, w - from, thin);
+            dc.fillRectangle(x + from, y + (h - thin) / 2, w - from, thin);
         }
     }
 
