@@ -33,7 +33,16 @@ notifications, so on Android 13+ the service's notification is not shown.
 
 The watch offers to ask only when the phone's last reading says it is
 listening (the payload's `ask`), so the setting is also what shows the offer:
-with it off, nothing on the watch mentions asking. Turning sending off with
+with it off, nothing on the watch mentions asking. Switching data and taking
+devices off have a setting of their own beneath it (`ctl`); the phone sends
+the session as words and lists it has decided (`WatchSession`: the state,
+the device names, what START does, the question to ask first, and per
+device the address the watch may ask to take off, or none), and the watch
+offers exactly those. A command from the watch goes through the same checks
+as the widget's switch (`apply`, `remove`): read the session again, and do
+nothing unless the request is still the one the session calls for. The
+watch confirms before anything that takes a device off; the phone does not
+ask again, since the question was answered on the wrist. Turning sending off with
 asking on sends one last reading, which withdraws the offer.
 
 ## Decisions

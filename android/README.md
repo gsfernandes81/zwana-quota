@@ -137,9 +137,20 @@ right of the title row:
 
 The watch works out its staleness from the reading's own timestamp. It never
 believes the phone's "live" flag, which was true when it was sent and says
-nothing about now. Opening the glance shows the full view: the share of
-today, tonight's grant, when it was read, and a message number, so a new send
-can be told from the last.
+nothing about now.
+
+Opening the glance shows the app, in pages: UP and DOWN move between them,
+START does the page's one thing, and the round sub-window (top right on the
+Solar, beside START) shows each page's one number or what START does.
+
+| page | shows | sub-window | START |
+|---|---|---|---|
+| **Data left** | the figure large, the bar, the reset time | the share left, as a ring | a fresh reading (with **Let the watch ask**) |
+| **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch | switch data (with **switch data** on) |
+| **Devices** | every device on the session, by name | how many | the watch's own menu of devices that can be taken off |
+
+The last two pages appear once the phone has read the session. Anything
+that takes a device off data asks first, in the watch's own confirmation.
 
 ### Building the watch app
 
@@ -214,11 +225,19 @@ least every 30 minutes while it is off, and on every tap of the widget.
 Switched off, the SDK is never touched.
 
 **Asking from the watch.** Switch on **Let the watch ask for a reading** as
-well, and the watch app's full view gains a last line, `START: refresh`:
-press START (or tap) and the phone reads the portal and sends the result,
-usually within ten seconds. The watch says `asking phone...` meanwhile, and
-`no answer` after a minute. With the setting off the watch shows none of
-this. It keeps a small listener running on the phone (Garmin Connect only
+well, and START on the watch's first page asks the phone for a fresh
+reading, usually within ten seconds (`START: refresh` at the bottom says
+so). The watch says `asking phone...` meanwhile, and `no answer from phone`
+after a minute. With the setting off the watch shows none of this.
+
+**Switching from the watch.** Beneath it, **Let the watch switch data and
+disconnect devices** (off by default) lets START on the Connection page
+switch data -- off for every device when this phone switched it on, only
+this phone when it joined, as the widget does -- and START on the Devices
+page take another joined device off. The watch asks first; the phone then
+checks the request against the portal before sending anything, and does
+nothing if the session changed. This phone and the device that switched data
+on are never offered for removal. It keeps a small listener running on the phone (Garmin Connect only
 delivers a watch's message to an app that is running), so set the app's
 battery use to Unrestricted or One UI may stop it; the diagnostics' "Watch
 asks" row says whether it is listening.
@@ -244,7 +263,7 @@ text. Work down this list:
    | `CONNECTED, watch app INSTALLED` | the link is good |
 
 3. **Send now**, then read `watch` on the diagnostics screen:
-   `<watch>: sent`. The watch's full view should then show a new `#n`. If it
+   `<watch>: sent`. The watch's glance should then show the reading. If it
    says `sent` but the glance stays on `quota ?`, the watch app was not
    opened once after installing (step 5 above).
 4. **Leave it.** After an hour, `worker` should have advanced by itself. If it

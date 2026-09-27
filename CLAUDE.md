@@ -44,7 +44,10 @@ Decisions that travel with this code:
   Ints. It decides only what only it can: whether the reading is still
   believable *now* (`new day`, `2h ago`). It may ask for a reading only when
   the payload's `ask` says the phone is listening (`WatchListener`, behind a
-  setting that is off by default), and shows nothing about asking otherwise.
+  setting that is off by default), and shows nothing about asking otherwise;
+  it may switch data or take a device off only when `ctl` says so (a second
+  setting), offering exactly what `WatchSession` spelled, and the phone
+  checks every such request against the portal again before sending it.
   The payload's keys are the wire contract; renaming one blanks the glance
   without an error anywhere (`tests/test_watch_contract.py` catches it).
 
