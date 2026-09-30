@@ -2,8 +2,9 @@ import Toybox.Lang;
 import Toybox.WatchUi;
 
 // The buttons. UP and DOWN turn the pages; START does the page's one thing,
-// and only what the phone's last message offered. Anything that takes a
-// device off data asks first, in the watch's own confirmation.
+// and only what the phone's last message offered: on a device's page, take
+// that device off. Anything that takes a device off data asks first, in the
+// watch's own confirmation.
 class QuotaDelegate extends WatchUi.BehaviorDelegate {
     var view as QuotaView;
 
@@ -66,52 +67,16 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         }
-        // Devices: the ones that can be taken off, in the watch's own menu.
-        var rm = removable(dd);
-        if (rm.size() == 0) {
+        // A device's page: that device, if the phone offered to take it off.
+        var i = view.page - 2;
+        var ip = view.deviceIp(dd, i);
+        if (ip.length() == 0) {
             return false;
         }
-        var menu = new WatchUi.Menu2({:title => "Disconnect"});
-        for (var i = 0; i < rm.size(); i++) {
-            var pair = rm[i] as Array<String>;
-            menu.addItem(new WatchUi.MenuItem(pair[0], pair[1], pair[1], null));
-        }
-        WatchUi.pushView(menu, new DeviceMenu(), WatchUi.SLIDE_UP);
-        return true;
-    }
-
-    // [name, ip] for each device the phone said can be taken off.
-    static function removable(d as Dictionary) as Array<Array<String> > {
-        var names = Quota.arr(d, "dn");
-        var ips = Quota.arr(d, "dip");
-        var out = [] as Array<Array<String> >;
-        var n = names.size() < ips.size() ? names.size() : ips.size();
-        for (var i = 0; i < n; i++) {
-            var ip = Quota.item(ips, i);
-            if (ip.length() > 0) {
-                var name = Quota.item(names, i);
-                out.add([name.length() > 0 ? name : ip, ip]);
-            }
-        }
-        return out;
-    }
-}
-
-// A device picked from the menu: close the menu, and ask before sending.
-class DeviceMenu extends WatchUi.Menu2InputDelegate {
-    function initialize() {
-        Menu2InputDelegate.initialize();
-    }
-
-    function onSelect(item as WatchUi.MenuItem) as Void {
-        var ip = item.getId();
-        if (!(ip instanceof String)) {
-            return;
-        }
-        var name = item.getLabel();
-        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
-        WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + name + "?"),
+        var name = Quota.item(Quota.arr(dd, "dn"), i);
+        WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + (name.length() > 0 ? name : ip) + "?"),
             new SendConfirm({"rm" => ip}, "disconnecting"), WatchUi.SLIDE_IMMEDIATE);
+        return true;
     }
 }
 

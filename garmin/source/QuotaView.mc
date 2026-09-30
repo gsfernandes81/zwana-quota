@@ -6,15 +6,18 @@ import Toybox.WatchUi;
 // the page's one thing, and the sub-window (top right on the Solar, beside
 // START) shows each page's one number or what START will do:
 //
-//   0 Data left    the figure large, the bar, the reset; sub-window: the
-//                  share left as a ring. START asks for a fresh reading.
+//   0 Data left    the figure large, the bar, the reset, how much of it is
+//                  paid; sub-window: the share left as a ring. START asks
+//                  for a fresh reading.
 //   1 Connection   ON or OFF, and how this phone stands; sub-window: the
 //                  power symbol when START can switch it.
-//   2 Devices      who is on; sub-window: how many. START offers the ones
-//                  that can be taken off.
+//   2.. Device     one page per device on the session, this phone first:
+//                  its name and how it is on; sub-window: which of how
+//                  many. START takes it off, when the phone says it may.
 //
-// Pages 1 and 2 exist only when the phone sent the session (`dat`); START
-// does anything only when the phone said it would listen (`ask`, `ctl`).
+// The session pages exist only when the phone sent the session (`dat`);
+// START does anything only when the phone said it would listen (`ask`,
+// `ctl`).
 class QuotaView extends WatchUi.View {
     var page as Number = 0;
 
@@ -22,14 +25,43 @@ class QuotaView extends WatchUi.View {
         View.initialize();
     }
 
-    // Always three, so UP and DOWN always move: a page whose data the phone
-    // has not sent yet says so rather than being missing.
-    const PAGES = 3;
+    // The most devices given a page each: what the phone sends at most
+    // (WatchSession.MAX_DEVICES), and a bound on the pages whatever arrives.
+    const MAX_DEVICES = 8;
 
-    // One page on, round from the last to the first and back.
+    // How many devices have a page of their own.
+    function deviceCount(d as Dictionary) as Number {
+        var n = Quota.arr(d, "dn").size();
+        return n < MAX_DEVICES ? n : MAX_DEVICES;
+    }
+
+    // Data, Connection, and a page per device -- one saying so when there are
+    // none. At least three, so UP and DOWN always move: a page whose data the
+    // phone has not sent yet says so rather than being missing.
+    function pages(d as Dictionary?) as Number {
+        if (!Quota.hasSession(d)) {
+            return 3;
+        }
+        var n = deviceCount(d as Dictionary);
+        return 2 + (n > 0 ? n : 1);
+    }
+
+    // One page on, round from the last to the first and back. The count is
+    // read again each time, since a new message can add or take devices.
     function turn(by as Number) as Void {
-        page = (page + by + PAGES) % PAGES;
+        var n = pages(Quota.last());
+        page = ((page + by) % n + n) % n;
         WatchUi.requestUpdate();
+    }
+
+    // The IP START may ask the phone to take off from device page [i], or ""
+    // when there is none: the phone sends one only for a device it will
+    // take off, and only when it lets the watch ask.
+    function deviceIp(d as Dictionary?, i as Number) as String {
+        if (!Quota.canControl(d) || i < 0 || i >= deviceCount(d as Dictionary)) {
+            return "";
+        }
+        return Quota.item(Quota.arr(d as Dictionary, "dip"), i);
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
@@ -37,17 +69,21 @@ class QuotaView extends WatchUi.View {
         dc.clear();
         var d = Quota.last();
         var sub = Draw.subscreen();
+        var n = pages(d);
+        if (page >= n) {
+            page = n - 1;
+        }
         if (page != 0 && !Quota.hasSession(d)) {
-            noSession(dc, sub, page == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES"]);
+            noSession(dc, sub, page == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
         } else if (page == 1) {
             connection(dc, d as Dictionary, sub);
-        } else if (page == 2) {
-            devices(dc, d as Dictionary, sub);
+        } else if (page >= 2) {
+            device(dc, d as Dictionary, sub, page - 2);
         } else {
             dataLeft(dc, d, sub);
         }
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        Draw.pageDots(dc, page, PAGES);
+        Draw.pageDots(dc, page, n);
     }
 
     // A session page before the phone has sent the session: say so.
@@ -74,6 +110,9 @@ class QuotaView extends WatchUi.View {
     // The page's title: beside the sub-window where there is one, centred
     // near the top where there is not.
     // [titles] is the title, longest first: the first that fits is drawn.
+    // It ends well short of the sub-window: the lens's rim covers pixels
+    // outside the circle getSubscreen() reports, and a title drawn up to
+    // that circle lost its last letter under it on the Solar 45 mm.
     function title(dc as Graphics.Dc, titles as Array<String>, sub as Array<Number>?) as Void {
         var font = Graphics.FONT_XTINY;
         var fh = dc.getFontHeight(font);
@@ -81,7 +120,7 @@ class QuotaView extends WatchUi.View {
         if (sub != null) {
             var s = sub as Array<Number>;
             var y = s[1] - fh / 2;
-            var right = s[0] - s[2] - 5;
+            var right = s[0] - s[2] - s[2] / 2 - 4;
             var left = (dc.getWidth() - Draw.chord(dc, y, fh)) / 2;
             var text = Draw.fit(dc, font, titles, right - left);
             if (text != null) {
@@ -192,6 +231,19 @@ class QuotaView extends WatchUi.View {
             Draw.resetIcon(dc, left + ir, y + fh / 2, ir);
             dc.drawText(left + icon, y, font, at, Graphics.TEXT_JUSTIFY_LEFT);
             y += fh;
+
+            // How much of what is left is paid, as the phone spelled it
+            // (whole MiB). Absent from a phone app older than the key.
+            var paid = Quota.str(d as Dictionary, "paid");
+            if (paid.length() > 0) {
+                var pf = Graphics.FONT_XTINY;
+                var ph = dc.getFontHeight(pf);
+                var text = Draw.fit(dc, pf, [paid + " paid"], Draw.chord(dc, y, ph));
+                if (text != null) {
+                    dc.drawText(w / 2, y, pf, text as String, Graphics.TEXT_JUSTIFY_CENTER);
+                    y += ph;
+                }
+            }
         }
 
         var status = Ask.status();
@@ -257,57 +309,88 @@ class QuotaView extends WatchUi.View {
         }
     }
 
-    function devices(dc as Graphics.Dc, d as Dictionary, sub as Array<Number>?) as Void {
+    // Device [i]'s page: its name as large as it fits, how it is on the
+    // session, and START to take it off where the phone offers that.
+    function device(dc as Graphics.Dc, d as Dictionary, sub as Array<Number>?, i as Number) as Void {
         var w = dc.getWidth();
-        var names = Quota.arr(d, "dn");
+        var count = deviceCount(d);
         var total = Quota.num(d, "dx");
-        title(dc, ["DEVICES"], sub);
+        if (total < count) {
+            total = count;
+        }
+        var which = (count == 0) ? "0" : (i + 1).toString() + "/" + total.toString();
 
-        // The sub-window: how many.
+        // The sub-window: which of how many. Without one, the title says it.
         if (sub != null) {
+            title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE"], sub);
             var s = sub as Array<Number>;
             Draw.subBackground(dc, s);
-            dc.drawText(s[0], s[1], Graphics.FONT_MEDIUM, total.toString(),
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            var sf = Graphics.FONT_SMALL;
+            if (dc.getTextWidthInPixels(which, sf) > 2 * s[2] - 10) {
+                sf = Graphics.FONT_XTINY;
+            }
+            dc.drawText(s[0], s[1], sf, which, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        } else {
+            title(dc, count == 0 ? ["DEVICES"] : ["DEVICE " + which], sub);
         }
 
-        var font = Graphics.FONT_XTINY;
-        var fh = dc.getFontHeight(font);
+        var small = Graphics.FONT_XTINY;
+        var sh = dc.getFontHeight(small);
         var y = top(dc, sub);
-        if (names.size() == 0) {
-            dc.drawText(w / 2, y, font, Quota.str(d, "dat").equals("on") ? "none listed" : "data is off", Graphics.TEXT_JUSTIFY_CENTER);
-        }
-        // As many rows as fit above the footer, the last saying how many
-        // more when not all do. Each name is cut to the round edge.
-        var rows = (dc.getHeight() - dc.getHeight() / 12 - fh - y) / fh;
-        var shown = names.size();
-        if (total > rows) {
-            shown = rows - 1;
-        }
-        if (shown > names.size()) {
-            shown = names.size();
-        }
-        if (shown < 0) {
-            shown = 0;
-        }
-        var x = w / 5;
-        for (var i = 0; i < shown; i++) {
-            var room = (w + Draw.chord(dc, y, fh)) / 2 - (x + 7);
-            dc.fillCircle(x, y + fh / 2, 2);
-            dc.drawText(x + 7, y, font, Draw.clip(dc, font, Quota.item(names, i), room), Graphics.TEXT_JUSTIFY_LEFT);
-            y += fh;
-        }
-        if (total > shown && names.size() > 0 && rows > 0) {
-            dc.drawText(x + 7, y, font, "+" + (total - shown).toString() + " more", Graphics.TEXT_JUSTIFY_LEFT);
-            y += fh;
+        if (count == 0) {
+            dc.drawText(w / 2, y, small, Quota.str(d, "dat").equals("on") ? "none listed" : "data is off", Graphics.TEXT_JUSTIFY_CENTER);
+            y += sh;
+        } else {
+            var name = Quota.item(Quota.arr(d, "dn"), i);
+            y = deviceName(dc, name.length() > 0 ? name : "?", y + 2);
+            var role = Quota.item(Quota.arr(d, "dr"), i);
+            if (role.length() > 0) {
+                dc.drawText(w / 2, y, small, Draw.clip(dc, small, role, Draw.chord(dc, y, sh)), Graphics.TEXT_JUSTIFY_CENTER);
+                y += sh;
+            }
+            // The phone sends at most MAX_DEVICES: the last page says how
+            // many more there are.
+            if (i == count - 1 && total > count) {
+                dc.drawText(w / 2, y, small, "+" + (total - count).toString() + " more", Graphics.TEXT_JUSTIFY_CENTER);
+                y += sh;
+            }
         }
 
         var status = Ask.status();
         if (status != null) {
             footer(dc, status, y);
-        } else if (Quota.canControl(d) && QuotaDelegate.removable(d).size() > 0) {
+        } else if (deviceIp(d, i).length() > 0) {
             footer(dc, ["START: disconnect", "disconnect"], y);
         }
+    }
+
+    // [name], centred from [y], in the largest font it fits on one line;
+    // else split in two where it breaks best; cut to the round edge only
+    // when even that does not fit. Returns the y below it.
+    function deviceName(dc as Graphics.Dc, name as String, y as Number) as Number {
+        var w = dc.getWidth();
+        var fonts = [Graphics.FONT_MEDIUM, Graphics.FONT_SMALL, Graphics.FONT_TINY] as Array<Graphics.FontType>;
+        for (var f = 0; f < fonts.size(); f++) {
+            var lh = dc.getFontHeight(fonts[f]);
+            if (dc.getTextWidthInPixels(name, fonts[f]) <= Draw.chord(dc, y, lh)) {
+                dc.drawText(w / 2, y, fonts[f], name, Graphics.TEXT_JUSTIFY_CENTER);
+                return y + lh;
+            }
+        }
+        var font = Graphics.FONT_TINY;
+        var fh = dc.getFontHeight(font);
+        var cut = Draw.breakAt(name);
+        var lines = [name.substring(0, cut) as String, name.substring(cut, name.length()) as String];
+        if (dc.getTextWidthInPixels(lines[0], font) > Draw.chord(dc, y, fh)
+                || dc.getTextWidthInPixels(lines[1], font) > Draw.chord(dc, y + fh, fh)) {
+            font = Graphics.FONT_XTINY;
+            fh = dc.getFontHeight(font);
+        }
+        for (var i = 0; i < lines.size(); i++) {
+            dc.drawText(w / 2, y, font, Draw.clip(dc, font, lines[i], Draw.chord(dc, y, fh)), Graphics.TEXT_JUSTIFY_CENTER);
+            y += fh;
+        }
+        return y;
     }
 }

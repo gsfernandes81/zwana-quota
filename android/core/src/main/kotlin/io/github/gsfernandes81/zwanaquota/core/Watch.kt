@@ -9,7 +9,8 @@ package io.github.gsfernandes81.zwanaquota.core
  *   the watch shows no session pages at all.
  * - `dsub` how this phone stands in it, in words.
  * - `dn` the devices' names, this phone first; `dx` how many there are in
- *   all, since at most [MAX_DEVICES] are sent.
+ *   all, since at most [MAX_DEVICES] are sent. `dr` is, per name, how that
+ *   device is on the session, in words: the watch gives each device a page.
  * - `ctl` whether the watch may switch data and take devices off. Only then
  *   are `act` (what START does to the session, a [SessionAction] name),
  *   `actl` (that, in words), `cq` (the question to ask first, or empty) and
@@ -30,6 +31,7 @@ object WatchSession {
                 Role.OFF, Role.UNKNOWN -> ""
             },
             "dn" to ArrayList(sent.map { it.label }),
+            "dr" to ArrayList(sent.map { if (it.ip == session.primaryIp) "switched data on" else "joined" }),
             "dx" to devices.size,
             "ctl" to canControl,
         )

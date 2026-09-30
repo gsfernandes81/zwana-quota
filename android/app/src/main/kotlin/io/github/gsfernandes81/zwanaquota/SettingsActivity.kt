@@ -220,7 +220,7 @@ class SettingsActivity : AppCompatActivity() {
                 R.string.share_of_pool,
                 Format.percent(it.remainderBytes.toDouble() / maxOf(1L, it.poolBytes)),
                 Format.size(it.poolBytes),
-            )
+            ) + " · " + face.paid
         } ?: face.status
         reset.text = face.reset
         footnote.text = face.footnote

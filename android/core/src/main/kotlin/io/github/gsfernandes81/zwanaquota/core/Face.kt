@@ -38,6 +38,12 @@ object Format {
         return "${fixed(value, 2)} GiB"
     }
 
+    /**
+     * Whole MiB however large, `1,234 MiB`: the paid figure, which is asked
+     * for in one unit so two readings compare at a glance.
+     */
+    fun mib(bytes: Long): String = "${fixed(bytes / 1048576.0, 0)} MiB"
+
     /** How old a reading is. */
     fun since(seconds: Double): String = when {
         seconds < 90 -> "${fixed(seconds, 0)}s ago"
@@ -97,6 +103,13 @@ data class Face(
     val status: String,
     val reset: String,
     val footnote: String,
+    /**
+     * How much of what is left is paid data, `412 MiB paid`, or empty with no
+     * reading. A lower bound, as `paid.left_bytes` is. Beside the status line
+     * rather than one of [lines]: it gives way to the status when the widget
+     * is narrow, since the status carries the warning.
+     */
+    val paid: String,
     val level: Level,
     /** Free data left to spend right now, not only paid: the QS tile's `active`. */
     val freeNow: Boolean,
@@ -122,6 +135,7 @@ data class Face(
                 // start, so a narrow widget loses the grant and never the clock.
                 reset = if (doc.grantBytes > 0) "+${Format.size(doc.grantBytes)} at $resetAt" else "resets at $resetAt",
                 footnote = "read ${Format.clock(doc.readingTaken, zone, hour24)}, ${Format.money(doc.credits)} reserve",
+                paid = "${Format.mib(doc.paidLeftBytes)} paid",
                 level = Format.grade(share),
                 freeNow = doc.freeLeftBytes > 0,
                 warning = mark != null,
@@ -134,6 +148,7 @@ data class Face(
             status = "no reading",
             reset = "resets at ${Format.resetClock(Pipeline.nextReset(now), zone, hour24)}",
             footnote = why,
+            paid = "",
             level = Level.UNKNOWN,
             freeNow = false,
             warning = true,
@@ -161,6 +176,9 @@ data class Face(
  *
  * The watch works out staleness itself, from `ts`: it never trusts `live`,
  * which was true when the phone sent it and says nothing about now.
+ *
+ * `paid` is how much of what is left is paid data, in whole MiB whatever
+ * its size, spelled here like every other figure.
  *
  * `session` is [WatchSession.fields], when the session is known.
  *
@@ -197,6 +215,7 @@ object WatchPayload {
             "fig" to face.figure,
             "share" to Format.percent(doc.remainderBytes.toDouble() / maxOf(1L, doc.poolBytes)),
             "gfig" to Format.size(doc.grantBytes),
+            "paid" to Format.mib(doc.paidLeftBytes),
             "level" to face.level.word,
             "ask" to canAsk,
         ).apply { putAll(session) }

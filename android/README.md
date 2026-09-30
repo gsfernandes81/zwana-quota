@@ -57,6 +57,12 @@ Before anything is sent, the session is read again. If it changed since the
 widget was drawn (someone else switched data off, say), nothing is sent and
 the footnote says `changed elsewhere: nothing done`.
 
+Beside the share, where the widget is wide enough, is how much of what is
+left is paid data, in whole MiB whatever its size (`412 MiB paid`). It is
+the part that gives way on a narrow widget; the share and any warning on it
+do not. Like the Python's `paid.left_bytes` it is a floor: paid data that
+carried over midnight unseen can only make the true figure larger.
+
 The line under the reset says who is on: `This phone + 1 device`. Resized to
 about 4 x 3 cells (Android 12 and later), the widget lists them instead, up
 to three rows. Each device is shown by the name the ship's network gives it,
@@ -145,12 +151,16 @@ Solar, beside START) shows each page's one number or what START does.
 
 | page | shows | sub-window | START |
 |---|---|---|---|
-| **Data left** | the figure large, the bar, the reset time | the share left, as a ring | a fresh reading (with **Let the watch ask**) |
+| **Data left** | the figure large, the bar, the reset time, how much of it is paid (`412 MiB paid`) | the share left, as a ring | a fresh reading (with **Let the watch ask**) |
 | **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch | switch data (with **switch data** on) |
-| **Devices** | every device on the session, by name | how many | the watch's own menu of devices that can be taken off |
+| **Device**, one per device | its name, as large as it fits, and whether it switched data on or joined | which of how many (`2/3`) | take that device off, when it is one that can be |
 
-The last two pages appear once the phone has read the session. Anything
+The session pages appear once the phone has read the session: one page per
+device, this phone first, up to eight (the last says how many more). Anything
 that takes a device off data asks first, in the watch's own confirmation.
+
+The glance's title row shows how much is paid too, when nothing more urgent
+(the reading's age, `offline`) needs the room and it fits beside `DATA`.
 
 ### Building the watch app
 
@@ -233,8 +243,8 @@ after a minute. With the setting off the watch shows none of this.
 **Switching from the watch.** Beneath it, **Let the watch switch data and
 disconnect devices** (off by default) lets START on the Connection page
 switch data -- off for every device when this phone switched it on, only
-this phone when it joined, as the widget does -- and START on the Devices
-page take another joined device off. The watch asks first; the phone then
+this phone when it joined, as the widget does -- and START on another
+joined device's own page take it off. The watch asks first; the phone then
 checks the request against the portal before sending anything, and does
 nothing if the session changed. This phone and the device that switched data
 on are never offered for removal. It keeps a small listener running on the phone (Garmin Connect only

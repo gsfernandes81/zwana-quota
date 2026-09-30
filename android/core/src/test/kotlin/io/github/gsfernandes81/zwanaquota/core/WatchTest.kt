@@ -65,6 +65,23 @@ class WatchTest {
     }
 
     @Test
+    fun `each device sent has its words, and only the one that switched data on says so`() {
+        for (s in listOf(session(me, listOf(laptop, tablet)), session(laptop, listOf(me, tablet)), session(laptop, emptyList()))) {
+            val fields = WatchSession.fields(s, emptyMap(), canControl = false)
+            val names = fields["dn"] as List<*>
+            val roles = fields["dr"] as List<*>
+            assertEquals(names.size, roles.size)
+            assertTrue(roles.all { it is String && it.isNotEmpty() }, "$roles")
+            // The primary's words are its own: no other device shares them.
+            val devices = s.devices(emptyMap())
+            val primary = roles[devices.indexOfFirst { it.ip == s.primaryIp }]
+            devices.forEachIndexed { i, d -> assertEquals(d.ip == s.primaryIp, roles[i] == primary, "$roles") }
+        }
+        val off = WatchSession.fields(session(me, listOf(laptop), on = false), emptyMap(), canControl = false)
+        assertTrue((off["dr"] as List<*>).isEmpty())
+    }
+
+    @Test
     fun `only the types the Connect IQ SDK carries, and at most eight devices`() {
         val many = (1..20).map { "10.1.0.${it + 1}" }
         val fields = WatchSession.fields(session(me, many), emptyMap(), canControl = true)

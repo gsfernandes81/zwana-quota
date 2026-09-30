@@ -36,9 +36,9 @@ listening (the payload's `ask`), so the setting is also what shows the offer:
 with it off, nothing on the watch mentions asking. Switching data and taking
 devices off have a setting of their own beneath it (`ctl`); the phone sends
 the session as words and lists it has decided (`WatchSession`: the state,
-the device names, what START does, the question to ask first, and per
-device the address the watch may ask to take off, or none), and the watch
-offers exactly those. A command from the watch goes through the same checks
+the device names, how each is on the session, what START does, the question
+to ask first, and per device the address the watch may ask to take off, or
+none), and the watch offers exactly those, a page per device. A command from the watch goes through the same checks
 as the widget's switch (`apply`, `remove`): read the session again, and do
 nothing unless the request is still the one the session calls for. The
 watch confirms before anything that takes a device off; the phone does not
@@ -160,8 +160,8 @@ six hours and a silence one hour, because addresses are handed out again.
 One `HashMap`, built in one place (`WatchPayload` in `core/.../Face.kt`) and
 tested there. The SDK carries Integer, Float, String, Boolean, List and
 HashMap, and **no Long**, so byte counts go as whole KiB and times as epoch
-seconds. The figures go as the strings the phone's own face draws: the
-watch holds no unit ladder, no thresholds and no grades, which is how a third
+seconds. The figures go as the strings the phone's own face draws (the paid part as
+`paid`, in whole MiB at every size): the watch holds no unit ladder, no thresholds and no grades, which is how a third
 language avoids a third copy. `tests/test_watch_contract.py` reads both
 sources as text and fails `make test` when a key the watch reads is not one
 the phone sends, when the versions differ, or when the app id in

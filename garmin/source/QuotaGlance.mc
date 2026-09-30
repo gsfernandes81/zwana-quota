@@ -4,7 +4,8 @@ import Toybox.WatchUi;
 
 // The glance, laid out as Garmin's own Body Battery glance is:
 //
-//   Data Left                 2h ago     title; why not to believe it, if so
+//   Data Left                 2h ago     title; why not to believe it, if so,
+//                                        else how much is paid, if it fits
 //   ==========----------                what is left of today, thick, then
 //                                       what has gone, thin: full at the
 //                                       reset, thinning as data is used
@@ -36,12 +37,24 @@ class QuotaGlance extends WatchUi.GlanceView {
 
         // Title, in capitals as the watch's own glances have theirs, and the
         // mark on the same row when there is one. The mark is the one that
-        // matters, so the title gives way to it.
+        // matters, so the title gives way to it. With no mark, the paid part
+        // of the figure takes the row's right, but only where it fits beside
+        // at least "DATA": it is the one that gives way then.
         var mark = (d == null) ? null : Quota.mark(d);
         var title = "DATA LEFT";
         if (mark != null) {
             dc.drawText(width, top, font, mark as String, Graphics.TEXT_JUSTIFY_RIGHT);
             title = fit(dc, font, ["DATA LEFT", "DATA", ""], width - dc.getTextWidthInPixels(mark as String, font) - 6);
+        } else if (d != null && Quota.str(d, "paid").length() > 0) {
+            var paid = Quota.str(d, "paid") + " paid";
+            var titles = ["DATA LEFT", "DATA"];
+            for (var i = 0; i < titles.size(); i++) {
+                if (dc.getTextWidthInPixels(titles[i], font) + 6 + dc.getTextWidthInPixels(paid, font) <= width) {
+                    title = titles[i];
+                    dc.drawText(width, top, font, paid, Graphics.TEXT_JUSTIFY_RIGHT);
+                    break;
+                }
+            }
         }
         dc.drawText(0, top, font, title, Graphics.TEXT_JUSTIFY_LEFT);
 

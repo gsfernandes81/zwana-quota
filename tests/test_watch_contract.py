@@ -44,7 +44,8 @@ def test_every_key_the_watch_reads_is_one_the_phone_sends():
     blocks = payload_block() + session_block()
     sent = set(re.findall(r'"(\w+)"\s+to\b', blocks)) | set(re.findall(r'out\["(\w+)"\]', blocks))
     source = "\n".join(p.read_text() for p in WATCH_SOURCES)
-    read = set(re.findall(r'(?:num|str|arr)\(\w+,\s*"(\w+)"\)|\.get\("(\w+)"\)', source))
+    # The first argument may be cast (`str(d as Dictionary, "paid")`).
+    read = set(re.findall(r'\b(?:num|str|arr)\([^,()"]+,\s*"(\w+)"\)|\.get\("(\w+)"\)', source))
     read = {a or b for a, b in read}
     assert read, "found no keys in the watch's sources"
     assert read <= sent, f"read by the watch, never sent: {sorted(read - sent)}"

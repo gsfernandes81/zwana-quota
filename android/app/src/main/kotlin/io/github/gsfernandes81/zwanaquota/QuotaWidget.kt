@@ -128,6 +128,8 @@ class QuotaWidget : AppWidgetProvider() {
             views.setTextColor(R.id.figure, LEVEL.getValue(face.level))
             views.setTextViewText(R.id.status, face.status)
             views.setTextColor(R.id.status, if (face.warning) WARN else TEXT)
+            views.setViewVisibility(R.id.paid, if (face.paid.isEmpty()) View.GONE else View.VISIBLE)
+            views.setTextViewText(R.id.paid, face.paid)
             views.setTextViewText(R.id.reset, face.reset)
             views.setTextColor(R.id.reset, TEXT)
             views.setTextViewText(R.id.footnote, busy ?: face.footnote)

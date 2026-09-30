@@ -168,6 +168,29 @@ module Draw {
         return "";
     }
 
+    // Where to split [text] in two: just after the '-', '.', '_' or space
+    // nearest its middle, else at the middle. Always inside it, so both
+    // halves have something; bounded by the text's length.
+    function breakAt(text as String) as Number {
+        var chars = text.toCharArray();
+        var n = chars.size();
+        if (n < 2) {
+            return n;
+        }
+        var best = n / 2;
+        var off = n;
+        for (var i = 1; i < n; i++) {
+            if ("-._ ".find(chars[i - 1].toString()) != null) {
+                var d = (i - n / 2).abs();
+                if (d < off) {
+                    best = i;
+                    off = d;
+                }
+            }
+        }
+        return best;
+    }
+
     // The longest of [ladder] no wider than [width]; null if none is.
     function fit(dc as Graphics.Dc, font as Graphics.FontType, ladder as Array<String>, width as Number) as String? {
         for (var i = 0; i < ladder.size(); i++) {

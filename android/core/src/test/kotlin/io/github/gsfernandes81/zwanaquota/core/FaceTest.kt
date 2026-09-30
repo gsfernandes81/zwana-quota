@@ -65,6 +65,33 @@ class FaceTest {
     }
 
     @Test
+    fun `a paid figure is whole MiB at every size, true to the precision it printed`() {
+        val rng = Random(11)
+        val mib = 1024L * 1024
+        val named = listOf(0L, 1, mib / 2, mib / 2 + 1, mib - 1, mib, 1023 * mib, 1024 * mib, 5L shl 30, 32L shl 40)
+        for (bytes in named + List(2000) { rng.nextLong(0, 1L shl 45) }) {
+            val text = Format.mib(bytes)
+            assertTrue(text.endsWith(" MiB"), text)
+            val (value, tolerance) = parse(text)
+            assertEquals(0.5 * mib, tolerance, text)
+            assertTrue(Math.abs(value - bytes) <= tolerance + 1e-9 * bytes, "$text for $bytes")
+        }
+    }
+
+    @Test
+    fun `the paid figure is the paid part of what is left, and absent with no reading`() {
+        val carried = 2L shl 30
+        for ((remainder, pool) in listOf(grant to grant, grant / 2 + carried to grant + carried, carried to grant + carried, 0L to grant)) {
+            val d = doc(remainder, pool = pool)
+            val face = Face.of(d, ZoneId.of("UTC"))
+            assertTrue(Format.mib(d.paidLeftBytes) in face.paid, "${face.paid} for $d")
+            assertFalse('\n' in face.paid)
+            assertEquals(Format.mib(d.paidLeftBytes), WatchPayload.build(d, face, now, 1, 1800)["paid"])
+        }
+        assertEquals("", Face.unknown(now, ZoneId.of("UTC"), "sign in").paid)
+    }
+
+    @Test
     fun `an age is true to its unit`() {
         for (s in listOf(0.0, 1.0, 89.4, 90.0, 600.0, 5399.0, 5400.0, 86_400.0 * 3)) {
             val text = Format.since(s)
@@ -185,6 +212,6 @@ class FaceTest {
         val d = doc()
         val keys = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1, 1800).keys
         // garmin/source/Quota.mc reads these; renaming one silently blanks the glance.
-        assertTrue(keys.containsAll(listOf("v", "n", "ts", "every", "reset", "online", "fig", "share", "gfig", "level")))
+        assertTrue(keys.containsAll(listOf("v", "n", "ts", "every", "reset", "online", "fig", "share", "gfig", "paid", "level")))
     }
 }
