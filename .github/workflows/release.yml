@@ -44,13 +44,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A called workflow sees the environment's secrets but not the
+  # repository's unless they are passed on, and the signing key and the
+  # Garmin login may be either. Each build still reads only the ones it
+  # names.
   apk:
     uses: ./.github/workflows/android-apk.yml
+    secrets: inherit
     with:
       retention: 1
 
   prg:
     uses: ./.github/workflows/garmin-prg.yml
+    secrets: inherit
     with:
       retention: 1
 
@@ -94,6 +100,13 @@ jobs:
             -o -name '*.prg' -o -name 'SHA256SUMS' -o -name 'KEY-FINGERPRINT' \) -exec cp {} assets/ \;
           test -f assets/zwana-quota.apk
           ls -l assets
+          # Without the keystore the build signs with a key minted for the
+          # run, which installs over nothing: fine for a check, never for a
+          # release.
+          if grep -q 'minted for run' assets/signer.txt; then
+            echo "::error::The APK was signed with a key minted for this run, not the stable keystore: not publishing it. Is ANDROID_KEYSTORE_BASE64 set, and passed to the build?"
+            exit 1
+          fi
 
           previous="$(git tag --list 'build-*' --sort=-version:refname | head -1)"
           {
