@@ -202,6 +202,12 @@ Gradle configures every project in a build before running any task, and a
 resolved. The APK is signed with a stable key from the repo's secrets when
 they exist, so updates install over each other.
 
+What CI builds from `main` is released as it is: `release.yml` calls both
+builds and publishes them as release `build-N`, N the commit count, which is
+already the APK's version code. Nobody picks a version or pushes a tag, since
+there is no other build to number, and only the newest five releases are
+kept, so the storage they take stays flat.
+
 The watch app is built by `.github/workflows/garmin-prg.yml`, for USB
 sideloading. Compiling it needs Garmin's device definitions, which only come
 after a Garmin login and cannot go in a public repository, so the job signs in

@@ -66,6 +66,11 @@ pushes has neither. CI runs it before building the APK
 is compiled. The watch app is compiled by `.github/workflows/garmin-prg.yml`,
 which signs in to Garmin with the `garmin` environment's secrets (the device
 files need a login and cannot be committed) and does nothing without them.
+On `main` both run only from `.github/workflows/release.yml`, which publishes
+every passing build as release `build-N` (N the commit count, the APK's
+version code) and keeps the newest five: no tags, no version numbers, since CI
+is the only compiler there is. On other branches they run as checks, their
+artifacts kept a few days.
 
 `quota_widget.py --self-test` came out on 2026-09-02 and `tests/` replaced it
 on 2026-09-03. Not a transcription of it: the suite tests **behaviour and

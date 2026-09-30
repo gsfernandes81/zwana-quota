@@ -1,0 +1,130 @@
+# Every build of `main` that passes is published as a GitHub Release, with no
+# tag to push and no version to choose: CI is the only compiler this repo has
+# (android/README.md), so what it builds from `main` is what gets installed.
+#
+# Each push to `main` that touches the app, the watch app or the vectors
+# builds both (android-apk.yml and garmin-prg.yml, called from here), and if
+# both pass publishes them together as release `build-N`, where N is the
+# commit count -- the APK's own version code, so the two always agree and a
+# newer build always installs over an older one. The notes are the commits
+# since the previous build.
+#
+# Storage: release files are not Actions storage and do not expire, so only
+# the newest KEEP releases are kept and older ones are deleted with their
+# tags; the runs' own artifacts are kept one day, only long enough to be
+# published. Stable links for the newest build:
+#
+#   https://github.com/<owner>/<repo>/releases/latest/download/zwana-quota.apk
+#   https://github.com/<owner>/<repo>/releases/latest/download/zwana-quota-instinct3solar45mm.prg
+#
+# Without the Garmin secrets the watch build does nothing, and the release
+# holds the APK alone.
+
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'vectors/**'
+      - 'garmin/**'
+      - '.github/workflows/android-apk.yml'
+      - '.github/workflows/garmin-prg.yml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One release at a time, in push order: a later push waits rather than
+# cancelling one mid-publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    uses: ./.github/workflows/android-apk.yml
+    with:
+      retention: 1
+
+  prg:
+    uses: ./.github/workflows/garmin-prg.yml
+    with:
+      retention: 1
+
+  publish:
+    needs: [apk, prg]
+    runs-on: ubuntu-latest
+    # The one job that can write to the repository, and it runs nothing but
+    # git and gh.
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KEEP: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The commit count, and the previous build's tag for the notes.
+          fetch-depth: 0
+
+      # Whichever of the two builds made something: the watch's is absent
+      # when its secrets are not set.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: zwana-quota-*
+          path: dist
+
+      - name: Publish build-N
+        run: |
+          n="$(git rev-list --count HEAD)"
+          tag="build-$n"
+          short="$(git rev-parse --short HEAD)"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::notice::$tag is already published (a re-run): nothing to do."
+            exit 0
+          fi
+
+          # What is installed or checked, flat (both builds' names are
+          # distinct); not the compiler's debug and settings files.
+          mkdir -p assets
+          find dist -type f \( -name '*.apk' -o -name '*.sha256' -o -name 'signer.txt' \
+            -o -name '*.prg' -o -name 'SHA256SUMS' -o -name 'KEY-FINGERPRINT' \) -exec cp {} assets/ \;
+          test -f assets/zwana-quota.apk
+          ls -l assets
+
+          previous="$(git tag --list 'build-*' --sort=-version:refname | head -1)"
+          {
+            echo "Built from $short on \`main\`."
+            echo
+            if [ -n "$previous" ]; then
+              echo "Since $previous:"
+              echo
+              git log --no-merges --format='- %s (%h)' "$previous..HEAD"
+            else
+              git log --no-merges --format='- %s (%h)' -10
+            fi
+            echo
+            echo "Phone: \`zwana-quota.apk\` (\`signer.txt\` says which key signed it)."
+            if ls assets/*.prg >/dev/null 2>&1; then
+              echo "Watch: the \`.prg\` for your model, into \`GARMIN/APPS/\` over USB."
+            fi
+          } > notes.md
+
+          gh release create "$tag" assets/* \
+            --target "$GITHUB_SHA" \
+            --title "build $n ($short)" \
+            --notes-file notes.md \
+            --latest
+
+      - name: Keep the newest ${{ env.KEEP }} builds
+        run: |
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[].tagName' \
+            | tail -n +"$((KEEP + 1))" \
+            | while read -r old; do
+                echo "Deleting $old"
+                gh release delete "$old" --cleanup-tag --yes
+              done

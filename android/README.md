@@ -31,15 +31,23 @@ the derivation, held to one set of numbers.
 
 ## Installing the APK
 
-1. Open the latest green run of **android apk** on the Actions tab, and
-   download the `zwana-quota-android` artifact. It holds `zwana-quota.apk`,
-   its `.sha256`, and `signer.txt`, which says which key signed it.
+1. Download `zwana-quota.apk` from the newest release:
+   <https://github.com/gsfernandes81/zwana-quota/releases/latest/download/zwana-quota.apk>. Every build of `main` that passes is published as a
+   release by itself (`build-N`, N the commit count, which is also the APK's
+   version code), with its `.sha256` and `signer.txt`, which says which key
+   signed it. There are no versions to choose and no tags to push; the five
+   newest builds are kept.
 2. On the phone, open the APK and allow the installer to install unknown apps
    when asked.
 3. Open **zwana quota**, enter the portal login (the same `zwana_username` /
    `zwana_password` as the `.env`), and press **Save and read**.
 4. Long-press the home screen → Widgets → **zwana quota**. It reads the
    portal every 15 minutes while the screen is on, and at once when tapped.
+
+**Updates** install over the old APK, since every build has a higher version
+code and the same key. To have them arrive by themselves, add this repository
+to [Obtainium](https://github.com/ImranR98/Obtainium), which watches its
+releases and installs each new APK.
 
 ### The data switch and the device list
 
@@ -202,11 +210,14 @@ openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem \
 base64 -w0 developer_key.der          # the value of GARMIN_DEVELOPER_KEY
 ```
 
-**Each build**: any push that touches `garmin/`, or **Run workflow** on the
-**garmin prg** workflow in the Actions tab. Its `zwana-quota-garmin` artifact
-holds `zwana-quota-instinct3solar45mm.prg` (and one per other model),
-`SHA256SUMS`, and the key's fingerprint. Without the secrets the job says
-which are missing and stops, green.
+**Each build** is in the newest release, beside the APK: a push to `main`
+that touches `garmin/`, `android/` or `vectors/` builds both and publishes
+them together (`.github/workflows/release.yml`). The Solar 45 mm's is
+<https://github.com/gsfernandes81/zwana-quota/releases/latest/download/zwana-quota-instinct3solar45mm.prg>; there is one per other model, with
+`SHA256SUMS` and the key's fingerprint. A push to any other branch builds it
+as a check only, kept a few days as the run's artifact. Without the secrets
+the job says which are missing and stops, green, and the release holds the
+APK alone.
 
 **Install over USB**:
 

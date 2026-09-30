@@ -24,14 +24,25 @@
 # Without the secrets the job says so and stops, green: nothing here is
 # needed for the APK. Credentials never reach a command line or the log.
 
+# When it runs: on `main`, only as part of release.yml, which publishes what
+# it builds as a GitHub Release; on any other branch, on its own, as a check
+# whose .prg files are kept a few days. Or by hand (Run workflow).
+
 name: garmin prg
 
 on:
   push:
+    branches-ignore: [main]
     paths:
       - 'garmin/**'
       - '.github/workflows/garmin-prg.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      retention:
+        description: days to keep the .prg artifact
+        type: number
+        default: 1
 
 permissions:
   contents: read
@@ -144,5 +155,5 @@ jobs:
         with:
           name: zwana-quota-garmin
           path: out/
-          retention-days: 30
+          retention-days: ${{ inputs.retention || 5 }}
           if-no-files-found: error
