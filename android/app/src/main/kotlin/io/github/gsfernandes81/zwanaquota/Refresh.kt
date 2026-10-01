@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * One refresh: read the portal if the cache is too old, draw the widget, and
- * send the watch the result if the watch is switched on.
+ * send the watch the newest reading if the watch is switched on.
  *
  * quota_widget.current()'s policy, minus its lock and its detached child --
  * WorkManager's unique work is both of those. The cache is answered from for
@@ -211,8 +211,8 @@ class Refresher(context: Context) {
      * Send the watch the newest reading there is. Messages are made and handed
      * to Garmin Connect one at a time, whichever job they come from, and each
      * is made inside its turn: the newer of this run's reading and the one
-     * stored by then (another run may have read since), with the session as
-     * stored. `sent` is the moment the message is made, in whole seconds, so
+     * stored by then (by `ts`, when each read began; another run may have
+     * read since), with the session as stored. `sent` is the moment the message is made, in whole seconds, so
      * while the clock runs forward a later message never carries an earlier
      * stamp -- and that stamp, not the order they reach the watch (a send the
      * phone gave up waiting on may still arrive), is what the watch goes by: it
@@ -413,7 +413,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger)
                 inputData.getBoolean(PERIODIC, false) -> {
                     // Screen on: read, as the Tasker tile's profile does, and
-                    // send the watch the result too. Screen off: nobody is
+                    // send the watch a reading too. Screen off: nobody is
                     // looking at the widget, so nothing -- unless the watch has
                     // gone its send interval without one.
                     val screenOn = applicationContext.getSystemService(PowerManager::class.java)?.isInteractive != false
