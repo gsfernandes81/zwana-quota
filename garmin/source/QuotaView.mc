@@ -22,21 +22,25 @@ import Toybox.WatchUi;
 //
 // One view per page, made by the loop as it turns to it.
 class QuotaView extends WatchUi.View {
+    // The page the loop made this view for. What it draws and what START
+    // does is shown(), which is this unless the pages have since shrunk.
     var page as Number;
-    var id as Number;
 
     function initialize(p as Number) {
         View.initialize();
         page = p;
-        id = Pages.serial();
     }
 
     function onShow() as Void {
-        Pages.shown(id, page);
+        Pages.shown(page);
     }
 
-    function onHide() as Void {
-        Pages.gone(id);
+    // The page this view stands for now: a loop built for more pages than
+    // there are, until it is replaced (Pages.refit), has its extra pages
+    // shown as the last. Worked out afresh, never stored, so a count that
+    // comes back finds the view on its own page again.
+    function shown() as Number {
+        return Pages.clamp(page, Pages.count(Quota.last()));
     }
 
     // The IP START may ask the phone to take off from device page [i], or ""
@@ -54,19 +58,13 @@ class QuotaView extends WatchUi.View {
         dc.clear();
         var d = Quota.last();
         var sub = Draw.subscreen();
-        // A loop built for more pages than there are now, until it is
-        // replaced (Pages.refit): its extra pages are the last, and START does
-        // what this page draws.
-        var n = Pages.count(d);
-        if (page >= n) {
-            page = n - 1;
-        }
-        if (page != 0 && !Quota.hasSession(d)) {
-            noSession(dc, sub, page == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
-        } else if (page == 1) {
+        var p = shown();
+        if (p != 0 && !Quota.hasSession(d)) {
+            noSession(dc, sub, p == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
+        } else if (p == 1) {
             connection(dc, d as Dictionary, sub);
-        } else if (page >= 2) {
-            device(dc, d as Dictionary, sub, page - 2);
+        } else if (p >= 2) {
+            device(dc, d as Dictionary, sub, p - 2);
         } else {
             dataLeft(dc, d, sub);
         }

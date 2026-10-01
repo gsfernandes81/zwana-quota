@@ -38,10 +38,15 @@ class QuotaApp extends Application.AppBase {
     }
 
     // What the background service passed on: now if the app is running, or
-    // at its next start if not.
+    // at its next start if not -- and to the glance, when it is the one on
+    // screen. Pages is not in the glance, so only the app refits it.
     function onBackgroundData(data as Application.PersistableType) as Void {
         if (Quota.store(data)) {
-            Pages.refit();
+            if (Quota.remember) {
+                Pages.refit();
+            } else {
+                WatchUi.requestUpdate();
+            }
         }
     }
 
