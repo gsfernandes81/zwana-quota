@@ -46,8 +46,8 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
- * One refresh: read the portal if the cache is too old, draw the widget, and
- * send the watch the newest reading if the watch is switched on.
+ * One refresh: read the portal if the cache is too old, draw the widget, and,
+ * when a send is wanted, send the watch the newest reading.
  *
  * quota_widget.current()'s policy, minus its lock and its detached child --
  * WorkManager's unique work is both of those. The cache is answered from for
@@ -505,9 +505,8 @@ object Work {
      * if none is).
      * KEEP: an ask arriving while an earlier ask's job is still going is folded
      * into it and answered by that job's send -- unless it was made against that
-     * very send, in the stretch between its reaching the watch and the job's
-     * end (the sends to any other paired watches), which the watch then waits
-     * out. So asks never queue up reads of their own.
+     * very send before the job ended, which the watch then waits out. So asks
+     * never queue up reads of their own.
      */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
