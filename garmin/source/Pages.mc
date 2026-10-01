@@ -15,8 +15,9 @@ import Toybox.WatchUi;
 // or not the firmware reads getSize() again on its own.
 //
 // The replacing waits while something else is on top of the loop (the
-// watch's confirmation, before a device is taken off or data is switched):
-// replacing the top view then would replace the confirmation, not the loop.
+// watch's confirmation before a device is taken off, or before a switch the
+// phone sent a question for, `cq`): replacing the top view then would
+// replace the confirmation, not the loop.
 // Whether the loop is on top is asked of the view stack itself
 // (getCurrentView), not inferred from onShow and onHide. It is caught up
 // when a page is shown again, or at the next message.

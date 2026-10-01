@@ -152,8 +152,8 @@ figure's place beside what is left, or the title's if it does not fit there:
 - `offline`: the portal said the session was down when it was read.
 - `no time`: the reading carries no time, so its age cannot be told.
 
-Where even the title's place is too narrow for the word, a short form is
-drawn instead: `old` where the figure is out of date (`new day`, `2h ago`),
+Where neither place takes the word, its short form is drawn in whichever
+does: `old` where the figure is out of date (`new day`, `2h ago`),
 `!` where it cannot be vouched for (`offline`, or a reading with no time).
 
 The watch works out its staleness from the reading's own timestamp. It never
@@ -171,10 +171,10 @@ Solar, beside START) shows each page's one number or what START does.
 | **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch | switch data (with **switch data** on) |
 | **Device**, one per device | its name, as large as it fits, and whether it switched data on or joined | which of how many (`2/3`) | take that device off, when it is one that can be |
 
-The session pages say so until the phone has sent the session; then one page
-per device, this phone first, up to eight (the last says how many more).
-Anything that takes a device off data asks first, in the watch's own
-confirmation.
+The session pages read `not sent yet` until the phone has sent the session;
+then one page per device, this phone first, up to eight (the last says how
+many more). Anything that takes a device off data asks first, in the watch's
+own confirmation.
 
 ### Building the watch app
 
