@@ -25,8 +25,7 @@ class QuotaApp extends Application.AppBase {
             Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
         }
         Quota.remember = true;
-        var view = new QuotaView(0);
-        return [view, new QuotaDelegate(view)];
+        return Pages.loop(0);
     }
 
     (:glance)
@@ -42,14 +41,14 @@ class QuotaApp extends Application.AppBase {
     // at its next start if not.
     function onBackgroundData(data as Application.PersistableType) as Void {
         if (Quota.store(data)) {
-            WatchUi.requestUpdate();
+            Pages.refit();
         }
     }
 
     // A message that arrived while the app itself was open.
     function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {
         if (Quota.store(msg.data)) {
-            WatchUi.requestUpdate();
+            Pages.refit();
         }
     }
 }

@@ -117,26 +117,6 @@ module Draw {
         dc.setPenWidth(1);
     }
 
-    // Page dots down the left edge, the current one filled, sized to the
-    // screen: radius 3, 10px apart on the Solar.
-    function pageDots(dc as Graphics.Dc, page as Number, count as Number) as Void {
-        if (count < 2) {
-            return;
-        }
-        var h = dc.getHeight();
-        var r = h / 60 > 3 ? h / 60 : 3;
-        var gap = 3 * r + 1;
-        var y = h / 2 - (count - 1) * gap / 2;
-        var x = 2 * r + 2;
-        for (var i = 0; i < count; i++) {
-            if (i == page) {
-                dc.fillCircle(x, y + i * gap, r);
-            } else {
-                dc.drawCircle(x, y + i * gap, r);
-            }
-        }
-    }
-
     // How wide the round screen is across a text row from [y] to
     // [y] + [height], less a margin: the narrower of the row's two edges.
     function chord(dc as Graphics.Dc, y as Number, height as Number) as Number {
