@@ -105,7 +105,7 @@ class WatchListener : Service() {
                     } catch (e: Exception) {
                         return store.note("listener", "$watch asked again; could not resend: ${e.javaClass.simpleName}")
                     }
-                    return store.note("listener", if (sent) "$watch asked again; sent the last reading" else "$watch asked again; no reading to send yet")
+                    return store.note("listener", if (sent) "$watch asked again; answered with the last reading" else "$watch asked again; no reading to send yet")
                 }
                 store.lastAsk = now
                 store.note("listener", "$watch asked for a reading")
