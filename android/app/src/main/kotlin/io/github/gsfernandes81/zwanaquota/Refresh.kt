@@ -9,6 +9,7 @@ import android.text.format.DateFormat
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -66,8 +67,9 @@ class Refresher(context: Context) {
     /**
      * [notice], when given, is drawn in place of the footnote: what a data
      * switch that did not happen has to say, on the face it did not change.
+     * [asked]: this is the read the watch asked for (Work.fromWatch).
      */
-    fun run(force: Boolean, pushWanted: Boolean, trigger: String, notice: String? = null) {
+    fun run(force: Boolean, pushWanted: Boolean, trigger: String, notice: String? = null, asked: Boolean = false) {
         val now = Instant.now()
         var reading = store.reading()
         var live = false
@@ -104,7 +106,9 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted) push(reading, now.toEpochMilli(), whyWatch)
+        // Only the watch's own read answers its request with why it has no
+        // reading: another job's failure says nothing of the read it waits on.
+        if (pushWanted) push(reading, now.toEpochMilli(), whyWatch.takeIf { asked })
     }
 
     /**
@@ -445,10 +449,10 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             val askId = inputData.getInt(ASK_ID, -1).takeIf { it >= 0 }
             // A switch runs by its deadline or not at all: one the system held
             // back is one the person has given up on, and may since have done
-            // another way -- and from the watch, one it has already said went
-            // unanswered (Work.fromWatch). Checked again just before the change
-            // is sent (Refresher.change hands PortalClient.apply/remove the
-            // deadline as `allowed`).
+            // another way -- and from the watch, one it is told was too late
+            // while it still waits (Work.fromWatch). Checked again just before
+            // the change is sent (Refresher.change hands PortalClient.apply/
+            // remove the deadline as `allowed`).
             val deadline = inputData.getLong(DEADLINE, 0)
             if ((action != null || remove != null) && Instant.now().epochSecond > deadline) {
                 store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} past its deadline; too late, nothing done")
@@ -478,6 +482,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                     force = inputData.getBoolean(FORCE, false),
                     pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled,
                     trigger = trigger,
+                    asked = inputData.getBoolean(ASKED, false),
                 )
             }
             store.note("worker", "ran ($trigger)")
@@ -506,6 +511,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         const val DEADLINE = "deadline"
         const val ASK_ID = "askId"
         const val ANSWER = "answer"
+        const val ASKED = "asked"
 
         /** How long after the widget's tap its switch may still run. */
         const val SWITCH_LIFETIME_SECONDS = 180L
@@ -553,61 +559,68 @@ object Work {
     }
 
     /**
-     * The watch asked to switch data or take a device off, as ask [askId]
-     * (null from a watch build older than ids). The listener has already
-     * refused it while another switch is on its way ([switchBusy]); KEEP
-     * covers the moment between, and the worker checks it against the portal
-     * first, and against [QuotaWorker.WATCH_SWITCH_SECONDS] from now.
+     * What the watch asked, as ask [askId] (null from a watch build older than
+     * ids). True if it is on its way; false if one of its kind already is --
+     * one request of each kind in flight, never a queue: a switch or removal
+     * while another switch (the widget's or the watch's) is going, or a
+     * request for a reading while another is being read. The caller tells the
+     * watch "phone busy" ([Store.refuse]). Blocks: not on the main thread.
+     *
+     * A request for a reading is answered by the first reading its job begins
+     * ([Answers.settle]), so it is noted as heard before the job is enqueued.
+     * A switch or removal is checked against the portal first, and is made
+     * only within [QuotaWorker.WATCH_SWITCH_SECONDS] of now.
      */
-    fun fromWatch(context: Context, command: WatchCommand, askId: Int?) {
+    fun fromWatch(context: Context, command: WatchCommand, askId: Int?): Boolean {
+        if (command == WatchCommand.Refresh) {
+            askId?.let { id -> Store(context).asks { pending, _ -> pending.add(Answers.Pending(id, System.currentTimeMillis())) } }
+            val input = Data.Builder().putAll(input(true, true, "watch asked")).putBoolean(QuotaWorker.ASKED, true).build()
+            return startIfIdle(context, ASKED, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build())
+        }
         val data = Data.Builder().putAll(input(true, true, "watch"))
             .putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.WATCH_SWITCH_SECONDS)
         askId?.let { data.putInt(QuotaWorker.ASK_ID, it) }
         when (command) {
             is WatchCommand.Act -> data.putString(QuotaWorker.ACTION, command.action.name)
             is WatchCommand.Remove -> data.putString(QuotaWorker.REMOVE, command.ip)
-            WatchCommand.Refresh -> return askedByWatch(context)
+            WatchCommand.Refresh -> Unit
         }
-        val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
-    }
-
-    /** A switch or removal, the widget's or the watch's, still on its way. Blocks: not on the main thread. */
-    fun switchBusy(context: Context): Boolean =
-        WorkManager.getInstance(context).getWorkInfosForUniqueWork(SWITCH).get().any { !it.state.isFinished }
-
-    /**
-     * Send the watch the answers as they stand ([Store.answer]), reading
-     * nothing: how an ask the phone refused is told. Appended after one
-     * already running, which may have read the answers before this one.
-     */
-    fun answer(context: Context) {
-        val input = Data.Builder().putAll(input(false, true, "watch answer")).putBoolean(QuotaWorker.ANSWER, true).build()
-        val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(ANSWER, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        return startIfIdle(context, SWITCH, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build())
     }
 
     /**
-     * The watch asked for a reading: read now and send it back (the newest
-     * reading stored, if the read fails at the portal or is not made; nothing
-     * if none is). An ask is answered only by a reading begun after the phone
-     * heard it ([Answers.settle]), so KEEP would drop an ask heard after the
-     * running job's read began, and APPEND alone would queue a read per ask.
-     * So: one job queued behind the running one at most. With one already
-     * queued, nothing is added -- WorkManager marks a job running before it
-     * starts, so one seen queued here begins its read after this ask was
-     * heard and answers it. Otherwise one job, after any running. However
-     * often the watch asks and however long the portal takes, that is one
-     * read running and one waiting. Blocks: not on the main thread.
+     * Enqueue [request] as [name] unless one is already on its way, and say
+     * which. KEEP drops it then, and whether it did is read back once the
+     * enqueue has landed, so WorkManager itself decides: a request enqueued by
+     * anyone in between (a widget tap) still counts, with no lock of our own.
      */
-    fun askedByWatch(context: Context) = synchronized(ASKING) {
-        val queued = WorkManager.getInstance(context).getWorkInfosForUniqueWork(ASKED).get()
+    private fun startIfIdle(context: Context, name: String, request: OneTimeWorkRequest): Boolean {
+        val manager = WorkManager.getInstance(context)
+        manager.enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, request).result.get()
+        return manager.getWorkInfosForUniqueWork(name).get().any { it.id == request.id }
+    }
+
+    /**
+     * Send the watch the answers as they stand ([Store.refuse]), reading
+     * nothing: how an ask the phone refused is told. One job queued at most,
+     * behind any running: one already queued reads the answers when it starts
+     * -- WorkManager marks a job running before it starts it -- so it carries
+     * this one too. Checked and enqueued under one lock, the enqueue awaited.
+     * Blocks: not on the main thread.
+     */
+    fun answer(context: Context) = synchronized(ANSWERING) {
+        val manager = WorkManager.getInstance(context)
+        val queued = manager.getWorkInfosForUniqueWork(ANSWER).get()
             .any { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.BLOCKED }
-        if (!queued) enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
+        if (!queued) {
+            val input = Data.Builder().putAll(input(false, true, "watch answer")).putBoolean(QuotaWorker.ANSWER, true).build()
+            val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
+            manager.enqueueUniqueWork(ANSWER, ExistingWorkPolicy.APPEND_OR_REPLACE, request).result.get()
+        }
     }
 
-    /** Held while [askedByWatch] looks at the queue and adds to it: asks are heard on threads of their own. */
-    private val ASKING = Any()
+    /** Held while [answer] looks at its queue and adds to it: asks are heard on threads of their own. */
+    private val ANSWERING = Any()
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

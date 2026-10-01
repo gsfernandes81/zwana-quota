@@ -173,6 +173,11 @@ class Asking {
     var message as String;
     var failed as Boolean = false;
     var told as Boolean = false;   // its answer's word has been shown
+    // Once answered, answered for good, with the word it came with: a
+    // message that replaces the answering one (sent in the same second, so
+    // not older by `sent`) cannot take the answer back.
+    var done as Boolean = false;
+    var said as String = "";
 
     function initialize(i as Number, w as Number, sent as Number, m as String) {
         id = i;
@@ -206,18 +211,22 @@ class Asking {
     // Whether the phone has answered it: by its id, or from an older phone
     // app by any message since.
     function answered() as Boolean {
-        var i = place();
-        if (i == -2) {
-            return Quota.num(Quota.last() as Dictionary, "sent") != before;
+        if (!done) {
+            var d = Quota.last();
+            var i = place();
+            if (i == -2) {
+                done = Quota.num(d as Dictionary, "sent") != before;
+            } else if (i >= 0) {
+                done = true;
+                said = Quota.item(Quota.arr(d as Dictionary, "rw"), i);
+            }
         }
-        return i >= 0;
+        return done;
     }
 
     // What became of it: "" for done or not yet answered, else the phone's word.
     function word() as String {
-        var d = Quota.last();
-        var i = place();
-        return (d == null || i < 0) ? "" : Quota.item(Quota.arr(d, "rw"), i);
+        return answered() ? said : "";
     }
 }
 

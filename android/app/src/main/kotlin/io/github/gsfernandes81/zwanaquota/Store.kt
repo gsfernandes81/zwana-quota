@@ -151,6 +151,20 @@ class Store(context: Context) {
         answers.addAll(kept)
     }
 
+    /**
+     * Answer the watch's ask [id] with [word] for an ask not done, unless a
+     * reading answered it meanwhile (a job begun just after it was heard).
+     * True if this is its answer.
+     */
+    fun refuse(id: Int, word: String): Boolean = asks { pending, answers ->
+        if (answers.any { it.id == id }) return@asks false
+        pending.removeAll { it.id == id }
+        val kept = Answers.keep(answers, listOf(Answers.Answer(id, word)))
+        answers.clear()
+        answers.addAll(kept)
+        true
+    }
+
     private fun lines(key: String): List<Pair<String, String>> =
         prefs.getString(key, null)?.lines()?.mapNotNull { line ->
             line.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] }

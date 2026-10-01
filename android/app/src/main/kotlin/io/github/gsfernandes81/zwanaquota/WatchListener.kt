@@ -16,7 +16,6 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import io.github.gsfernandes81.zwanaquota.core.Answers
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
 
 /**
@@ -103,39 +102,19 @@ class WatchListener : Service() {
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
         val id = WatchCommand.idOf(message)
-        when (command) {
-            WatchCommand.Refresh -> {
-                // Answered by the first reading begun after this moment
-                // (Answers.settle): one already queued, or a job of its own
-                // after any running (Work.askedByWatch). Heard first, then
-                // queued, so that reading cannot begin before it was heard.
-                store.note("listener", "$watch asked for a reading")
-                id?.let { store.asks { pending, _ -> pending.add(Answers.Pending(it, System.currentTimeMillis())) } }
-                Work.askedByWatch(this)
-            }
-            else -> {
-                // Switching and removing only with their own setting on. The
-                // watch only offers them then, so this refuses a stale watch
-                // that still thinks it may.
-                val refusal = when {
-                    !store.watchCanControl -> "not allowed"
-                    // One switch at a time, whoever asked: a second is
-                    // refused rather than queued behind the first.
-                    Work.switchBusy(this) -> "phone busy"
-                    else -> null
-                }
-                if (refusal != null) {
-                    store.note("listener", "$watch asked to $command; $refusal")
-                    if (id != null) {
-                        store.answer(id, refusal)
-                        Work.answer(this)
-                    }
-                    return
-                }
-                store.note("listener", "$watch asked to $command")
-                Work.fromWatch(this, command, id)
-            }
+        val refusal = when {
+            // Switching and removing only with their own setting on. The
+            // watch only offers them then, so this refuses a stale watch
+            // that still thinks it may.
+            command != WatchCommand.Refresh && !store.watchCanControl -> "not allowed"
+            // One of each kind at a time, whoever asked: a second is refused,
+            // never queued behind the first.
+            !Work.fromWatch(this, command, id) -> "phone busy"
+            else -> null
         }
+        if (refusal == null) return store.note("listener", "$watch asked to $command")
+        store.note("listener", "$watch asked to $command; $refusal")
+        if (id != null && store.refuse(id, refusal)) Work.answer(this)
     }
 
     override fun onDestroy() {

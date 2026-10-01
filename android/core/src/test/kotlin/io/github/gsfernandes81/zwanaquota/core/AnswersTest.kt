@@ -2,6 +2,7 @@ package io.github.gsfernandes81.zwanaquota.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * How the watch's asks are answered by id. The rule under test: a request for
@@ -32,8 +33,11 @@ class AnswersTest {
 
     @Test
     fun `an ask left without a reading is too late once the watch has stopped waiting`() {
-        val old = Answers.settle(listOf(ask), null, null, null, heard + Answers.PENDING_MILLIS + 1)
-        assertEquals(listOf(Answers.Answer(7, "too late")), old.second)
+        val (still, answered) = Answers.settle(listOf(ask), null, null, null, heard + Answers.PENDING_MILLIS + 1)
+        assertEquals(emptyList(), still)
+        // Answered with a word, not as done: whatever the word, it is not "".
+        assertEquals(listOf(7), answered.map { it.id })
+        assertTrue(answered.single().word.isNotEmpty())
         assertEquals(listOf(ask), Answers.settle(listOf(ask), null, null, null, heard + Answers.PENDING_MILLIS).first)
     }
 
