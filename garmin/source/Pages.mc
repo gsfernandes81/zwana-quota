@@ -62,6 +62,7 @@ module Pages {
     // longer the count of pages there are.
     function refit() as Void {
         if (count(Quota.last()) == built) {
+            stale = false;
             WatchUi.requestUpdate();
             return;
         }
@@ -95,7 +96,7 @@ module Pages {
 
     // View [id] has gone. The loop may show the next page before it hides
     // this one, so only the view on screen clears it.
-    function hidden(id as Number) as Void {
+    function gone(id as Number) as Void {
         if (on == id) {
             on = 0;
         }

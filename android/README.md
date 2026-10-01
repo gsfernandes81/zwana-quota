@@ -154,7 +154,7 @@ believes the phone's "live" flag, which was true when it was sent and says
 nothing about now.
 
 Opening the glance shows the app, in pages: UP and DOWN (or a swipe) slide
-between them in the watch's own page loop, with its own page indicator, and
+between them in the watch's own page loop, with its own page indicator;
 START does the page's one thing, and the round sub-window (top right on the
 Solar, beside START) shows each page's one number or what START does.
 
