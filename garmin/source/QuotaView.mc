@@ -125,9 +125,10 @@ class QuotaView extends WatchUi.View {
     }
 
     // One small line at the bottom: why the reading is doubtful, or what
-    // START does -- the first of [ladder] that fits the
-    // round screen at that height, and nothing if none does. Never above
-    // [below], the bottom of what the page drew.
+    // START does -- the first of [ladder] that fits, at the bottom or,
+    // failing that, just under the content where the round screen is wider;
+    // each spelling tried in both places before the next, and nothing if
+    // none fits. Never above [below], the bottom of what the page drew.
     function footer(dc as Graphics.Dc, ladder as Array<String>?, below as Number) as Void {
         if (ladder == null) {
             return;
@@ -138,18 +139,18 @@ class QuotaView extends WatchUi.View {
         if (y < below + 1) {
             y = below + 1;
         }
-        var text = Draw.fit(dc, font, ladder as Array<String>, PageDraw.chord(dc, y, fh));
-        // Nothing fits down at the narrow bottom: try just under the page's
-        // content, where the round screen is wider.
-        if (text == null && below + 3 < y) {
-            y = below + 3;
-            text = Draw.fit(dc, font, ladder as Array<String>, PageDraw.chord(dc, y, fh));
+        var rungs = ladder as Array<String>;
+        var ys = (below + 3 < y) ? [y, below + 3] : [y];
+        for (var i = 0; i < rungs.size(); i++) {
+            var tw = dc.getTextWidthInPixels(rungs[i], font);
+            for (var j = 0; j < ys.size(); j++) {
+                if (tw <= PageDraw.chord(dc, ys[j], fh)) {
+                    dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                    dc.drawText(dc.getWidth() / 2, ys[j], font, rungs[i], Graphics.TEXT_JUSTIFY_CENTER);
+                    return;
+                }
+            }
         }
-        if (text == null) {
-            return;
-        }
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, y, font, text as String, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function dataLeft(dc as Graphics.Dc, d as Dictionary?, sub as Array<Number>?) as Void {
