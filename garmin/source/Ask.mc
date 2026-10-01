@@ -37,7 +37,7 @@ module Ask {
     }
 
     function refresh() as Void {
-        send({"ask" => "refresh"}, "refresh");
+        send({"ask" => "refresh"}, "asking phone");
     }
 
     // Whether [message] can be sent now. While another ask is on its way it
@@ -69,7 +69,7 @@ module Ask {
             unreached(a);
             return;
         }
-        toast(label.equals("refresh") ? "asking phone" : label);
+        toast(label);
         // Once the wait is over, say so if nothing came. One timer, kept.
         if (timer == null) {
             timer = new Timer.Timer();
