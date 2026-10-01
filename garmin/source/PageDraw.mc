@@ -13,9 +13,6 @@ import Toybox.WatchUi;
 module PageDraw {
     // The sub-window's circle, or null on a watch without one.
     function subscreen() as Array<Number>? {
-        if (!(WatchUi has :getSubscreen)) {
-            return null;
-        }
         var box = WatchUi.getSubscreen();
         if (box == null) {
             return null;
@@ -39,8 +36,8 @@ module PageDraw {
         dc.setPenWidth(1);
         // In whole degrees. An arc from 90 to 90 is the whole circle, so
         // under a degree is drawn as nothing (as is no reading, share -1); a
-        // gap under two degrees is not one at a 4px pen, so that is drawn as
-        // full.
+        // gap of two degrees or less is not one at a 4px pen, so that is
+        // drawn as full.
         var sweep = (share * 360).toNumber();
         if (sweep <= 0) {
             dc.drawCircle(cx, cy, r);

@@ -254,7 +254,7 @@ Switched off, the SDK is never touched.
 **Asking from the watch.** Switch on **Let the watch ask for a reading** as
 well, and START on the watch's first page asks the phone for a fresh
 reading, usually within ten seconds (`START: refresh` at the bottom says
-so). The watch says `asking phone` meanwhile, and `no answer from phone`
+so). The watch says `asking phone` when it sends, and `no answer from phone`
 after a minute. With the setting off the watch shows none of this.
 
 **Switching from the watch.** Beneath it, **Let the watch switch data and

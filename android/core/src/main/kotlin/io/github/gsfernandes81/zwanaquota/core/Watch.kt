@@ -6,7 +6,7 @@ package io.github.gsfernandes81.zwanaquota.core
  * Added to [WatchPayload] only when the session is known.
  *
  * - `dat` `on` or `off`; absent when the session has not been read, and then
- *   the watch shows no session pages at all.
+ *   the watch's session pages say so.
  * - `dsub` how this phone stands in it, in words.
  * - `dn` the devices' names, this phone first; `dx` how many there are in
  *   all, since at most [MAX_DEVICES] are sent. `dr` is, per name, how that
