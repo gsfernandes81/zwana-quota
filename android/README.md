@@ -173,8 +173,9 @@ Solar, beside START) shows each page's one number or what START does.
 
 The session pages read `not sent yet` until the phone has sent the session;
 then the Connection page and one page per device, this phone first, up to
-eight (the last says how many more), or one saying there are none. Anything
-that takes a device off data asks first, in the watch's own confirmation.
+eight (the last says how many more), or one saying why there are none (`none
+listed`, or `data is off`). Anything that takes a device off data asks first,
+in the watch's own confirmation.
 
 ### Building the watch app
 
