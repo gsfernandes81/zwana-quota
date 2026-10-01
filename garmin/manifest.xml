@@ -14,7 +14,7 @@
         name="@Strings.AppName"
         entry="QuotaApp"
         launcherIcon="@Drawables.LauncherIcon"
-        minApiLevel="3.2.0">
+        minApiLevel="3.4.0">
         <iq:products>
             <iq:product id="instinct3amoled45mm"/>
             <iq:product id="instinct3amoled50mm"/>

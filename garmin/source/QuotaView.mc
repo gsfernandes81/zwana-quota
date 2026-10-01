@@ -2,9 +2,10 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// Behind the glance, in pages -- UP and DOWN move between them, START does
-// the page's one thing, and the sub-window (top right on the Solar, beside
-// START) shows each page's one number or what START will do:
+// Behind the glance, in pages -- UP and DOWN move between them (a ViewLoop,
+// Pages.mc), START does the page's one thing, and the sub-window (top right
+// on the Solar, beside START) shows each page's one number or what START
+// will do:
 //
 //   0 Data left    the figure large, the bar, the reset, how much of it is
 //                  paid; sub-window: the share left as a ring. START asks
@@ -19,56 +20,30 @@ import Toybox.WatchUi;
 // START does anything only when the phone said it would listen (`ask`,
 // `ctl`).
 //
-// Each page is its own view, and turning a page slides the next one in over
-// it, as Garmin's guidelines have a page loop do ("Use Transitions to Suggest
-// Page Loops"): DOWN slides it up from below, UP down from above, the watch's
-// own carousel. switchToView replaces the view rather than stacking it, so
-// BACK still leaves the app from any page, and the old view and its delegate
-// are let go.
+// One view per page, made by the loop as it turns to it.
 class QuotaView extends WatchUi.View {
     var page as Number;
+    var id as Number;
 
     function initialize(p as Number) {
         View.initialize();
         page = p;
+        id = Pages.serial();
     }
 
-    // The most devices given a page each: what the phone sends at most
-    // (WatchSession.MAX_DEVICES), and a bound on the pages whatever arrives.
-    const MAX_DEVICES = 8;
-
-    // How many devices have a page of their own.
-    function deviceCount(d as Dictionary) as Number {
-        var n = Quota.arr(d, "dn").size();
-        return n < MAX_DEVICES ? n : MAX_DEVICES;
+    function onShow() as Void {
+        Pages.shown(id, page);
     }
 
-    // Data, Connection, and a page per device -- one saying so when there are
-    // none. At least three, so UP and DOWN always move: a page whose data the
-    // phone has not sent yet says so rather than being missing.
-    function pages(d as Dictionary?) as Number {
-        if (!Quota.hasSession(d)) {
-            return 3;
-        }
-        var n = deviceCount(d as Dictionary);
-        return 2 + (n > 0 ? n : 1);
-    }
-
-    // One page on, round from the last to the first and back, sliding in the
-    // way it was asked for: on round the loop as well, so the carousel never
-    // reverses under the thumb. The count is read again each time, since a
-    // new message can add or take devices.
-    function turn(by as Number) as Void {
-        var n = pages(Quota.last());
-        var next = new QuotaView(((page + by) % n + n) % n);
-        WatchUi.switchToView(next, new QuotaDelegate(next), by > 0 ? WatchUi.SLIDE_UP : WatchUi.SLIDE_DOWN);
+    function onHide() as Void {
+        Pages.hidden(id);
     }
 
     // The IP START may ask the phone to take off from device page [i], or ""
     // when there is none: the phone sends one only for a device it will
     // take off, and only when it lets the watch ask.
     function deviceIp(d as Dictionary?, i as Number) as String {
-        if (!Quota.canControl(d) || i < 0 || i >= deviceCount(d as Dictionary)) {
+        if (!Quota.canControl(d) || i < 0 || i >= Pages.devices(d as Dictionary)) {
             return "";
         }
         return Quota.item(Quota.arr(d as Dictionary, "dip"), i);
@@ -79,7 +54,10 @@ class QuotaView extends WatchUi.View {
         dc.clear();
         var d = Quota.last();
         var sub = Draw.subscreen();
-        var n = pages(d);
+        // A loop built for more pages than there are now, until it is
+        // replaced (Pages.refit): its extra pages are the last, and START does
+        // what this page draws.
+        var n = Pages.count(d);
         if (page >= n) {
             page = n - 1;
         }
@@ -92,8 +70,6 @@ class QuotaView extends WatchUi.View {
         } else {
             dataLeft(dc, d, sub);
         }
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        Draw.pageDots(dc, page, n);
     }
 
     // A session page before the phone has sent the session: say so.
@@ -323,7 +299,7 @@ class QuotaView extends WatchUi.View {
     // session, and START to take it off where the phone offers that.
     function device(dc as Graphics.Dc, d as Dictionary, sub as Array<Number>?, i as Number) as Void {
         var w = dc.getWidth();
-        var count = deviceCount(d);
+        var count = Pages.devices(d);
         var total = Quota.num(d, "dx");
         if (total < count) {
             total = count;
@@ -359,7 +335,7 @@ class QuotaView extends WatchUi.View {
                 dc.drawText(w / 2, y, small, Draw.clip(dc, small, role, Draw.chord(dc, y, sh)), Graphics.TEXT_JUSTIFY_CENTER);
                 y += sh;
             }
-            // The phone sends at most MAX_DEVICES: the last page says how
+            // The phone sends at most Pages.MAX_DEVICES: the last page says how
             // many more there are.
             if (i == count - 1 && total > count) {
                 dc.drawText(w / 2, y, small, "+" + (total - count).toString() + " more", Graphics.TEXT_JUSTIFY_CENTER);
