@@ -218,7 +218,7 @@ object Garmin {
      * send waited out may still arrive; this only bounds how long the next
      * message is held behind it (Refresher.push makes them one at a time),
      * and is part of what a watch waiting on an answer waits through
-     * (QuotaWorker.WATCH_SWITCH_SECONDS).
+     * (Ask.WAIT_SWITCH; the arithmetic is at QuotaWorker.WATCH_SWITCH_SECONDS).
      */
     const val SEND_SECONDS = 20L
 }

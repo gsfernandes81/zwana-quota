@@ -103,7 +103,7 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted) push(reading, live, now.toEpochMilli().takeIf { whyWatch != null }, whyWatch)
+        if (pushWanted) push(reading, now.toEpochMilli().takeIf { whyWatch != null }, whyWatch)
     }
 
     /**
@@ -112,7 +112,7 @@ class Refresher(context: Context) {
      * ([PortalClient.apply]), so a tap on a picture drawn before someone
      * else changed things does nothing rather than the wrong thing.
      */
-    fun switch(action: SessionAction, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) =
+    fun switch(action: SessionAction, pushWanted: Boolean, trigger: String, askId: Int?, deadline: Long) =
         change(action.name.lowercase(), "switch failed", pushWanted, trigger, askId, deadline) { client, allowed ->
             client.apply(action, allowed)
         }
@@ -122,7 +122,7 @@ class Refresher(context: Context) {
      * the widget and the watch show it. [remove] checks the device is still
      * one this phone may take off.
      */
-    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) =
+    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int?, deadline: Long) =
         change("remove $ip", "remove failed", pushWanted, trigger, askId, deadline) { client, allowed ->
             client.remove(ip, expectedMac = store.offeredMacs[ip], allowed = allowed)
         }
@@ -243,23 +243,24 @@ class Refresher(context: Context) {
      * watch keeps is the newest it was given, and offeredMacs holds the
      * devices of the newest made -- the same, unless that send did not get
      * through.
-     * [live] is whether this run read [reading]; a newer one another run
-     * stored is sent as not live, and is sent even when this run has none.
+     * A newer reading another run stored is sent instead of [reading], and
+     * is sent even when this run has none.
      * With no reading anywhere there is nothing to send. Each message also
      * answers the watch's asks ([Answers]): the requests for a reading heard
      * before its reading began, or before a read that failed at [tried] (with
      * [why]), and every switch or removal a job has answered.
      */
-    private fun push(reading: Reading?, live: Boolean, tried: Long? = null, why: String? = null) {
+    private fun push(reading: Reading?, tried: Long? = null, why: String? = null) {
         synchronized(SENDING) {
             val stored = store.reading()
-            val (newest, fresh) = when {
-                reading == null -> (stored ?: return) to false
-                stored != null && stored.ts > reading.ts -> stored to false
-                else -> reading to live
+            val newest = when {
+                reading == null -> stored ?: return
+                stored != null && stored.ts > reading.ts -> stored
+                else -> reading
             }
             val now = Instant.now()
-            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
+            // `live` only shapes the phone face's age mark; the watch judges age from `ts`.
+            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, false, now)
             val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
             // Offered only while the listener is actually up, not merely
             // switched on: Android can refuse to restart it, and a watch
@@ -282,13 +283,15 @@ class Refresher(context: Context) {
                 kept
             }
             val payload = WatchPayload.build(doc, face, now, EVERY_SECONDS, canAsk, session, answers)
-            store.lastPush = now.epochSecond
+            // A message that only answers an ask is not the periodic send's
+            // reading (QuotaWorker's screen-off check).
+            if (reading != null) store.lastPush = now.epochSecond
             store.note("watch", Garmin.send(app, payload).joinToString("; "))
         }
     }
 
     /** Send the watch the stored reading and the answers, reading nothing: how a refused ask is told. */
-    fun sendStored() = push(null, live = false)
+    fun sendStored() = push(null)
 
     private fun faceOf(reading: Reading?, live: Boolean, now: Instant, why: String?): Face {
         val zone = ZoneId.systemDefault()
