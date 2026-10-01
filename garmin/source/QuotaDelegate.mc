@@ -73,8 +73,10 @@ class SendConfirm extends WatchUi.ConfirmationDelegate {
         label = l;
     }
 
+    // `ctl` is checked again here: a message may have come while the
+    // question was up. The phone checks the request itself as well.
     function onResponse(response as WatchUi.Confirm) as Boolean {
-        if (response == WatchUi.CONFIRM_YES) {
+        if (response == WatchUi.CONFIRM_YES && Quota.canControl(Quota.last())) {
             Ask.send(message, label);
         }
         return true;

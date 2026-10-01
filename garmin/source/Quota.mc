@@ -14,8 +14,8 @@ import Toybox.Time.Gregorian;
 //
 //   new day  the reset has passed since the reading: the figure is
 //   (old)    yesterday's, and the grant it does not count has landed
-//   2h ago   older than two send intervals: sends have stopped arriving
-//   (old)
+//   2h ago   the reading is older than two send intervals: nothing fresh
+//   (old)    has come, whether the phone or the portal is out of reach
 //   no time  the reading carries no time, so its age cannot be told
 //   (!)
 //   offline  the portal said the session was down when it was read
