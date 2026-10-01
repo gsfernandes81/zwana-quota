@@ -100,6 +100,21 @@ class Refresher(context: Context) {
     }
 
     /**
+     * Send the watch the reading there is, without reading the portal: the
+     * answer to a watch that asked again within [WatchListener]'s gap, which
+     * would otherwise wait out its minute and say "no answer from phone". A
+     * watch takes a message as its answer only if its `sent` -- whole seconds
+     * -- differs from the one it asked against, so this never sends in the
+     * same second as the last send. Blocks: called off the main thread.
+     */
+    fun resend() {
+        val reading = store.reading() ?: return
+        val wait = (store.lastPush + 1) * 1000 - System.currentTimeMillis()
+        if (wait > 0) Thread.sleep(wait)
+        push(reading, live = false, Instant.now())
+    }
+
+    /**
      * Throw the data switch, then read everything again so the face shows
      * what it did. The action is checked against the session as it is now
      * ([PortalClient.apply]), so a tap on a picture drawn before someone
@@ -471,15 +486,6 @@ object Work {
 
     /** The watch asked for a reading: read now and send it back. */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
-
-    /**
-     * The watch asked again within [WatchListener]'s gap: send it the reading
-     * there is, read again only if that is older than
-     * [Refresher.MAX_AGE_SECONDS]. Under the same name and KEEP, so while the
-     * first ask is still on its way this is dropped, and that one's send is
-     * the answer to both.
-     */
-    fun answerWatch(context: Context) = enqueue(context, ASKED, false, true, "watch asked again", ExistingWorkPolicy.KEEP)
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

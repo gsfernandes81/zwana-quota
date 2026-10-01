@@ -95,11 +95,14 @@ class WatchListener : Service() {
         val now = Instant.now().epochSecond
         when (command) {
             WatchCommand.Refresh -> {
-                // A burst of presses is one read; a press inside it is still
-                // answered, with the reading there is (Work.answerWatch). The
-                // watch takes any new reading as its answer, and tells the
+                // A burst of presses is one read. A press inside it is still
+                // answered, with the reading there is (Refresher.resend): the
+                // watch takes any new message as its answer, and tells the
                 // wearer "no answer from phone" when none comes.
-                if (now - store.lastAsk < ASK_GAP_SECONDS) return Work.answerWatch(this)
+                if (now - store.lastAsk < ASK_GAP_SECONDS) {
+                    store.note("listener", "$watch asked again; sending the last reading")
+                    return Refresher(this).resend()
+                }
                 store.lastAsk = now
                 store.note("listener", "$watch asked for a reading")
                 Work.askedByWatch(this)
