@@ -48,8 +48,11 @@ class QuotaApp extends Application.AppBase {
         var kept = Quota.store(data);
         if (!app) {
             WatchUi.requestUpdate();
-        } else if (kept) {
-            Pages.refit();
+        } else {
+            if (kept) {
+                Pages.refit();
+            }
+            Ask.heard();
         }
     }
 
@@ -58,5 +61,6 @@ class QuotaApp extends Application.AppBase {
         if (Quota.store(msg.data)) {
             Pages.refit();
         }
+        Ask.heard();
     }
 }

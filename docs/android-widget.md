@@ -27,13 +27,31 @@ So asking is a setting, off by default: **Let the watch ask for a reading**.
 While it (and sending) is on, `WatchListener` runs as a foreground service
 of type `connectedDevice` holding the SDK's app-event listener, re-registered
 every 15 minutes in case Garmin Connect restarted, and started again at boot
-and after an update. Each ask for a reading from the watch enqueues a
-read-and-send; one arriving while an earlier ask's job is still going is
-folded into it and answered by that job's send, unless it was made against
-that very send while the job was still finishing. Messages to the watch are
-made one at a time, each with the newest reading the phone has when its turn
-comes. The app does not ask for permission to post notifications, so on
-Android 13+ the service's notification is not shown.
+and after an update. The app does not ask for permission to post
+notifications, so on Android 13+ the service's notification is not shown.
+
+Each ask carries an id (from a counter the watch keeps, never behind its
+clock, so no random numbers), and every message to the watch lists the ids
+of the last 16 asks the phone answered and what became of each (`re`, `rw`;
+`core/.../Answers.kt`): a watch takes an ask as answered only when its own
+id comes back, not when any message does. Each ask for a reading is a
+read-and-send of its own, and is answered by that read: by a reading begun
+after the phone heard it, or by why that read has none. One request of each
+kind is in flight at a time, never a queue: an ask for a reading while
+another is being read, or a switch while another switch is going, is
+answered `phone busy`. The watch sends one ask at a time, and the answers
+are one list for one watch: a second watch paired to the same phone is not
+supported. Messages to the watch are made one at a time, each with the
+newest reading the phone has when its turn comes.
+
+The two sides' waits are held to each other by
+`tests/test_watch_contract.py`. A switch or removal from the watch is made
+only within 45 seconds of the phone hearing it; the watch waits 90 seconds
+from sending, so a switch is never made after the watch has said it went
+unanswered, unless the message itself took the other 45 to arrive. A send
+waits 20 seconds for Garmin Connect to say it was delivered, and a request
+for a reading its own read never answered is called too late after two
+minutes, a backstop longer than the watch's one-minute wait for it.
 
 The watch offers to ask only when the phone's last reading says it is
 listening (the payload's `ask`), so the setting is also what shows the offer:
@@ -170,14 +188,14 @@ the strings the phone's own face draws (the paid part as `paid`, in whole
 MiB at every size): the watch holds no unit ladder, no thresholds and no
 grades, which is how a third language avoids a third copy.
 `tests/test_watch_contract.py` reads both sources as text and fails
-`make test` when a key the watch reads is not one the phone sends, when the
-versions differ, or when the app id in `garmin/manifest.xml` is not the
-phone's `APP_ID`.
+`make test` when a key the watch reads is not one the phone sends, or one
+the phone sends is not read, when the versions differ, or when the app id
+in `garmin/manifest.xml` is not the phone's `APP_ID`.
 
 The watch refuses to be crashed by what it is sent: every key is read
 through a type check that turns a missing or mistyped value into 0 or "", a
 message of another version is not kept, storage failures are caught, and no
-loop runs on a value from the message. A Connect IQ app runs in Garmin's
+loop runs on a number from the message, only over what it lists. A Connect IQ app runs in Garmin's
 sandbox and cannot harm the watch; the worst a bad build can do is show
 "IQ!" in place of the glance, and deleting the `.prg` from `GARMIN/APPS` over
 USB removes it.

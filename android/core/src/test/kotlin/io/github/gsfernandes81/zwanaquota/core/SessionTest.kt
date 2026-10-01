@@ -199,6 +199,16 @@ class SessionTest {
     }
 
     @Test
+    fun `a switch past its deadline is not sent, and is told apart from a changed session`() {
+        val portal = Portal(true, me, mutableSetOf(), me)
+        assertFailsWith<TooLate> { PortalClient(portal).apply(SessionAction.TURN_OFF_EVERYWHERE) { false } }
+        assertTrue(portal.posts.isEmpty())
+        // A session that changed says so first, whatever the deadline.
+        assertFailsWith<SessionChanged> { PortalClient(portal).apply(SessionAction.TURN_ON) { false } }
+        assertTrue(portal.posts.isEmpty())
+    }
+
+    @Test
     fun `a switch sent over an expired session logs in and is sent once`() {
         var loggedIn = false
         val posts = mutableListOf<String>()

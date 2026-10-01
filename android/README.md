@@ -156,9 +156,8 @@ Where neither place takes the word, its short form is drawn in whichever
 does: `old` where the figure is out of date (`new day`, `2h ago`),
 `!` where it cannot be vouched for (`offline`, or a reading with no time).
 
-The watch works out its staleness from the reading's own timestamp. It never
-believes the phone's "live" flag, which was true when it was sent and says
-nothing about now.
+The watch works out its staleness from the reading's own timestamp: only it
+knows what time it is now.
 
 Opening the glance shows the app, in pages: UP and DOWN (or a swipe) slide
 between them in the watch's own page loop, with its own page indicator;
@@ -256,7 +255,10 @@ Switched off, the SDK is never touched.
 well, and START on the watch's first page asks the phone for a fresh
 reading, usually within ten seconds (`START: refresh` at the bottom says
 so). The watch says `asking phone` when it sends, and `no answer from phone`
-after a minute. With the setting off the watch shows none of this.
+after a minute; when the phone could not read the portal it says why
+(`portal read failed`, `sign in on phone`) and sends the reading it has, and
+while it is still reading for an earlier ask it says `phone busy`.
+With the setting off the watch shows none of this.
 
 **Switching from the watch.** Beneath it, **Let the watch switch data and
 disconnect devices** (off by default) lets START on the Connection page
@@ -264,7 +266,12 @@ switch data -- off for every device when this phone switched it on, only
 this phone when it joined, as the widget does -- and START on another
 joined device's own page take it off. The watch asks first; the phone then
 checks the request against the portal before sending anything, and does
-nothing if the session changed. This phone and the device that switched data
+nothing if the session changed (`changed elsewhere`), if another switch is
+still on its way (`phone busy`), or if it heard the request more than 45
+seconds ago (`too late`): the watch waits a minute and a half for the
+answer, so a switch is not made after it has said `no answer from phone`,
+unless the request itself took more than half of it to reach the phone.
+This phone and the device that switched data
 on are never offered for removal. It keeps a small listener running on the phone (Garmin Connect only
 delivers a watch's message to an app that is running), so set the app's
 battery use to Unrestricted or One UI may stop it; the diagnostics' "Watch

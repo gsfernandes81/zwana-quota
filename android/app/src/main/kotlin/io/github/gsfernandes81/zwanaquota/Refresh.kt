@@ -9,11 +9,13 @@ import android.text.format.DateFormat
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import io.github.gsfernandes81.zwanaquota.core.Answers
 import io.github.gsfernandes81.zwanaquota.core.Datagram
 import io.github.gsfernandes81.zwanaquota.core.Face
 import io.github.gsfernandes81.zwanaquota.core.FallbackTransport
@@ -23,8 +25,10 @@ import io.github.gsfernandes81.zwanaquota.core.PortalClient
 import io.github.gsfernandes81.zwanaquota.core.PortalError
 import io.github.gsfernandes81.zwanaquota.core.Reading
 import io.github.gsfernandes81.zwanaquota.core.Route
+import io.github.gsfernandes81.zwanaquota.core.Session
 import io.github.gsfernandes81.zwanaquota.core.SessionAction
 import io.github.gsfernandes81.zwanaquota.core.SessionChanged
+import io.github.gsfernandes81.zwanaquota.core.TooLate
 import io.github.gsfernandes81.zwanaquota.core.session
 import io.github.gsfernandes81.zwanaquota.core.UrlConnectionTransport
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
@@ -62,18 +66,22 @@ class Refresher(context: Context) {
     /**
      * [notice], when given, is drawn in place of the footnote: what a data
      * switch that did not happen has to say, on the face it did not change.
+     * [asked]: this is the read the watch asked for (Work.fromWatch).
      */
-    fun run(force: Boolean, pushWanted: Boolean, trigger: String, notice: String? = null) {
+    fun run(force: Boolean, pushWanted: Boolean, trigger: String, notice: String? = null, asked: Boolean = false) {
         val now = Instant.now()
         var reading = store.reading()
         var live = false
         var why: String? = null
+        // What a watch that asked is told when there is no new reading for it.
+        var whyWatch: String? = null
         val path = Networks.path(app)
 
         val age = reading?.let { Pipeline.epochSeconds(now) - it.ts }
         if (force || age == null || age > MAX_AGE_SECONDS) {
             if (!vault.signedIn) {
                 why = "sign in: open the app"
+                whyWatch = "sign in on phone"
                 store.note("read", "not signed in")
             } else {
                 val (client, network) = connect(path)
@@ -84,6 +92,7 @@ class Refresher(context: Context) {
                     readSession(client)
                 } catch (e: PortalError) {
                     why = "portal: ${e.message}"
+                    whyWatch = "portal read failed"
                     store.note("read", "failed over ${network()}: ${e.message}")
                 }
             }
@@ -96,7 +105,9 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted) push(reading, live)
+        // Only the watch's own read answers its request with why it has no
+        // reading: another job's failure says nothing of the read it waits on.
+        if (pushWanted) push(reading, now.toEpochMilli(), whyWatch.takeIf { asked })
     }
 
     /**
@@ -105,44 +116,58 @@ class Refresher(context: Context) {
      * ([PortalClient.apply]), so a tap on a picture drawn before someone
      * else changed things does nothing rather than the wrong thing.
      */
-    fun switch(action: SessionAction, pushWanted: Boolean, trigger: String) {
-        if (!vault.signedIn) return run(force = false, pushWanted, trigger)
-        val (client, network) = connect(Networks.path(app))
-        val notice = try {
-            store.save(client.apply(action))
-            store.note("session", "${action.name.lowercase()} ok over ${network()} ($trigger)")
-            null
-        } catch (e: SessionChanged) {
-            store.note("session", "${action.name.lowercase()} not sent: ${e.message}")
-            readSession(client)
-            "changed elsewhere: nothing done"
-        } catch (e: PortalError) {
-            store.note("session", "${action.name.lowercase()} failed over ${network()}: ${e.message}")
-            "data switch failed: ${e.message}"
+    fun switch(action: SessionAction, pushWanted: Boolean, trigger: String, askId: Int?, deadline: Long) =
+        change(action.name.lowercase(), "switch failed", pushWanted, trigger, askId, deadline) { client, allowed ->
+            client.apply(action, allowed)
         }
-        run(force = true, pushWanted, trigger, notice)
-    }
 
     /**
      * Take one other device off the session, then read everything again so
      * the widget and the watch show it. [remove] checks the device is still
      * one this phone may take off.
      */
-    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String) {
-        if (!vault.signedIn) return run(force = false, pushWanted, trigger)
-        val (client, network) = connect(Networks.path(app))
-        val notice = try {
-            store.save(client.remove(ip, expectedMac = store.offeredMacs[ip]))
-            store.note("session", "removed $ip over ${network()} ($trigger)")
-            null
-        } catch (e: SessionChanged) {
-            store.note("session", "remove $ip not sent: ${e.message}")
-            readSession(client)
-            "changed elsewhere: nothing done"
-        } catch (e: PortalError) {
-            store.note("session", "remove $ip failed over ${network()}: ${e.message}")
-            "remove failed: ${e.message}"
+    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int?, deadline: Long) =
+        change("remove $ip", "remove failed", pushWanted, trigger, askId, deadline) { client, allowed ->
+            client.remove(ip, expectedMac = store.offeredMacs[ip], allowed = allowed)
         }
+
+    /**
+     * Make one change to the session with [send], given whether it may still
+     * be sent ([deadline]), then read everything again. What came of it is
+     * noted as [what], drawn on the face if it was not done, and answers the
+     * watch's ask [askId], if there is one -- [failed] for either when the
+     * portal refused it.
+     */
+    private fun change(
+        what: String,
+        failed: String,
+        pushWanted: Boolean,
+        trigger: String,
+        askId: Int?,
+        deadline: Long,
+        send: (PortalClient, () -> Boolean) -> Session,
+    ) {
+        if (!vault.signedIn) {
+            askId?.let { store.answer(it, "sign in on phone") }
+            return run(force = false, pushWanted, trigger)
+        }
+        val (client, network) = connect(Networks.path(app))
+        val (notice, word) = try {
+            store.save(send(client) { Instant.now().epochSecond <= deadline })
+            store.note("session", "$what ok over ${network()} ($trigger)")
+            null to ""
+        } catch (e: TooLate) {
+            store.note("session", "$what not sent: ${e.message}")
+            "too late: nothing done" to "too late"
+        } catch (e: SessionChanged) {
+            store.note("session", "$what not sent: ${e.message}")
+            readSession(client)
+            "changed elsewhere: nothing done" to "changed elsewhere"
+        } catch (e: PortalError) {
+            store.note("session", "$what failed over ${network()}: ${e.message}")
+            "$failed: ${e.message}" to failed
+        }
+        askId?.let { store.answer(it, word) }
         run(force = true, pushWanted, trigger, notice)
     }
 
@@ -218,24 +243,30 @@ class Refresher(context: Context) {
      * forward a later message never carries an earlier stamp -- and that
      * stamp, not the order they reach the watch (a send the phone gave up
      * waiting on may still arrive), is what the watch goes by: it keeps a
-     * message only if it is not older than the one it has, and takes one as an
-     * ask's answer only if its `sent` differs. So the message the watch keeps
-     * is the newest it was given, and offeredMacs holds the devices of the
-     * newest made -- the same, unless that send did not get through.
-     * [live] is whether this run read [reading]; a newer one another run
-     * stored is sent as not live, and is sent even when this run has none.
-     * With no reading anywhere there is nothing to send.
+     * message only if it is not older than the one it has. So the message the
+     * watch keeps is the newest it was given, and offeredMacs holds the
+     * devices of the newest made -- the same, unless that send did not get
+     * through.
+     * A newer reading another run stored is sent instead of [reading], and
+     * is sent even when this run has none.
+     * With no reading anywhere there is nothing to send. Each message also
+     * answers the watch's asks ([Answers]): the requests for a reading heard
+     * before its reading began, or, with [why] (why the read the watch asked
+     * for has nothing new; null when it has, and for any read it did not ask
+     * for), before [tried] (when this run began, epoch ms), and every switch
+     * or removal a job has answered.
      */
-    private fun push(reading: Reading?, live: Boolean) {
+    private fun push(reading: Reading?, tried: Long? = null, why: String? = null) {
         synchronized(SENDING) {
             val stored = store.reading()
-            val (newest, fresh) = when {
-                reading == null -> (stored ?: return) to false
-                stored != null && stored.ts > reading.ts -> stored to false
-                else -> reading to live
+            val newest = when {
+                reading == null -> stored ?: return
+                stored != null && stored.ts > reading.ts -> stored
+                else -> reading
             }
             val now = Instant.now()
-            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
+            // `live` only shapes the phone face's age mark; the watch judges age from `ts`.
+            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, false, now)
             val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
             // Offered only while the listener is actually up, not merely
             // switched on: Android can refuse to restart it, and a watch
@@ -248,11 +279,25 @@ class Refresher(context: Context) {
             // Which device each offered address was, so a removal asked for
             // later cannot take off whoever has the address by then.
             store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
-            val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
-            store.lastPush = now.epochSecond
+            val answers = store.asks { pending, answers ->
+                val (still, settled) = Answers.settle(pending, newest.ts, tried, why, now.toEpochMilli())
+                pending.clear()
+                pending.addAll(still)
+                val kept = Answers.keep(answers, settled)
+                answers.clear()
+                answers.addAll(kept)
+                kept
+            }
+            val payload = WatchPayload.build(doc, face, now, EVERY_SECONDS, canAsk, session, answers)
+            // A message that only answers an ask is not the periodic send's
+            // reading (QuotaWorker's screen-off check).
+            if (reading != null) store.lastPush = now.epochSecond
             store.note("watch", Garmin.send(app, payload).joinToString("; "))
         }
     }
+
+    /** Send the watch the stored reading and the answers, reading nothing: how a refused ask is told. */
+    fun sendStored() = push(null)
 
     private fun faceOf(reading: Reading?, live: Boolean, now: Instant, why: String?): Face {
         val zone = ZoneId.systemDefault()
@@ -401,18 +446,26 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             val refresher = Refresher(applicationContext)
             val action = inputData.getString(ACTION)?.let { name -> SessionAction.entries.firstOrNull { it.name == name } }
             val remove = inputData.getString(REMOVE)
-            // A switch runs soon after it was asked for, or not at all: one the
-            // system held back for minutes is one the person has given up on,
-            // and may since have done another way.
-            val askedAt = inputData.getLong(ASKED_AT, 0)
-            if ((action != null || remove != null) && Instant.now().epochSecond - askedAt > SWITCH_LIFETIME_SECONDS) {
-                store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} asked ${Instant.now().epochSecond - askedAt}s ago; too late, nothing done")
+            val askId = inputData.getInt(ASK_ID, -1).takeIf { it >= 0 }
+            // A switch runs by its deadline or not at all: one the system held
+            // back is one the person has given up on, and may since have done
+            // another way -- and from the watch, one it is told was too late
+            // while it still waits (Work.fromWatch). Checked again just before
+            // the change is sent (Refresher.change hands PortalClient.apply/
+            // remove the deadline as `allowed`).
+            val deadline = inputData.getLong(DEADLINE, 0)
+            if ((action != null || remove != null) && Instant.now().epochSecond > deadline) {
+                store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} past its deadline; too late, nothing done")
                 QuotaWidget.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
+                if (askId != null) {
+                    store.answer(askId, "too late")
+                    if (store.watchEnabled) refresher.sendStored()
+                }
                 return Result.success()
             }
             when {
-                action != null -> refresher.switch(action, store.watchEnabled, trigger)
-                remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger)
+                action != null -> refresher.switch(action, store.watchEnabled, trigger, askId, deadline)
+                remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger, askId, deadline)
                 inputData.getBoolean(PERIODIC, false) -> {
                     // Screen on: read, as the Tasker tile's profile does, and
                     // send the watch a reading too. Screen off: nobody is
@@ -428,6 +481,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                     force = inputData.getBoolean(FORCE, false),
                     pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled,
                     trigger = trigger,
+                    asked = inputData.getBoolean(ASKED, false),
                 )
             }
             store.note("worker", "ran ($trigger)")
@@ -453,10 +507,27 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         const val ACTION = "action"
         const val PERIODIC = "periodic"
         const val REMOVE = "remove"
-        const val ASKED_AT = "askedAt"
+        const val DEADLINE = "deadline"
+        const val ASK_ID = "askId"
+        const val ASKED = "asked"
 
-        /** How long after it was asked for a switch may still run. */
+        /** How long after the widget's tap its switch may still run. */
         const val SWITCH_LIFETIME_SECONDS = 180L
+
+        /**
+         * How long after the phone hears it a switch or removal from the watch
+         * may still be sent to the portal. The watch stops waiting for the
+         * answer Ask.WAIT_SWITCH (90 s) after sending, so a switch is made, if
+         * at all, while the watch still waits -- unless the message took more
+         * than the other 45 s to reach the phone. Those 45 s are also what the
+         * answer has, after the switch, for the read that follows it, any
+         * device names due, another send already in hand, and the send back
+         * (Garmin Connect up to 10 s to be ready, then the watch): a
+         * portal slow enough to use them up leaves the switch made and the
+         * watch saying it went unanswered, until the message shows the session.
+         * tests/test_watch_contract.py holds the two numbers to each other.
+         */
+        const val WATCH_SWITCH_SECONDS = 45L
     }
 }
 
@@ -479,37 +550,51 @@ object Work {
      */
     fun switch(context: Context, action: SessionAction) {
         val input = Data.Builder().putAll(input(true, false, "widget switch")).putString(QuotaWorker.ACTION, action.name)
-            .putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond).build()
+            .putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.SWITCH_LIFETIME_SECONDS).build()
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 
     /**
-     * The watch asked to switch data or take a device off. KEEP, as for the
-     * widget's switch: a second press while the first is on its way is
-     * dropped, and the worker checks either against the portal first.
+     * What the watch asked, as ask [askId] (null from a watch build older than
+     * ids). True if it is on its way; false if one of its kind already is --
+     * one request of each kind in flight, never a queue: a switch or removal
+     * while another switch (the widget's or the watch's) is going, or a
+     * request for a reading while another is being read. The caller tells the
+     * watch "phone busy" ([Store.refuse]). Blocks: not on the main thread.
+     *
+     * A request for a reading is answered by the first reading its job begins
+     * ([Answers.settle]), so it is noted as heard before the job is enqueued.
+     * A switch or removal is checked against the portal first, and is made
+     * only within [QuotaWorker.WATCH_SWITCH_SECONDS] of now.
      */
-    fun fromWatch(context: Context, command: WatchCommand) {
-        val data = Data.Builder().putAll(input(true, true, "watch")).putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond)
-        when (command) {
-            is WatchCommand.Act -> data.putString(QuotaWorker.ACTION, command.action.name)
-            is WatchCommand.Remove -> data.putString(QuotaWorker.REMOVE, command.ip)
-            WatchCommand.Refresh -> return askedByWatch(context)
+    fun fromWatch(context: Context, command: WatchCommand, askId: Int?): Boolean {
+        val (key, value) = when (command) {
+            WatchCommand.Refresh -> {
+                askId?.let { id -> Store(context).asks { pending, _ -> pending.add(Answers.Pending(id, System.currentTimeMillis())) } }
+                val reading = Data.Builder().putAll(input(true, true, "watch asked")).putBoolean(QuotaWorker.ASKED, true).build()
+                return startIfIdle(context, ASKED, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(reading).build())
+            }
+            is WatchCommand.Act -> QuotaWorker.ACTION to command.action.name
+            is WatchCommand.Remove -> QuotaWorker.REMOVE to command.ip
         }
-        val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
+        val switching = Data.Builder().putAll(input(true, true, "watch")).putString(key, value)
+            .putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.WATCH_SWITCH_SECONDS)
+        askId?.let { switching.putInt(QuotaWorker.ASK_ID, it) }
+        return startIfIdle(context, SWITCH, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(switching.build()).build())
     }
 
     /**
-     * The watch asked for a reading: read now and send it back (the newest
-     * reading stored, if the read fails at the portal or is not made; nothing
-     * if none is).
-     * KEEP: an ask arriving while an earlier ask's job is still going is folded
-     * into it and answered by that job's send -- unless it was made against that
-     * very send before the job ended, which the watch then waits out. So asks
-     * never queue up reads of their own.
+     * Enqueue [request] as [name] unless one is already on its way, and say
+     * which. KEEP drops it then, and whether it did is read back once the
+     * enqueue has landed, so WorkManager itself decides: a request enqueued by
+     * anyone in between (a widget tap) still counts, with no lock of our own.
      */
-    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
+    private fun startIfIdle(context: Context, name: String, request: OneTimeWorkRequest): Boolean {
+        val manager = WorkManager.getInstance(context)
+        manager.enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, request).result.get()
+        return manager.getWorkInfosForUniqueWork(name).get().any { it.id == request.id }
+    }
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

@@ -70,6 +70,12 @@ sealed interface WatchCommand {
 
     companion object {
         /**
+         * The id the watch gave its ask ([Answers]), or null from a watch
+         * build older than ids, or one that is not a whole number.
+         */
+        fun idOf(message: List<Any?>?): Int? = (message?.firstOrNull() as? Map<*, *>)?.get("id") as? Int
+
+        /**
          * The watch's message as the Connect IQ SDK hands it over: a list
          * whose first element is the dictionary the watch sent. Null for
          * anything that is not one of the three shapes, including an action

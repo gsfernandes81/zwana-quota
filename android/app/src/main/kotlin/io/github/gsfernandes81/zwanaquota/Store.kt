@@ -1,6 +1,7 @@
 package io.github.gsfernandes81.zwanaquota
 
 import android.content.Context
+import io.github.gsfernandes81.zwanaquota.core.Answers
 import io.github.gsfernandes81.zwanaquota.core.Reading
 import io.github.gsfernandes81.zwanaquota.core.Session
 import kotlinx.serialization.json.Json
@@ -106,23 +107,66 @@ class Store(context: Context) {
 
     /** The MAC of each device the watch was last offered to take off, by IP. */
     var offeredMacs: Map<String, String>
-        get() = prefs.getString("offeredMacs", null)?.lines()?.mapNotNull { line ->
-            line.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] }
-        }?.toMap().orEmpty()
+        get() = lines("offeredMacs").toMap()
         set(value) = prefs.edit().putString("offeredMacs", value.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
 
-    /** The `sent` stamp of the last message made for the watch, in epoch seconds (Refresher.push); 0 for never. */
+    /**
+     * The `sent` stamp of the last message made for the watch that carried a
+     * run's reading, in epoch seconds (Refresher.push); 0 for never.
+     */
     var lastPush: Long
         get() = prefs.getLong("lastPush", 0)
         set(value) = prefs.edit().putLong("lastPush", value).apply()
 
-    /** A counter the watch shows, so a message can be told from the one before it. */
-    @Synchronized
-    fun nextSequence(): Int {
-        val n = prefs.getInt("sequence", 0) + 1
-        prefs.edit().putInt("sequence", n).apply()
-        return n
+    /**
+     * The watch's requests for a reading, heard and not yet answered, and the
+     * answers every message carries ([Answers]). Read and changed only through
+     * [asks], under one lock for every Store: the listener adds to them while a
+     * send settles them.
+     */
+    fun <T> asks(change: (pending: MutableList<Answers.Pending>, answers: MutableList<Answers.Answer>) -> T): T =
+        synchronized(ASKS) {
+            val pending = lines("askPending").mapNotNull { (id, at) ->
+                val i = id.toIntOrNull()
+                val t = at.toLongOrNull()
+                if (i != null && t != null) Answers.Pending(i, t) else null
+            }.toMutableList()
+            val answers = lines("askAnswers").mapNotNull { (id, word) ->
+                id.toIntOrNull()?.let { Answers.Answer(it, word) }
+            }.toMutableList()
+            val result = change(pending, answers)
+            prefs.edit()
+                .putString("askPending", pending.takeLast(Answers.KEEP).joinToString("\n") { "${it.id}\t${it.heardAt}" })
+                .putString("askAnswers", answers.takeLast(Answers.KEEP).joinToString("\n") { "${it.id}\t${it.word.replace('\t', ' ').replace('\n', ' ')}" })
+                .apply()
+            result
+        }
+
+    /** Answer the watch's ask [id] with [word] ("" for done). */
+    fun answer(id: Int, word: String) = asks { _, answers ->
+        val kept = Answers.keep(answers, listOf(Answers.Answer(id, word)))
+        answers.clear()
+        answers.addAll(kept)
     }
+
+    /**
+     * Answer the watch's ask [id] with [word] for an ask not done, unless a
+     * reading answered it meanwhile (a job begun just after it was heard).
+     * True if this is its answer.
+     */
+    fun refuse(id: Int, word: String): Boolean = asks { pending, answers ->
+        if (answers.any { it.id == id }) return@asks false
+        pending.removeAll { it.id == id }
+        val kept = Answers.keep(answers, listOf(Answers.Answer(id, word)))
+        answers.clear()
+        answers.addAll(kept)
+        true
+    }
+
+    private fun lines(key: String): List<Pair<String, String>> =
+        prefs.getString(key, null)?.lines()?.mapNotNull { line ->
+            line.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] }
+        }.orEmpty()
 
     /** Record the latest word on one subject, and add it to the journal. */
     fun note(subject: String, text: String) {
@@ -147,6 +191,8 @@ class Store(context: Context) {
     private fun stamp(): String = LocalDateTime.now().format(STAMP)
 
     companion object {
+        /** Held while the watch's asks are read and changed ([asks]), across every Store. */
+        private val ASKS = Any()
         private const val JOURNAL_LINES = 300
         private val STAMP = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
     }

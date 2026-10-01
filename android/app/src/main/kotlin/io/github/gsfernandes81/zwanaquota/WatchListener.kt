@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Listens for the watch asking for a reading, and answers with one.
@@ -81,7 +82,17 @@ class WatchListener : Service() {
     private fun listen(why: String) {
         Thread {
             // The SDK calls back on the main thread; the journal is file I/O.
-            val outcome = Garmin.listen(this) { watch, message -> Thread { asked(watch, message) }.start() }
+            val outcome = Garmin.listen(this) { watch, message ->
+                Thread {
+                    // Uncaught on a bare thread, a failure would take the
+                    // process, and the listener with it, down.
+                    try {
+                        asked(watch, message)
+                    } catch (e: Exception) {
+                        Store(this).note("listener", "failed on $watch's message: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
+                    }
+                }.start()
+            }
             if (outcome != lastOutcome) Store(this).note("listener", "$outcome ($why)")
             lastOutcome = outcome
         }.start()
@@ -91,23 +102,28 @@ class WatchListener : Service() {
         val store = Store(this)
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
-        when (command) {
-            WatchCommand.Refresh -> {
-                // Every ask is a job of its own, or folded into an earlier
-                // ask's still going (Work.askedByWatch). No time gap: one left
-                // unanswered would only tell the wearer "no answer from phone".
-                store.note("listener", "$watch asked for a reading")
-                Work.askedByWatch(this)
-            }
-            else -> {
-                // Switching and removing only with their own setting on. The
-                // watch only offers them then, so this refuses a stale watch
-                // that still thinks it may.
-                if (!store.watchCanControl) return store.note("listener", "$watch asked to $command; not allowed in settings")
-                store.note("listener", "$watch asked to $command")
-                Work.fromWatch(this, command)
-            }
+        val id = WatchCommand.idOf(message)
+        // The same message delivered twice must not refuse itself as busy,
+        // nor run twice: an id heard last (a switch still in flight), or
+        // still waited on or answered, is a repeat. Equality, not order: ids
+        // only grow, but a watch whose clock went back may give an earlier one.
+        val repeat = id != null && (
+            lastId.getAndSet(id) == id || store.asks { pending, answers -> pending.any { it.id == id } || answers.any { it.id == id } }
+            )
+        if (repeat) return store.note("listener", "$watch repeated ask $id; ignored")
+        val refusal = when {
+            // Switching and removing only with their own setting on. The
+            // watch only offers them then, so this refuses a stale watch
+            // that still thinks it may.
+            command != WatchCommand.Refresh && !store.watchCanControl -> "not allowed"
+            // One of each kind at a time, whoever asked: a second is refused,
+            // never queued behind the first.
+            !Work.fromWatch(this, command, id) -> "phone busy"
+            else -> null
         }
+        if (refusal == null) return store.note("listener", "$watch asked to $command")
+        store.note("listener", "$watch asked to $command; $refusal")
+        if (id != null && store.refuse(id, refusal)) Refresher(this).sendStored()
     }
 
     override fun onDestroy() {
@@ -155,6 +171,9 @@ class WatchListener : Service() {
 
         @Volatile
         private var lastRefusal = 0L
+
+        /** The id of the last ask heard, so a repeat of one message is not taken as a second ask. */
+        private val lastId = AtomicInteger(-1)
 
         private fun wanted(store: Store) = store.watchEnabled && store.watchCanAsk
 

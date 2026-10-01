@@ -161,13 +161,15 @@ fun PortalClient.session(): Session {
  * Do [action], but only if it is still what the session calls for: a widget
  * is a picture that may be minutes old, and a tap on "Data on" drawn before
  * someone else took over must not turn off *their* session. Returns the
- * session after the change.
+ * session after the change. [allowed] is asked once more just before the
+ * change is sent: a switch past its deadline ([TooLate]) is not made.
  */
-fun PortalClient.apply(action: SessionAction): Session {
+fun PortalClient.apply(action: SessionAction, allowed: () -> Boolean = { true }): Session {
     val now = session()
     if (now.action != action) {
         throw SessionChanged("the session changed since the widget was drawn (now ${now.role.name.lowercase()}); nothing was done")
     }
+    if (!allowed()) throw TooLate("past its deadline; nothing was done")
     when (action) {
         SessionAction.TURN_ON -> send("Account/UpdateForCurrentUser", started(true, now.provider!!))
         SessionAction.TURN_OFF_EVERYWHERE -> send("Account/UpdateForCurrentUser", started(false, now.provider!!))
@@ -178,6 +180,9 @@ fun PortalClient.apply(action: SessionAction): Session {
 }
 
 class SessionChanged(message: String) : PortalError(message)
+
+/** A switch or removal whose deadline passed before it was sent: nothing was done. */
+class TooLate(message: String) : PortalError(message)
 
 private fun started(on: Boolean, provider: Int) = buildJsonObject {
     put("Started", JsonPrimitive(on))
@@ -194,7 +199,7 @@ private fun ip(address: String) = buildJsonObject { put("ip", JsonPrimitive(addr
  * Checked against the session as it is now, as [apply] is, so a list drawn
  * minutes ago cannot remove a device that has since become something else.
  */
-fun PortalClient.remove(ipToRemove: String, expectedMac: String? = null): Session {
+fun PortalClient.remove(ipToRemove: String, expectedMac: String? = null, allowed: () -> Boolean = { true }): Session {
     val now = session()
     if (!now.removable(ipToRemove)) {
         throw SessionChanged("$ipToRemove is not a device this phone can take off now; nothing was done")
@@ -204,6 +209,7 @@ fun PortalClient.remove(ipToRemove: String, expectedMac: String? = null): Sessio
     if (expectedMac != null && now.macs[ipToRemove]?.equals(expectedMac, ignoreCase = true) == false) {
         throw SessionChanged("$ipToRemove is now a different device; nothing was done")
     }
+    if (!allowed()) throw TooLate("past its deadline; nothing was done")
     send("Device/RemoveDevice", ip(ipToRemove))
     return session()
 }

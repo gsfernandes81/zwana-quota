@@ -86,7 +86,7 @@ class FaceTest {
             val face = Face.of(d, ZoneId.of("UTC"))
             assertTrue(Format.mib(d.paidLeftBytes) in face.paid, "${face.paid} for $d")
             assertFalse('\n' in face.paid)
-            assertEquals(Format.mib(d.paidLeftBytes), WatchPayload.build(d, face, now, 1, 1800)["paid"])
+            assertEquals(Format.mib(d.paidLeftBytes), WatchPayload.build(d, face, now, 1800)["paid"])
         }
         assertEquals("", Face.unknown(now, ZoneId.of("UTC"), "sign in").paid)
     }
@@ -189,18 +189,22 @@ class FaceTest {
     fun `the watch is told whether it may ask, and is never told yes by default`() {
         val d = doc()
         val face = Face.of(d, ZoneId.of("UTC"))
-        assertEquals(false, WatchPayload.build(d, face, now, 1, 1800)["ask"])
-        assertEquals(true, WatchPayload.build(d, face, now, 1, 1800, canAsk = true)["ask"])
+        assertEquals(false, WatchPayload.build(d, face, now, 1800)["ask"])
+        assertEquals(true, WatchPayload.build(d, face, now, 1800, canAsk = true)["ask"])
     }
 
     @Test
     fun `the watch is sent only the types the Connect IQ SDK can carry`() {
         for (remainder in listOf(0L, grant, 1L shl 42, Long.MAX_VALUE / 2)) {
             val d = doc(remainder)
-            val payload = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 7, 1800)
+            val answers = listOf(Answers.Answer(7, ""), Answers.Answer(9, "too late"))
+            val payload = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1800, answers = answers)
             for ((k, v) in payload) {
-                assertTrue(v is Int || v is Boolean || v is String, "$k is ${v::class}")
-                if (v is Int) assertTrue(v >= 0, "$k = $v")
+                val items = if (v is List<*>) v else listOf(v)
+                for (item in items) {
+                    assertTrue(item is Int || item is Boolean || item is String, "$k holds ${item?.let { it::class }}")
+                    if (item is Int) assertTrue(item >= 0, "$k = $item")
+                }
             }
             assertEquals(Pipeline.nextReset(d.readingTaken).epochSecond.toInt(), payload["reset"])
             assertEquals(Format.size(remainder), payload["fig"])
@@ -212,7 +216,7 @@ class FaceTest {
         // Read at 23:30 the night before, sent at 20:30: the reset between is
         // the one sent, already passed, which is the watch's "new day".
         val d = doc(age = 21.0 * 3600, live = false)
-        val reset = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1, 1800)["reset"] as Int
+        val reset = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1800)["reset"] as Int
         assertEquals(Pipeline.nextReset(d.readingTaken).epochSecond.toInt(), reset)
         assertTrue(reset <= now.epochSecond)
     }
@@ -220,8 +224,20 @@ class FaceTest {
     @Test
     fun `the payload's keys are the wire contract the watch reads`() {
         val d = doc()
-        val keys = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1, 1800).keys
-        // garmin/source/Quota.mc reads these; renaming one silently blanks the glance.
-        assertTrue(keys.containsAll(listOf("v", "n", "ts", "every", "reset", "online", "fig", "share", "gfig", "paid", "level")))
+        val keys = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1800).keys
+        // garmin/source reads these; renaming one silently blanks the glance.
+        assertTrue(keys.containsAll(listOf("v", "ts", "sent", "every", "reset", "rem", "pool", "online", "fig", "share", "paid", "ask", "re", "rw")))
+    }
+
+    @Test
+    fun `each answer's word is beside its id, and no answers go as an empty list, not left out`() {
+        val d = doc()
+        val face = Face.of(d, ZoneId.of("UTC"))
+        val answers = listOf(Answers.Answer(41, ""), Answers.Answer(42, "phone busy"))
+        val payload = WatchPayload.build(d, face, now, 1800, answers = answers)
+        assertEquals(listOf(41, 42), payload["re"])
+        assertEquals(listOf("", "phone busy"), payload["rw"])
+        // Present though empty: a watch tells an older phone app by its absence.
+        assertEquals(emptyList<Int>(), WatchPayload.build(d, face, now, 1800)["re"])
     }
 }
