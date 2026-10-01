@@ -501,11 +501,13 @@ object Work {
 
     /**
      * The watch asked for a reading: read now and send it back (the newest
-     * reading stored, if the read fails or is not made; nothing if none is).
+     * reading stored, if the read fails at the portal or is not made; nothing
+     * if none is).
      * KEEP: an ask arriving while an earlier ask's job is still going is folded
      * into it and answered by that job's send -- unless it was made against that
-     * very send, in the moment between its reaching the watch and the job's end,
-     * which the watch then waits out. So asks never queue up reads of their own.
+     * very send, in the stretch between its reaching the watch and the job's
+     * end (the sends to any other paired watches), which the watch then waits
+     * out. So asks never queue up reads of their own.
      */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 

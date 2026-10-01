@@ -30,7 +30,7 @@ every 15 minutes in case Garmin Connect restarted, and started again at boot
 and after an update. Each ask for a reading from the watch enqueues a
 read-and-send; one arriving while an earlier ask's job is still going is
 folded into it and answered by that job's send, unless it was made against
-that very send in the moment before the job ends. Messages to the watch are
+that very send while the job was still finishing. Messages to the watch are
 made one at a time, each with the newest reading the phone has when its turn
 comes. The app does not ask for permission to post notifications, so on
 Android 13+ the service's notification is not shown.
@@ -164,7 +164,9 @@ six hours and a silence one hour, because addresses are handed out again.
 One `HashMap`, built in one place (`WatchPayload` in `core/.../Face.kt`) and
 tested there. The SDK carries Integer, Float, String, Boolean, List and
 HashMap, and **no Long**, so byte counts go as whole KiB and times as epoch
-seconds. The figures go as the strings the phone's own face draws (the paid part as
+seconds. `reset` is the reset after the reading, which may already have
+passed when the message arrives -- that is how the watch knows a reading is
+from yesterday. The figures go as the strings the phone's own face draws (the paid part as
 `paid`, in whole MiB at every size): the watch holds no unit ladder, no thresholds and no grades, which is how a third
 language avoids a third copy. `tests/test_watch_contract.py` reads both
 sources as text and fails `make test` when a key the watch reads is not one
