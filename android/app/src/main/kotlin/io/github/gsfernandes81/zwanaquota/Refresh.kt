@@ -212,7 +212,9 @@ class Refresher(context: Context) {
      * to Garmin Connect one at a time, whichever job they come from, and each
      * is made inside its turn: the newer of this run's reading and the one
      * stored by then (by `ts`, when each read began; another run may have
-     * read since), with the session as stored. `sent` is the moment the message is made, in whole seconds, so
+     * read since), with the session as stored -- derived as of the reading's
+     * own time, so its `reset` is the one that follows it (the watch's "new
+     * day" is that reset having passed). `sent` is the moment the message is made, in whole seconds, so
      * while the clock runs forward a later message never carries an earlier
      * stamp -- and that stamp, not the order they reach the watch (a send the
      * phone gave up waiting on may still arrive), is what the watch goes by: it
@@ -233,7 +235,11 @@ class Refresher(context: Context) {
                 else -> reading to live
             }
             val now = Instant.now()
-            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
+            // Derived as of the reading's own time, so `reset` is the one after
+            // it: what the watch's "new day" compares against. Its age is as of
+            // now.
+            val at = Pipeline.instantOf(newest.ts)
+            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, at)
             val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
             // Offered only while the listener is actually up, not merely
             // switched on: Android can refuse to restart it, and a watch
@@ -502,9 +508,9 @@ object Work {
      * The watch asked for a reading: read now and send it back (the newest
      * reading stored, if the read fails or is not made; nothing if none is).
      * KEEP: an ask arriving while an earlier ask's job is still going is folded
-     * into it -- answered by that job's send if it arrives before the send
-     * reaches its watch, and otherwise dropped until the job ends, the time of
-     * the send to each watch -- so asks never queue up reads of their own.
+     * into it and answered by that job's send -- unless it was made against that
+     * very send, in the moment between its reaching the watch and the job's end,
+     * which the watch then waits out. So asks never queue up reads of their own.
      */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
