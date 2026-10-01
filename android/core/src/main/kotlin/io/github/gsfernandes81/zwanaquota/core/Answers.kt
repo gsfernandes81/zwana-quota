@@ -39,12 +39,12 @@ object Answers {
      * stays pending and what is answered, in order. [tried] and [now] are
      * epoch milliseconds, as [Pending.heardAt] is.
      */
-    fun settle(pending: List<Pending>, readingTs: Double?, tried: Long?, why: String?, now: Long): Pair<List<Pending>, List<Answer>> {
+    fun settle(pending: List<Pending>, readingTs: Double, tried: Long?, why: String?, now: Long): Pair<List<Pending>, List<Answer>> {
         val still = mutableListOf<Pending>()
         val answered = mutableListOf<Answer>()
         for (p in pending) {
             when {
-                readingTs != null && readingTs * 1000 >= p.heardAt -> answered += Answer(p.id, "")
+                readingTs * 1000 >= p.heardAt -> answered += Answer(p.id, "")
                 why != null && tried != null && tried >= p.heardAt -> answered += Answer(p.id, why)
                 now - p.heardAt > PENDING_MILLIS -> answered += Answer(p.id, "too late")
                 else -> still += p

@@ -165,8 +165,8 @@ data class Face(
 
 /**
  * What the phone sends the watch: one place, so the wire contract is spelled
- * once and tested once. The Monkey C side (garmin/source/Quota.mc) reads
- * these keys and nothing else.
+ * once and tested once. The Monkey C side (garmin/source) reads these keys
+ * and nothing else.
  *
  * The Connect IQ SDK carries only Integer, Float, String, Boolean, List and
  * HashMap -- no Long -- so byte counts go as whole KiB, and times as epoch

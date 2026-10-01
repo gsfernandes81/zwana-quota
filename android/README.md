@@ -256,7 +256,7 @@ well, and START on the watch's first page asks the phone for a fresh
 reading, usually within ten seconds (`START: refresh` at the bottom says
 so). The watch says `asking phone` when it sends, and `no answer from phone`
 after a minute; when the phone could not read the portal it says why
-(`portal not reached`, `sign in on phone`) and sends the reading it has, and
+(`portal read failed`, `sign in on phone`) and sends the reading it has, and
 while it is still reading for an earlier ask it says `phone busy`.
 With the setting off the watch shows none of this.
 

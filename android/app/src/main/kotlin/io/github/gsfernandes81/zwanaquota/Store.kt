@@ -107,9 +107,7 @@ class Store(context: Context) {
 
     /** The MAC of each device the watch was last offered to take off, by IP. */
     var offeredMacs: Map<String, String>
-        get() = prefs.getString("offeredMacs", null)?.lines()?.mapNotNull { line ->
-            line.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] }
-        }?.toMap().orEmpty()
+        get() = lines("offeredMacs").toMap()
         set(value) = prefs.edit().putString("offeredMacs", value.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
 
     /**

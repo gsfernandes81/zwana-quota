@@ -92,7 +92,7 @@ class Refresher(context: Context) {
                     readSession(client)
                 } catch (e: PortalError) {
                     why = "portal: ${e.message}"
-                    whyWatch = "portal not reached"
+                    whyWatch = "portal read failed"
                     store.note("read", "failed over ${network()}: ${e.message}")
                 }
             }

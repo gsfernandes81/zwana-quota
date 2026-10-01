@@ -103,10 +103,14 @@ class WatchListener : Service() {
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
         val id = WatchCommand.idOf(message)
-        // The same message delivered twice must not refuse itself as busy.
-        // Ids only grow, but equality, not order: a watch whose clock went
-        // back may give an earlier one.
-        if (id != null && lastId.getAndSet(id) == id) return store.note("listener", "$watch repeated ask $id; ignored")
+        // The same message delivered twice must not refuse itself as busy,
+        // nor run twice: an id heard last (a switch still in flight), or
+        // still waited on or answered, is a repeat. Equality, not order: ids
+        // only grow, but a watch whose clock went back may give an earlier one.
+        val repeat = id != null && (
+            lastId.getAndSet(id) == id || store.asks { pending, answers -> pending.any { it.id == id } || answers.any { it.id == id } }
+            )
+        if (repeat) return store.note("listener", "$watch repeated ask $id; ignored")
         val refusal = when {
             // Switching and removing only with their own setting on. The
             // watch only offers them then, so this refuses a stale watch

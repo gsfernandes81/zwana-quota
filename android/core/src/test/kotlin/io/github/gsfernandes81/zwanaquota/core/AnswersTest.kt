@@ -28,17 +28,17 @@ class AnswersTest {
         assertEquals(emptyList(), still)
         assertEquals(listOf(Answers.Answer(7, "portal not reached")), answered)
         // A failure from before it was heard says nothing about it.
-        assertEquals(listOf(ask), Answers.settle(listOf(ask), null, heard - 10, "portal not reached", heard + 5000).first)
+        assertEquals(listOf(ask), Answers.settle(listOf(ask), (heard - 60_000) / 1000.0, heard - 10, "portal not reached", heard + 5000).first)
     }
 
     @Test
     fun `an ask left without a reading is too late once the watch has stopped waiting`() {
-        val (still, answered) = Answers.settle(listOf(ask), null, null, null, heard + Answers.PENDING_MILLIS + 1)
+        val (still, answered) = Answers.settle(listOf(ask), (heard - 60_000) / 1000.0, null, null, heard + Answers.PENDING_MILLIS + 1)
         assertEquals(emptyList(), still)
         // Answered with a word, not as done: whatever the word, it is not "".
         assertEquals(listOf(7), answered.map { it.id })
         assertTrue(answered.single().word.isNotEmpty())
-        assertEquals(listOf(ask), Answers.settle(listOf(ask), null, null, null, heard + Answers.PENDING_MILLIS).first)
+        assertEquals(listOf(ask), Answers.settle(listOf(ask), (heard - 60_000) / 1000.0, null, null, heard + Answers.PENDING_MILLIS).first)
     }
 
     @Test
