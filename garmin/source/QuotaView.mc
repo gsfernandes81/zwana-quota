@@ -36,7 +36,7 @@ class QuotaView extends WatchUi.View {
     }
 
     function onHide() as Void {
-        Pages.hidden(id);
+        Pages.gone(id);
     }
 
     // The IP START may ask the phone to take off from device page [i], or ""
