@@ -94,8 +94,8 @@ class WatchListener : Service() {
         when (command) {
             WatchCommand.Refresh -> {
                 // Every ask is a job of its own, or folded into an earlier
-                // ask's still going (Work.askedByWatch). No time gap: one left unanswered
-                // would only tell the wearer "no answer from phone".
+                // ask's still going (Work.askedByWatch). No time gap: one left
+                // unanswered would only tell the wearer "no answer from phone".
                 store.note("listener", "$watch asked for a reading")
                 Work.askedByWatch(this)
             }

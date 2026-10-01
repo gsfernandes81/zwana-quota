@@ -211,16 +211,17 @@ class Refresher(context: Context) {
      * Send the watch the newest reading there is. Messages are made and handed
      * to Garmin Connect one at a time, whichever job they come from, and each
      * is made inside its turn: the newer of this run's reading and the one
-     * stored by then (by `ts`, when each read began; another run may have
-     * read since), with the session as stored. (The `reset` sent is the one
-     * after the reading, whenever the message is made: WatchPayload.) `sent` is the moment the message is made, in whole seconds, so
-     * while the clock runs forward a later message never carries an earlier
-     * stamp -- and that stamp, not the order they reach the watch (a send the
-     * phone gave up waiting on may still arrive), is what the watch goes by: it
-     * keeps a message only if it is not older than the one it has, and takes
-     * one as an ask's answer only if its `sent` differs. So the message the
-     * watch keeps is the newest it was given, and offeredMacs holds the devices
-     * of the newest made -- the same, unless that send did not get through.
+     * stored by then (by `ts`, when each read began; another run may have read
+     * since), with the session as stored. (The `reset` sent is the one after
+     * the reading, whenever the message is made: WatchPayload.) `sent` is the
+     * moment the message is made, in whole seconds, so while the clock runs
+     * forward a later message never carries an earlier stamp -- and that
+     * stamp, not the order they reach the watch (a send the phone gave up
+     * waiting on may still arrive), is what the watch goes by: it keeps a
+     * message only if it is not older than the one it has, and takes one as an
+     * ask's answer only if its `sent` differs. So the message the watch keeps
+     * is the newest it was given, and offeredMacs holds the devices of the
+     * newest made -- the same, unless that send did not get through.
      * [live] is whether this run read [reading]; a newer one another run
      * stored is sent as not live, and is sent even when this run has none.
      * With no reading anywhere there is nothing to send.

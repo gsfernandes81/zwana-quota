@@ -165,12 +165,14 @@ One `HashMap`, built in one place (`WatchPayload` in `core/.../Face.kt`) and
 tested there. The SDK carries Integer, Float, String, Boolean, List and
 HashMap, and **no Long**, so byte counts go as whole KiB and times as epoch
 seconds. `reset` is the reset after the reading, which may already have
-passed when the message arrives: the watch's "new day". The figures go as the strings the phone's own face draws (the paid part as
-`paid`, in whole MiB at every size): the watch holds no unit ladder, no thresholds and no grades, which is how a third
-language avoids a third copy. `tests/test_watch_contract.py` reads both
-sources as text and fails `make test` when a key the watch reads is not one
-the phone sends, when the versions differ, or when the app id in
-`garmin/manifest.xml` is not the phone's `APP_ID`.
+passed when the message arrives: the watch's "new day". The figures go as
+the strings the phone's own face draws (the paid part as `paid`, in whole
+MiB at every size): the watch holds no unit ladder, no thresholds and no
+grades, which is how a third language avoids a third copy.
+`tests/test_watch_contract.py` reads both sources as text and fails
+`make test` when a key the watch reads is not one the phone sends, when the
+versions differ, or when the app id in `garmin/manifest.xml` is not the
+phone's `APP_ID`.
 
 The watch refuses to be crashed by what it is sent: every key is read
 through a type check that turns a missing or mistyped value into 0 or "", a
