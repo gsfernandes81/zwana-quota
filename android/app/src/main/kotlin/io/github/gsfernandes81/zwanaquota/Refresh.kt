@@ -572,20 +572,19 @@ object Work {
      * only within [QuotaWorker.WATCH_SWITCH_SECONDS] of now.
      */
     fun fromWatch(context: Context, command: WatchCommand, askId: Int?): Boolean {
-        if (command == WatchCommand.Refresh) {
-            askId?.let { id -> Store(context).asks { pending, _ -> pending.add(Answers.Pending(id, System.currentTimeMillis())) } }
-            val input = Data.Builder().putAll(input(true, true, "watch asked")).putBoolean(QuotaWorker.ASKED, true).build()
-            return startIfIdle(context, ASKED, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build())
-        }
-        val data = Data.Builder().putAll(input(true, true, "watch"))
+        val switching = Data.Builder().putAll(input(true, true, "watch"))
             .putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.WATCH_SWITCH_SECONDS)
-        askId?.let { data.putInt(QuotaWorker.ASK_ID, it) }
-        when (command) {
-            is WatchCommand.Act -> data.putString(QuotaWorker.ACTION, command.action.name)
-            is WatchCommand.Remove -> data.putString(QuotaWorker.REMOVE, command.ip)
-            WatchCommand.Refresh -> Unit
+        askId?.let { switching.putInt(QuotaWorker.ASK_ID, it) }
+        val input = when (command) {
+            WatchCommand.Refresh -> {
+                askId?.let { id -> Store(context).asks { pending, _ -> pending.add(Answers.Pending(id, System.currentTimeMillis())) } }
+                val reading = Data.Builder().putAll(input(true, true, "watch asked")).putBoolean(QuotaWorker.ASKED, true).build()
+                return startIfIdle(context, ASKED, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(reading).build())
+            }
+            is WatchCommand.Act -> switching.putString(QuotaWorker.ACTION, command.action.name)
+            is WatchCommand.Remove -> switching.putString(QuotaWorker.REMOVE, command.ip)
         }
-        return startIfIdle(context, SWITCH, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build())
+        return startIfIdle(context, SWITCH, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input.build()).build())
     }
 
     /**

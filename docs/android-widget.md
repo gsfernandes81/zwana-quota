@@ -50,8 +50,8 @@ only within 45 seconds of the phone hearing it; the watch waits 90 seconds
 from sending, so a switch is never made after the watch has said it went
 unanswered, unless the message itself took the other 45 to arrive. A send
 waits 20 seconds for Garmin Connect to say it was delivered, and a request
-for a reading is kept two minutes, longer than the watch's one-minute wait
-for it.
+for a reading its own read never answered is called too late after two
+minutes, a backstop longer than the watch's one-minute wait for it.
 
 The watch offers to ask only when the phone's last reading says it is
 listening (the payload's `ask`), so the setting is also what shows the offer:
