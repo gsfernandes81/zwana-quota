@@ -16,7 +16,7 @@ import Toybox.WatchUi;
 //                  its name and how it is on; sub-window: which of how
 //                  many. START takes it off, when the phone says it may.
 //
-// The session pages exist only when the phone sent the session (`dat`);
+// The session pages say so until the phone has sent the session (`dat`);
 // START does anything only when the phone said it would listen (`ask`,
 // `ctl`).
 //
