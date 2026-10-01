@@ -18,8 +18,8 @@ class QuotaService extends System.ServiceDelegate {
     }
 
     function onPhoneAppMessage(msg as Communications.PhoneAppMessage) as Void {
-        // store() turns a refused write into false itself; exit still
-        // carries the message on.
+        // store() turns a refused write into false itself; exit is the
+        // message's other way on.
         var data = msg.data;
         Quota.store(data);
         // exit refuses what it cannot carry (a message over its size limit).
