@@ -23,21 +23,17 @@ module Ask {
     // How long an ask is waited on before it is called unanswered.
     const WAIT = 60;
 
-    var at as Number = 0;        // when it was last asked, watch time; 0 never
-    var before as Number = 0;    // the kept reading's `sent` when it was asked
-    var failed as Boolean = false;
-    var what as String = "";     // what was asked, for the toasts
-    var asked as String = "";    // the message itself, to tell a repeat by
-    var asks as Number = 0;      // counts every ask: the listeners' stamp
+    var current as Asking? = null;   // the last ask; null before the first
     var timer as Timer.Timer? = null;
 
-    function answered() as Boolean {
-        var d = Quota.last();
-        return d != null && Quota.num(d, "sent") != before;
-    }
-
+    // Whether the ask is on its way: made, not failed, not answered, and
+    // not yet waited on for WAIT.
     function waiting() as Boolean {
-        return at > 0 && !failed && !answered() && Time.now().value() - at < WAIT;
+        if (current == null) {
+            return false;
+        }
+        var a = current as Asking;
+        return !a.failed && !a.answered() && Time.now().value() - a.at < WAIT;
     }
 
     function refresh() as Void {
@@ -55,30 +51,27 @@ module Ask {
         if (!waiting()) {
             return true;
         }
-        toast(message.toString().equals(asked) ? "sent, waiting for phone" : "phone busy, not sent");
+        var same = message.toString().equals((current as Asking).message);
+        toast(same ? "sent, waiting for phone" : "phone busy, not sent");
         return false;
     }
 
     // Send [message], unless asking is not offered or one is on its way.
-    // [label] is what the toasts call it.
+    // [label] is what the toast calls it.
     function send(message as Dictionary, label as String) as Void {
         var d = Quota.last();
         if (!Quota.canAsk(d) || !free(message)) {
             return;
         }
-        at = Time.now().value();
-        before = Quota.num(d as Dictionary, "sent");
-        failed = false;
-        what = label;
-        asked = message.toString();
-        asks += 1;
+        var a = new Asking(Quota.num(d as Dictionary, "sent"), message.toString());
+        current = a;
         try {
-            Communications.transmit(message, null, new AskListener(asks));
+            Communications.transmit(message, null, new AskListener(a));
         } catch (e instanceof Lang.Exception) {
-            unreached(asks);
+            unreached(a);
             return;
         }
-        toast(spelled(what));
+        toast(label.equals("refresh") ? "asking phone" : label);
         // Once the wait is over, say so if nothing came. One timer, kept.
         if (timer == null) {
             timer = new Timer.Timer();
@@ -88,23 +81,22 @@ module Ask {
         t.start(new Lang.Method(Ask, :expired), (WAIT + 1) * 1000, false);
     }
 
-    function spelled(label as String) as String {
-        return label.equals("refresh") ? "asking phone" : label;
-    }
-
-    // Ask number [stamp] did not reach the phone. A late failure of an
-    // earlier ask says nothing about the one now waited on.
-    function unreached(stamp as Number) as Void {
-        if (stamp != asks) {
+    // Ask [a] did not reach the phone. A late failure of an earlier ask says
+    // nothing about the one now waited on.
+    function unreached(a as Asking) as Void {
+        if (a != current) {
             return;
         }
-        failed = true;
+        a.failed = true;
         toast("phone not reached");
     }
 
     function expired() as Void {
-        if (at > 0 && !failed && !answered()) {
-            toast("no answer from phone");
+        if (current != null) {
+            var a = current as Asking;
+            if (!a.failed && !a.answered()) {
+                toast("no answer from phone");
+            }
         }
     }
 
@@ -115,19 +107,43 @@ module Ask {
     }
 }
 
-// Hears whether ask number [stamp] reached the phone.
-class AskListener extends Communications.ConnectionListener {
-    var stamp as Number;
+// One ask: when it was made, the reading it was made against, what it was,
+// and whether it failed to reach the phone. A new one replaces it on each
+// send, so its listener can tell whether it is still the one waited on.
+class Asking {
+    var at as Number;          // watch time when it was made
+    var before as Number;      // the kept reading's `sent` then
+    // The message, spelt: every ask is one key, so its toString is a stable
+    // spelling of it to tell a repeat by.
+    var message as String;
+    var failed as Boolean = false;
 
-    function initialize(s as Number) {
+    function initialize(sent as Number, m as String) {
+        at = Time.now().value();
+        before = sent;
+        message = m;
+    }
+
+    // Whether a reading has come since: the answer, as every reading comes.
+    function answered() as Boolean {
+        var d = Quota.last();
+        return d != null && Quota.num(d, "sent") != before;
+    }
+}
+
+// Hears whether ask [a] reached the phone.
+class AskListener extends Communications.ConnectionListener {
+    var ask as Asking;
+
+    function initialize(a as Asking) {
         ConnectionListener.initialize();
-        stamp = s;
+        ask = a;
     }
 
     function onComplete() as Void {
     }
 
     function onError() as Void {
-        Ask.unreached(stamp);
+        Ask.unreached(ask);
     }
 }

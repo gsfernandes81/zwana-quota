@@ -18,9 +18,10 @@ import Toybox.WatchUi;
 // Two things must always be drawn: the reset time, the one thing on the face
 // that cannot be inferred from the rest, and the mark, when there is one.
 // What is paid is the first to give way, then the title. The mark goes
-// beside the figure where it fits, else in the title's place; there the
-// reset time sheds its "@" and then its icon to make room, and the mark is
-// cut short only when even the bare clock leaves it too little.
+// beside the figure where it fits, in its long or its short spelling, else
+// in the title's place; there the reset time sheds its "@" and then its icon
+// before the mark falls to its short spelling, and the mark is cut only when
+// even that does not fit beside the bare clock.
 (:glance)
 class QuotaGlance extends WatchUi.GlanceView {
     function initialize() {
@@ -55,8 +56,9 @@ class QuotaGlance extends WatchUi.GlanceView {
                 dc.drawText(width, y, font, none as String, Graphics.TEXT_JUSTIFY_RIGHT);
             }
         } else if (mark != null) {
-            if (dc.getTextWidthInPixels(mark as String, font) <= room) {
-                dc.drawText(width, y, font, mark as String, Graphics.TEXT_JUSTIFY_RIGHT);
+            var said = Draw.fit(dc, font, mark as Array<String>, room);
+            if (said != null) {
+                dc.drawText(width, y, font, said as String, Graphics.TEXT_JUSTIFY_RIGHT);
                 above = null;
             }
         } else if (Quota.str(d, "paid").length() > 0) {
@@ -79,18 +81,14 @@ class QuotaGlance extends WatchUi.GlanceView {
             }
             // The arrowhead reaches past the ring by about half its radius.
             var icon = 2 * ir + ir / 2 + 4;
-            var need = (above == null) ? 0 : dc.getTextWidthInPixels(above as String, font) + 6;
-            var text = spellings[spellings.size() - 1];
-            var drawIcon = false;
-            for (var i = 0; i < spellings.size(); i++) {
-                if (dc.getTextWidthInPixels(spellings[i], font) + icon + need <= width) {
-                    text = spellings[i];
-                    drawIcon = true;
-                    break;
-                }
+            var need = (above == null) ? 0 : dc.getTextWidthInPixels((above as Array<String>)[0], font) + 6;
+            var text = Draw.fit(dc, font, spellings, width - icon - need);
+            var drawIcon = (text != null);
+            if (text == null) {
+                text = spellings[spellings.size() - 1];
             }
-            var tw = dc.getTextWidthInPixels(text, font);
-            dc.drawText(width, top, font, text, Graphics.TEXT_JUSTIFY_RIGHT);
+            var tw = dc.getTextWidthInPixels(text as String, font);
+            dc.drawText(width, top, font, text as String, Graphics.TEXT_JUSTIFY_RIGHT);
             used = tw + 6;
             if (drawIcon) {
                 Draw.resetIcon(dc, width - tw - 3 - ir - ir / 2, top + line / 2, ir);
@@ -99,10 +97,18 @@ class QuotaGlance extends WatchUi.GlanceView {
         }
 
         // The title, in capitals as the watch's own glances have theirs, in
-        // what the reset leaves -- or the mark, if it found no room below.
-        var title = (above != null)
-            ? Draw.clip(dc, font, above as String, width - used)
-            : Draw.fit(dc, font, ["DATA LEFT", "DATA"], width - used);
+        // what the reset leaves -- or the mark, if it found no room below:
+        // its longest spelling that fits, else its shortest, cut.
+        var title = null;
+        if (above != null) {
+            var spelt = above as Array<String>;
+            title = Draw.fit(dc, font, spelt, width - used);
+            if (title == null) {
+                title = Draw.clip(dc, font, spelt[spelt.size() - 1], width - used);
+            }
+        } else {
+            title = Draw.fit(dc, font, ["DATA LEFT", "DATA"], width - used);
+        }
         if (title != null) {
             dc.drawText(0, top, font, title as String, Graphics.TEXT_JUSTIFY_LEFT);
         }

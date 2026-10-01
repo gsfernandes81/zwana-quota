@@ -13,9 +13,13 @@ import Toybox.Time.Gregorian;
 // only the watch knows what time it is *now*:
 //
 //   new day  the reset has passed since the reading: the figure is
-//            yesterday's, and the grant it does not count has landed
+//   (new)    yesterday's, and the grant it does not count has landed
 //   2h ago   older than two send intervals: sends have stopped arriving
+//   (2h)
 //   offline  the portal said the session was down when it was read
+//   (!)
+//
+// each with the short form after it that a squeezed face draws instead.
 //
 // It never trusts the phone's `live`, which was true when it was sent and
 // says nothing about now.
@@ -54,17 +58,21 @@ module Quota {
         if (kept != null && num(d, "sent") < num(kept, "sent")) {
             return false;
         }
+        // The app holds it in memory first: a refused write must not leave
+        // the pages drawing the older message, nor an ask waiting on a `sent`
+        // it has already been given.
+        if (remember) {
+            memo = d;
+        }
         // Storage can refuse -- a value type it will not keep, its quota, a
-        // background process that may not write. Refused is not kept, never
-        // a crash: the app would exit on it, and the message is not sent
-        // again.
+        // background process that may not write. Refused is never a crash:
+        // the app would exit on it, and the message is not sent again. It is
+        // still kept where it is held in memory, in the app; elsewhere there
+        // is nowhere else to keep it.
         try {
             Application.Storage.setValue(KEY, d as Application.PropertyValueType);
         } catch (e instanceof Lang.Exception) {
-            return false;
-        }
-        if (remember) {
-            memo = d;
+            return remember;
         }
         return true;
     }
@@ -157,19 +165,21 @@ module Quota {
         return reset;
     }
 
-    function ago(seconds as Number) as String {
-        if (seconds < 5400) {
-            return (seconds / 60).toString() + "m ago";
-        }
-        return ((seconds + 1800) / 3600).toString() + "h ago";
+    // How old a reading is, longest spelling first: 40m ago, 40m.
+    function ago(seconds as Number) as Array<String> {
+        var n = (seconds < 5400) ? (seconds / 60).toString() + "m" : ((seconds + 1800) / 3600).toString() + "h";
+        return [n + " ago", n];
     }
 
-    // Why the figure cannot be taken at face value, or null if it can.
-    function mark(d as Dictionary) as String? {
+    // Why the figure cannot be taken at face value, or null if it can:
+    // longest spelling first, the last short enough for any squeeze, so the
+    // warning is drawn rather than cut. Never a bare "off", which would read
+    // as the data being switched off.
+    function mark(d as Dictionary) as Array<String>? {
         var now = Time.now().value();
         var reset = num(d, "reset");
         if (reset > 0 && now >= reset) {
-            return "new day";
+            return ["new day", "new"];
         }
         var every = num(d, "every");
         if (every <= 0 || every > DAY) {
@@ -177,14 +187,14 @@ module Quota {
         }
         var ts = num(d, "ts");
         if (ts <= 0) {
-            return "no time";
+            return ["no time", "?"];
         }
         var age = now - ts;
         if (age > 2 * every) {
             return ago(age);
         }
         if (d.get("online") == false) {
-            return "offline";
+            return ["offline", "!"];
         }
         return null;
     }

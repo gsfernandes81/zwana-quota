@@ -24,6 +24,12 @@ class QuotaService extends System.ServiceDelegate {
         } catch (e instanceof Lang.Exception) {
             // Storage refused from the background: Background.exit still carries it.
         }
-        Background.exit(data as Application.PersistableType);
+        // exit refuses what it cannot carry; refused, the stored copy is
+        // the one there is, and the service still ends.
+        try {
+            Background.exit(data as Application.PersistableType);
+        } catch (e instanceof Lang.Exception) {
+            Background.exit(null);
+        }
     }
 }

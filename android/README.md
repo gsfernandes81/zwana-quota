@@ -149,6 +149,9 @@ figure's place beside what is left (or the title's, if it does not fit there):
 - `2h ago`: no reading has arrived for more than two send intervals (an hour).
 - `offline`: the portal said the session was down when it was read.
 
+Squeezed, each has a short form: `new`, `2h`, `!` (never `off`, which would
+read as data switched off).
+
 The watch works out its staleness from the reading's own timestamp. It never
 believes the phone's "live" flag, which was true when it was sent and says
 nothing about now.
