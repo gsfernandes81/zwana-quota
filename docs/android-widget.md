@@ -195,7 +195,7 @@ in `garmin/manifest.xml` is not the phone's `APP_ID`.
 The watch refuses to be crashed by what it is sent: every key is read
 through a type check that turns a missing or mistyped value into 0 or "", a
 message of another version is not kept, storage failures are caught, and no
-loop runs on a value from the message. A Connect IQ app runs in Garmin's
+loop runs on a number from the message, only over what it lists. A Connect IQ app runs in Garmin's
 sandbox and cannot harm the watch; the worst a bad build can do is show
 "IQ!" in place of the glance, and deleting the `.prg` from `GARMIN/APPS` over
 USB removes it.

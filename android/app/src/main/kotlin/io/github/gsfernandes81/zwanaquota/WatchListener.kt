@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Listens for the watch asking for a reading, and answers with one.
@@ -102,6 +103,10 @@ class WatchListener : Service() {
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
         val id = WatchCommand.idOf(message)
+        // The same message delivered twice must not refuse itself as busy.
+        // Ids only grow, but equality, not order: a watch whose clock went
+        // back may give an earlier one.
+        if (id != null && lastId.getAndSet(id) == id) return store.note("listener", "$watch repeated ask $id; ignored")
         val refusal = when {
             // Switching and removing only with their own setting on. The
             // watch only offers them then, so this refuses a stale watch
@@ -114,7 +119,7 @@ class WatchListener : Service() {
         }
         if (refusal == null) return store.note("listener", "$watch asked to $command")
         store.note("listener", "$watch asked to $command; $refusal")
-        if (id != null && store.refuse(id, refusal)) Work.answer(this)
+        if (id != null && store.refuse(id, refusal)) Refresher(this).sendStored()
     }
 
     override fun onDestroy() {
@@ -162,6 +167,9 @@ class WatchListener : Service() {
 
         @Volatile
         private var lastRefusal = 0L
+
+        /** The id of the last ask heard, so a repeat of one message is not taken as a second ask. */
+        private val lastId = AtomicInteger(-1)
 
         private fun wanted(store: Store) = store.watchEnabled && store.watchCanAsk
 
