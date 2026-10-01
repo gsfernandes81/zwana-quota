@@ -126,8 +126,8 @@ class QuotaView extends WatchUi.View {
         return dc.getHeight() / 9 + dc.getFontHeight(Graphics.FONT_XTINY) + 6;
     }
 
-    // One small line at the bottom: why the reading is doubtful, how an ask
-    // stands, or what START does -- the first of [ladder] that fits the
+    // One small line at the bottom: why the reading is doubtful, or what
+    // START does -- the first of [ladder] that fits the
     // round screen at that height, and nothing if none does. Never above
     // [below], the bottom of what the page drew.
     function footer(dc as Graphics.Dc, ladder as Array<String>?, below as Number) as Void {
@@ -232,11 +232,8 @@ class QuotaView extends WatchUi.View {
             }
         }
 
-        var status = Ask.status();
         var mark = (d == null) ? null : Quota.mark(d as Dictionary);
-        if (status != null) {
-            footer(dc, status, y);
-        } else if (mark != null) {
+        if (mark != null) {
             footer(dc, [mark as String], y);
         } else if (d == null) {
             footer(dc, ["open zwana quota on phone", "open on phone"], y);
@@ -286,10 +283,7 @@ class QuotaView extends WatchUi.View {
 
         // The sub-window's power symbol is the hint beside START; the words
         // say which way it goes, where they fit.
-        var status = Ask.status();
-        if (status != null) {
-            footer(dc, status, y);
-        } else if (act.length() > 0) {
+        if (act.length() > 0) {
             var label = Quota.str(d, "actl");
             footer(dc, ["START: " + label, label], y);
         }
@@ -343,10 +337,7 @@ class QuotaView extends WatchUi.View {
             }
         }
 
-        var status = Ask.status();
-        if (status != null) {
-            footer(dc, status, y);
-        } else if (deviceIp(d, i).length() > 0) {
+        if (deviceIp(d, i).length() > 0) {
             footer(dc, ["START: disconnect", "disconnect"], y);
         }
     }
