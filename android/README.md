@@ -269,7 +269,7 @@ nothing if the session changed (`changed elsewhere`), if another switch is
 still on its way (`phone busy`), or if it heard the request more than 45
 seconds ago (`too late`): the watch waits a minute and a half for the
 answer, so a switch is not made after it has said `no answer from phone`,
-unless the request itself took most of that time to reach the phone.
+unless the request itself took more than half of it to reach the phone.
 This phone and the device that switched data
 on are never offered for removal. It keeps a small listener running on the phone (Garmin Connect only
 delivers a watch's message to an app that is running), so set the app's

@@ -113,7 +113,7 @@ class Refresher(context: Context) {
      * else changed things does nothing rather than the wrong thing.
      */
     fun switch(action: SessionAction, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) =
-        change(action.name.lowercase(), "data switch failed", "switch failed", pushWanted, trigger, askId, deadline) { client, allowed ->
+        change(action.name.lowercase(), "switch failed", pushWanted, trigger, askId, deadline) { client, allowed ->
             client.apply(action, allowed)
         }
 
@@ -123,21 +123,20 @@ class Refresher(context: Context) {
      * one this phone may take off.
      */
     fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) =
-        change("remove $ip", "remove failed", "remove failed", pushWanted, trigger, askId, deadline) { client, allowed ->
+        change("remove $ip", "remove failed", pushWanted, trigger, askId, deadline) { client, allowed ->
             client.remove(ip, expectedMac = store.offeredMacs[ip], allowed = allowed)
         }
 
     /**
      * Make one change to the session with [send], given whether it may still
      * be sent ([deadline]), then read everything again. What came of it is
-     * noted as [what], drawn on the face if it was not done ([failed] when the
-     * portal refused it), and answers the watch's ask [askId], if there is one
-     * ([failedWord] when the portal refused it).
+     * noted as [what], drawn on the face if it was not done, and answers the
+     * watch's ask [askId], if there is one -- [failed] for either when the
+     * portal refused it.
      */
     private fun change(
         what: String,
         failed: String,
-        failedWord: String,
         pushWanted: Boolean,
         trigger: String,
         askId: Int?,
@@ -162,7 +161,7 @@ class Refresher(context: Context) {
             "changed elsewhere: nothing done" to "changed elsewhere"
         } catch (e: PortalError) {
             store.note("session", "$what failed over ${network()}: ${e.message}")
-            "$failed: ${e.message}" to failedWord
+            "$failed: ${e.message}" to failed
         }
         askId?.let { store.answer(it, word) }
         run(force = true, pushWanted, trigger, notice)
@@ -443,7 +442,8 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             // back is one the person has given up on, and may since have done
             // another way -- and from the watch, one it has already said went
             // unanswered (Work.fromWatch). Checked again just before the change
-            // is sent (Refresher.switch).
+            // is sent (Refresher.change hands PortalClient.apply/remove the
+            // deadline as `allowed`).
             val deadline = inputData.getLong(DEADLINE, 0)
             if ((action != null || remove != null) && Instant.now().epochSecond > deadline) {
                 store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} past its deadline; too late, nothing done")
@@ -587,8 +587,10 @@ object Work {
      * if none is). APPEND_OR_REPLACE: an ask heard while an earlier ask's job
      * is still going gets a job of its own after it, since an ask is answered
      * only by a reading begun after the phone heard it ([Answers.settle]). The
-     * watch sends one ask at a time (Ask.free), so this never queues more
-     * than one.
+     * watch sends one ask at a time and waits a minute on it (Ask.free,
+     * Ask.WAIT), so a queue grows by at most one job per minute of a wearer
+     * pressing against a portal that does not answer, and each job answers
+     * the ask it was made for.
      */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
 
