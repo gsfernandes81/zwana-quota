@@ -16,9 +16,9 @@ import Toybox.WatchUi;
 //                  its name and how it is on; sub-window: which of how
 //                  many. START takes it off, when the phone says it may.
 //
-// The session pages say so until the phone has sent the session (`dat`);
-// START does anything only when the phone said it would listen (`ask`,
-// `ctl`).
+// The session pages read `not sent yet` until the phone has sent the
+// session (`dat`); START does anything only when the phone said it would
+// listen (`ask`, `ctl`).
 //
 // One view per page, made by the loop as it turns to it.
 class QuotaView extends WatchUi.View {

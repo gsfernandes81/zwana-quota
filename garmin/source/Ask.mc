@@ -13,8 +13,9 @@ import Toybox.WatchUi;
 // Garmin has an asynchronous event told: one when it is sent ("asking
 // phone", whatever was asked: the phone decides), one if the phone cannot
 // be reached, one if no answer comes within WAIT, and one when an ask is
-// refused -- another on its way, or no longer offered. An answer needs
-// none: the page it changes is redrawn.
+// refused -- another on its way, or, at a confirmation's Yes, no longer
+// allowed (QuotaDelegate). An answer needs none: the page it changes is
+// redrawn.
 //
 // Offered only when the phone's last message said it is listening (`ask`,
 // and `ctl` for switching): the phone runs its listener only while its
