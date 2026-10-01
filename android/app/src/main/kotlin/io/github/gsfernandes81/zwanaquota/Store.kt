@@ -113,7 +113,9 @@ class Store(context: Context) {
 
     /**
      * The `sent` stamp of the last message made for the watch, in epoch
-     * seconds -- at or just past when it was made (Refresher.push); 0 for never.
+     * seconds: monotonic, at or past the moment it was made, and ahead of the
+     * clock after a step back until the clock catches up (Refresher.push); 0
+     * for never.
      */
     var lastPush: Long
         get() = prefs.getLong("lastPush", 0)

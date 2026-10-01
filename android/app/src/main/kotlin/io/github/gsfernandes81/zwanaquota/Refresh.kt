@@ -494,12 +494,12 @@ object Work {
     }
 
     /**
-     * The watch asked for a reading: read now and send it back. Each ask gets
-     * its own read and send, queued behind one still going rather than
-     * dropped: the watch asks only once its last ask was answered, so one
-     * arriving while that job finishes is a new ask, not a repeat.
+     * The watch asked for a reading: read now and send it back. KEEP: an ask
+     * arriving while one is still being read is answered by that read's send
+     * -- the job's last act, and new to the watch whatever it asked against --
+     * so one read is in flight however often a watch asks.
      */
-    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
+    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

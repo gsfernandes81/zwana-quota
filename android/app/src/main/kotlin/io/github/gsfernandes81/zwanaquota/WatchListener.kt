@@ -93,10 +93,9 @@ class WatchListener : Service() {
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
         when (command) {
             WatchCommand.Refresh -> {
-                // Every ask is a read. The watch asks again only once the
-                // last ask was answered or given up on (Ask.mc), so there is
-                // no burst to fold here; an ask left unanswered would only
-                // tell the wearer "no answer from phone".
+                // Every ask is a read, or is answered by the read already
+                // going (Work.askedByWatch). No time gap: one left unanswered
+                // would only tell the wearer "no answer from phone".
                 store.note("listener", "$watch asked for a reading")
                 Work.askedByWatch(this)
             }
