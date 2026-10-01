@@ -10,9 +10,11 @@ import Toybox.WatchUi;
 // its `sent`.
 //
 // How an ask goes is told in the watch's own toasts (WatchUi.showToast), as
-// Garmin has an asynchronous event told: one when it is sent, one if the
-// phone cannot be reached, one if no answer comes within WAIT. An answer
-// needs none: the page it changes is redrawn.
+// Garmin has an asynchronous event told: one when it is sent ("asking
+// phone", whatever was asked: the phone decides), one if the phone cannot
+// be reached, one if no answer comes within WAIT, and one when an ask is
+// refused -- another on its way, or no longer offered. An answer needs
+// none: the page it changes is redrawn.
 //
 // Offered only when the phone's last message said it is listening (`ask`,
 // and `ctl` for switching): the phone runs its listener only while its
@@ -37,7 +39,7 @@ module Ask {
     }
 
     function refresh() as Void {
-        send({"ask" => "refresh"}, "asking phone");
+        send({"ask" => "refresh"});
     }
 
     // Whether [message] can be sent now. While another ask is on its way it
@@ -55,8 +57,7 @@ module Ask {
     }
 
     // Send [message], unless asking is not offered or one is on its way.
-    // [label] is what the toast calls it.
-    function send(message as Dictionary, label as String) as Void {
+    function send(message as Dictionary) as Void {
         var d = Quota.last();
         if (!Quota.canAsk(d) || !free(message)) {
             return;
@@ -69,7 +70,7 @@ module Ask {
             unreached(a);
             return;
         }
-        toast(label);
+        toast("asking phone");
         // Once the wait is over, say so if nothing came. One timer, kept.
         if (timer == null) {
             timer = new Timer.Timer();
@@ -99,9 +100,7 @@ module Ask {
     }
 
     function toast(text as String) as Void {
-        if (WatchUi has :showToast) {
-            WatchUi.showToast(text, null);
-        }
+        WatchUi.showToast(text, null);
     }
 }
 

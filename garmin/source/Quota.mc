@@ -4,7 +4,7 @@ import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
 
-// What the glance and the full view draw, from the last message the phone
+// What the glance and the pages draw, from the last message the phone
 // sent. The phone does the sums (android/core, WatchPayload): the figures
 // arrive as the strings its own widget draws, so this side holds no unit
 // ladder, no thresholds and no grades -- nothing to drift from the Python.
@@ -207,7 +207,8 @@ module Quota {
     }
 
     // How much of today's pool is left, 0 to 1, or -1 for no reading: the
-    // glance's bar, full at the reset and emptying as data is used. Drawing,
+    // bar's length on the glance and the Data page, and the page's ring;
+    // full at the reset and emptying as data is used. Drawing,
     // not a rule -- the share the phone spelled, as a length -- and read from
     // the whole-KiB figures, so no string is parsed.
     function left(d as Dictionary?) as Float {
@@ -227,8 +228,9 @@ module Quota {
         return share;
     }
 
-    // The glance's right-hand side, after its reset icon, longest first:
-    // when the grant lands. Null for no reading, which says so in words.
+    // When the grant lands, longest spelling first, for the right end of the
+    // glance's title row: the last is the bare clock, the one thing there
+    // never dropped. Null for no reading, which says so in words.
     function resetAt(d as Dictionary?) as Array<String>? {
         if (d == null) {
             return null;

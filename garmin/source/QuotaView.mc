@@ -45,7 +45,7 @@ class QuotaView extends WatchUi.View {
 
     // The IP START may ask the phone to take off from device page [i], or ""
     // when there is none: the phone sends one only for a device it will
-    // take off, and only when it lets the watch ask.
+    // take off, and only when it lets the watch switch (`ctl`).
     function deviceIp(d as Dictionary?, i as Number) as String {
         if (!Quota.canControl(d) || i < 0 || i >= Pages.devices(d as Dictionary)) {
             return "";
@@ -93,7 +93,8 @@ class QuotaView extends WatchUi.View {
 
     // The page's title: beside the sub-window where there is one, centred
     // near the top where there is not.
-    // [titles] is the title, longest first: the first that fits is drawn.
+    // [titles] is the title, longest first: beside the sub-window, the first
+    // that fits is drawn; without one, the longest, centred.
     // It ends well short of the sub-window: the lens's rim covers pixels
     // outside the circle getSubscreen() reports, and a title drawn up to
     // that circle lost its last letter under it on the Solar 45 mm.
@@ -194,13 +195,14 @@ class QuotaView extends WatchUi.View {
         }
         y += bh + 2;
 
-        // The bar, and where there is no sub-window, the share beside it.
+        // The bar.
         var barH = (w >= 300) ? 10 : 6;
         var bx = w / 7;
         Draw.bar(dc, bx, y, w - 2 * bx, barH, share);
         y += barH + 3;
 
-        // When the grant lands.
+        // When the grant lands, and where there is no sub-window, the share
+        // after it.
         if (d != null) {
             var font = Graphics.FONT_TINY;
             var at = Quota.clock(Quota.nextReset(d as Dictionary));
