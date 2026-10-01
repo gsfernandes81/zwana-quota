@@ -11,6 +11,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
@@ -103,7 +104,7 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted) push(reading, now.toEpochMilli().takeIf { whyWatch != null }, whyWatch)
+        if (pushWanted) push(reading, now.toEpochMilli(), whyWatch)
     }
 
     /**
@@ -247,8 +248,9 @@ class Refresher(context: Context) {
      * is sent even when this run has none.
      * With no reading anywhere there is nothing to send. Each message also
      * answers the watch's asks ([Answers]): the requests for a reading heard
-     * before its reading began, or before a read that failed at [tried] (with
-     * [why]), and every switch or removal a job has answered.
+     * before its reading began, or, with [why] (why this run read nothing
+     * new; null when it did), before [tried] (when this run began, epoch ms),
+     * and every switch or removal a job has answered.
      */
     private fun push(reading: Reading?, tried: Long? = null, why: String? = null) {
         synchronized(SENDING) {
@@ -514,8 +516,9 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
          * answer Ask.WAIT_SWITCH (90 s) after sending, so a switch is made, if
          * at all, while the watch still waits -- unless the message took more
          * than the other 45 s to reach the phone. Those 45 s are also what the
-         * answer has, after the switch, for the read that follows it and the
-         * send back (Garmin Connect up to 10 s to be ready, then the watch): a
+         * answer has, after the switch, for the read that follows it, any
+         * device names due, another send already in hand, and the send back
+         * (Garmin Connect up to 10 s to be ready, then the watch): a
          * portal slow enough to use them up leaves the switch made and the
          * watch saying it went unanswered, until the message shows the session.
          * tests/test_watch_contract.py holds the two numbers to each other.
@@ -587,15 +590,24 @@ object Work {
     /**
      * The watch asked for a reading: read now and send it back (the newest
      * reading stored, if the read fails at the portal or is not made; nothing
-     * if none is). APPEND_OR_REPLACE: an ask heard while an earlier ask's job
-     * is still going gets a job of its own after it, since an ask is answered
-     * only by a reading begun after the phone heard it ([Answers.settle]). The
-     * watch sends one ask at a time and waits a minute on it (Ask.free,
-     * Ask.WAIT), so a queue grows by at most one job per minute of a wearer
-     * pressing against a portal that does not answer, and each job answers
-     * the ask it was made for.
+     * if none is). An ask is answered only by a reading begun after the phone
+     * heard it ([Answers.settle]), so KEEP would drop an ask heard after the
+     * running job's read began, and APPEND alone would queue a read per ask.
+     * So: one job queued behind the running one at most. With one already
+     * queued, nothing is added -- WorkManager marks a job running before it
+     * starts, so one seen queued here begins its read after this ask was
+     * heard and answers it. Otherwise one job, after any running. However
+     * often the watch asks and however long the portal takes, that is one
+     * read running and one waiting. Blocks: not on the main thread.
      */
-    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
+    fun askedByWatch(context: Context) = synchronized(ASKING) {
+        val queued = WorkManager.getInstance(context).getWorkInfosForUniqueWork(ASKED).get()
+            .any { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.BLOCKED }
+        if (!queued) enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
+    }
+
+    /** Held while [askedByWatch] looks at the queue and adds to it: asks are heard on threads of their own. */
+    private val ASKING = Any()
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

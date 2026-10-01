@@ -32,8 +32,8 @@ module Ask {
     const WAIT = 60;
     // How long a switch or a removal is waited on. The phone makes one only
     // within QuotaWorker.WATCH_SWITCH_SECONDS (45 s) of hearing it, so none is
-    // made after this has run out; tests/test_watch_contract.py holds the two
-    // to each other.
+    // made after this has run out unless the request itself took longer than
+    // that to arrive; tests/test_watch_contract.py holds the two to each other.
     const WAIT_SWITCH = 90;
     // Where the last id is kept, so an app started again does not reuse one
     // the phone still lists as answered.

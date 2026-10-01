@@ -230,7 +230,7 @@ class FaceTest {
     }
 
     @Test
-    fun `each answer's word is beside its id, and none are sent as an empty list`() {
+    fun `each answer's word is beside its id, and no answers go as an empty list, not left out`() {
         val d = doc()
         val face = Face.of(d, ZoneId.of("UTC"))
         val answers = listOf(Answers.Answer(41, ""), Answers.Answer(42, "phone busy"))

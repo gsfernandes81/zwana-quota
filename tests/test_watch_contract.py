@@ -70,7 +70,7 @@ def number(pattern: str, path: Path) -> int:
     return int(found.group(1).replace("_", ""))
 
 
-def test_the_phone_acts_on_a_watch_switch_only_while_the_watch_still_waits():
+def test_the_phones_switch_deadline_and_send_wait_fit_inside_the_watchs_wait():
     # The phone makes a switch within WATCH_SWITCH_SECONDS of hearing it; the
     # watch gives up WAIT_SWITCH after sending. The rest is for the message to
     # reach the phone and for the answer to come back, which takes at least

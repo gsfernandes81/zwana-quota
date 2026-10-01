@@ -105,9 +105,10 @@ class WatchListener : Service() {
         val id = WatchCommand.idOf(message)
         when (command) {
             WatchCommand.Refresh -> {
-                // Every ask is a job of its own, queued after an earlier
-                // ask's still going (Work.askedByWatch), and answered by the
-                // first reading begun after this moment (Answers.settle).
+                // Answered by the first reading begun after this moment
+                // (Answers.settle): one already queued, or a job of its own
+                // after any running (Work.askedByWatch). Heard first, then
+                // queued, so that reading cannot begin before it was heard.
                 store.note("listener", "$watch asked for a reading")
                 id?.let { store.asks { pending, _ -> pending.add(Answers.Pending(it, System.currentTimeMillis())) } }
                 Work.askedByWatch(this)
