@@ -146,8 +146,9 @@ figure's place beside what is left, or the title's if it does not fit there:
 
 - `new day`: the reset has passed since the reading. The figure is
   yesterday's, and the grant it does not count has already landed.
-- `2h ago` (the reading's age; `60m ago` first): no reading has arrived for
-  more than two send intervals (an hour).
+- `2h ago` (the reading's age; `60m ago` first): the reading is more than two
+  send intervals old (an hour) -- nothing fresh has come, whether the phone or
+  the portal is out of reach.
 - `offline`: the portal said the session was down when it was read.
 - `no time`: the reading carries no time, so its age cannot be told.
 
