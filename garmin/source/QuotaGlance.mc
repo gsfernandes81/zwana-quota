@@ -17,11 +17,12 @@ import Toybox.WatchUi;
 //
 // Two things must always be drawn: the reset time, the one thing on the face
 // that cannot be inferred from the rest, and the mark, when there is one.
-// What is paid is the first to give way, then the title. The mark goes
-// beside the figure where it fits, in its long or its short spelling, else
-// in the title's place; there the reset time sheds its "@" and then its icon
-// before the mark falls to its short spelling, and the mark is cut only when
-// even that does not fit beside the bare clock.
+// What is paid is the first to give way, then the title. The mark's full
+// word goes beside the figure, else in the title's place beside the reset
+// time (which sheds its "@" and then its icon for it); only where it fits in
+// neither does its short form take the same two places in turn. The short
+// form is drawn in the title's place whatever: a glyph or three beside the
+// bare clock, which no glance is too narrow for.
 (:glance)
 class QuotaGlance extends WatchUi.GlanceView {
     function initialize() {
@@ -48,18 +49,34 @@ class QuotaGlance extends WatchUi.GlanceView {
         var figure = Quota.figure(d);
         dc.drawText(0, y, font, figure, Graphics.TEXT_JUSTIFY_LEFT);
         var room = width - dc.getTextWidthInPixels(figure, font) - 6;
+        var ladder = Quota.resetAt(d);
         var mark = (d == null) ? null : Quota.mark(d);
-        var above = mark;   // the mark, while it still needs the title's place
+        var above = null;   // the spelling of the mark that takes the title's place
         if (d == null) {
             var none = Draw.fit(dc, font, ["open on phone", "no data"], room);
             if (none != null) {
                 dc.drawText(width, y, font, none as String, Graphics.TEXT_JUSTIFY_RIGHT);
             }
         } else if (mark != null) {
-            var said = Draw.fit(dc, font, mark as Array<String>, room);
-            if (said != null) {
-                dc.drawText(width, y, font, said as String, Graphics.TEXT_JUSTIFY_RIGHT);
-                above = null;
+            // Each spelling, longest first, beside the figure and then in the
+            // title's place beside the bare clock -- the least the reset
+            // time can shrink to.
+            var spelt = mark as Array<String>;
+            var clocks = (ladder == null) ? [""] : ladder as Array<String>;
+            var clock = dc.getTextWidthInPixels(clocks[clocks.size() - 1], font) + 6;
+            var placed = false;
+            for (var i = 0; i < spelt.size() && !placed; i++) {
+                var w = dc.getTextWidthInPixels(spelt[i], font);
+                if (w <= room) {
+                    dc.drawText(width, y, font, spelt[i], Graphics.TEXT_JUSTIFY_RIGHT);
+                    placed = true;
+                } else if (clock + w + 6 <= width) {
+                    above = spelt[i];
+                    placed = true;
+                }
+            }
+            if (!placed) {
+                above = spelt[spelt.size() - 1];
             }
         } else if (Quota.str(d, "paid").length() > 0) {
             var paid = Quota.str(d, "paid") + " paid";
@@ -72,7 +89,6 @@ class QuotaGlance extends WatchUi.GlanceView {
         // spelling, icon first, that leaves the mark its room if it is here;
         // at the least the bare clock alone.
         var used = 0;
-        var ladder = Quota.resetAt(d);
         if (ladder != null) {
             var spellings = ladder as Array<String>;
             var ir = line * 3 / 10;
@@ -81,7 +97,7 @@ class QuotaGlance extends WatchUi.GlanceView {
             }
             // The arrowhead reaches past the ring by about half its radius.
             var icon = 2 * ir + ir / 2 + 4;
-            var need = (above == null) ? 0 : dc.getTextWidthInPixels((above as Array<String>)[0], font) + 6;
+            var need = (above == null) ? 0 : dc.getTextWidthInPixels(above as String, font) + 6;
             var text = Draw.fit(dc, font, spellings, width - icon - need);
             var drawIcon = (text != null);
             if (text == null) {
@@ -97,18 +113,8 @@ class QuotaGlance extends WatchUi.GlanceView {
         }
 
         // The title, in capitals as the watch's own glances have theirs, in
-        // what the reset leaves -- or the mark, if it found no room below:
-        // its longest spelling that fits, else its shortest, cut.
-        var title = null;
-        if (above != null) {
-            var spelt = above as Array<String>;
-            title = Draw.fit(dc, font, spelt, width - used);
-            if (title == null) {
-                title = Draw.clip(dc, font, spelt[spelt.size() - 1], width - used);
-            }
-        } else {
-            title = Draw.fit(dc, font, ["DATA LEFT", "DATA"], width - used);
-        }
+        // what the reset leaves -- or the mark, if it found no room below.
+        var title = (above != null) ? above : Draw.fit(dc, font, ["DATA LEFT", "DATA"], width - used);
         if (title != null) {
             dc.drawText(0, top, font, title as String, Graphics.TEXT_JUSTIFY_LEFT);
         }

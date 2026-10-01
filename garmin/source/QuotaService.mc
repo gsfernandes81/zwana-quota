@@ -18,14 +18,13 @@ class QuotaService extends System.ServiceDelegate {
     }
 
     function onPhoneAppMessage(msg as Communications.PhoneAppMessage) as Void {
+        // store() turns a refused write into false itself; exit still
+        // carries the message on.
         var data = msg.data;
-        try {
-            Quota.store(data);
-        } catch (e instanceof Lang.Exception) {
-            // Storage refused from the background: Background.exit still carries it.
-        }
-        // exit refuses what it cannot carry; refused, the stored copy is
-        // the one there is, and the service still ends.
+        Quota.store(data);
+        // exit refuses what it cannot carry (a message over its size limit).
+        // The service still ends; the message then lives on only if it was
+        // stored.
         try {
             Background.exit(data as Application.PersistableType);
         } catch (e instanceof Lang.Exception) {
