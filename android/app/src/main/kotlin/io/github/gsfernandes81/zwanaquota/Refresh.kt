@@ -238,12 +238,11 @@ class Refresher(context: Context) {
             val known = store.session()?.takeIf { vault.signedIn }
             val canControl = canAsk && store.watchCanControl
             val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
-            val sent = now.epochSecond
             // Which device each offered address was, so a removal asked for
             // later cannot take off whoever has the address by then.
             store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
-            val payload = WatchPayload.build(doc, face, Instant.ofEpochSecond(sent), store.nextSequence(), EVERY_SECONDS, canAsk, session)
-            store.lastPush = sent
+            val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
+            store.lastPush = now.epochSecond
             store.note("watch", Garmin.send(app, payload).joinToString("; "))
         }
     }
@@ -463,20 +462,9 @@ object Work {
     /** The watch-only periodic send before the widget had one of its own. */
     private const val OLD_WATCH = "watch-every-30m"
     private const val SWITCH = "data-switch"
-    private const val WATCH_SWITCH = "watch-switch"
-    private const val WIDGET_UPDATE = "widget-update"
     private const val ASKED = "watch-asked"
 
-    /**
-     * A forced read (a tap, "Read now", signing in) and the widget's unforced
-     * update go under names of their own: under one, a tap that came while an
-     * update was still waiting to run was dropped, and the update then read
-     * nothing (the cache being fresh enough for it), so the tap did nothing.
-     * KEEP within each, so a second tap while the first is on its way is one
-     * read.
-     */
-    fun refresh(context: Context, force: Boolean, trigger: String) =
-        enqueue(context, if (force) REFRESH else WIDGET_UPDATE, force, false, trigger)
+    fun refresh(context: Context, force: Boolean, trigger: String) = enqueue(context, REFRESH, force, false, trigger)
 
     /**
      * Throw the data switch. KEEP, so a second tap while the first is still
@@ -490,13 +478,13 @@ object Work {
     }
 
     /**
-     * The watch asked to switch data or take a device off. Under a name of its
-     * own, not the widget's switch: sharing it, a watch command that came
-     * while a widget switch was on its way was dropped, and that switch's send
-     * then reached the watch as if it were the answer. KEEP, as for the
-     * widget's: a second press while the first is on its way is dropped, and
-     * the worker checks either against the portal first, so the two running
-     * side by side is safe.
+     * The watch asked to switch data or take a device off. Under the widget's
+     * switch name, appended: a watch command that comes while a switch is on
+     * its way runs after it, and its check against the portal then sees what
+     * that switch did (SessionChanged if it no longer applies). The watch's
+     * own Ask refuses a repeat while one is waiting, so there is no burst to
+     * fold; one that is old by the time it runs is dropped by
+     * SWITCH_LIFETIME_SECONDS.
      */
     fun fromWatch(context: Context, command: WatchCommand) {
         val data = Data.Builder().putAll(input(true, true, "watch")).putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond)
@@ -506,7 +494,7 @@ object Work {
             WatchCommand.Refresh -> return askedByWatch(context)
         }
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WATCH_SWITCH, ExistingWorkPolicy.KEEP, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     /**
