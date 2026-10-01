@@ -224,11 +224,13 @@ class Refresher(context: Context) {
      * worker or the listener alike, and the whole message is made inside it:
      * the reading and the session as they are stored when this send's turn
      * comes, so a run that waited here, or whose read failed, never sends
-     * something older than what went before it. `sent` is when it goes, in
-     * whole seconds, and always later than the last: the watch keeps a message
-     * only if it is not older than the one it has, and takes one as an ask's
-     * answer only if its `sent` differs. So the message the watch keeps is
-     * the newest, and offeredMacs holds its devices.
+     * something older than what went before it. `sent` is the moment the
+     * message is made, in whole seconds, or one past the last send's when that
+     * is later -- never equal to it: the watch keeps a message only if it is
+     * not older than the one it has, and takes one as an ask's answer only if
+     * its `sent` differs. So the message the watch keeps is the newest it was
+     * given, and offeredMacs holds the devices of the newest made -- the same,
+     * unless that send did not get through.
      * [live] is whether this run read [reading]; a newer one another run
      * stored is sent as not live.
      */

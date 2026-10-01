@@ -28,10 +28,10 @@ While it (and sending) is on, `WatchListener` runs as a foreground service
 of type `connectedDevice` holding the SDK's app-event listener, re-registered
 every 15 minutes in case Garmin Connect restarted, and started again at boot
 and after an update. A message from the watch app enqueues a read-and-send,
-at most one per 20 seconds; one inside those 20 seconds is answered at once
-with the reading already there, so the watch is never left without an
-answer. Sends to the watch go one at a time, each with the newest reading
-stored when its turn comes. The app does not ask for permission to post
+at most one per 20 seconds; one inside those 20 seconds is answered with the
+reading already there, if there is one, rather than dropped unanswered.
+Sends to the watch go one at a time, each carrying the newest reading stored
+when its turn comes. The app does not ask for permission to post
 notifications, so on Android 13+ the service's notification is not shown.
 
 The watch offers to ask only when the phone's last reading says it is
