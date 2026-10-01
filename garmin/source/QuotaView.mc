@@ -85,7 +85,7 @@ class QuotaView extends WatchUi.View {
         var w = dc.getWidth();
         var lines = ["not sent yet:", "update the phone app,", "then Send now"];
         for (var i = 0; i < lines.size(); i++) {
-            var text = Draw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh));
+            var text = PageDraw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh));
             dc.drawText(w / 2, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);
             y += fh;
         }
@@ -324,7 +324,7 @@ class QuotaView extends WatchUi.View {
             y = deviceName(dc, name.length() > 0 ? name : "?", y + 2);
             var role = Quota.item(Quota.arr(d, "dr"), i);
             if (role.length() > 0) {
-                dc.drawText(w / 2, y, small, Draw.clip(dc, small, role, PageDraw.chord(dc, y, sh)), Graphics.TEXT_JUSTIFY_CENTER);
+                dc.drawText(w / 2, y, small, PageDraw.clip(dc, small, role, PageDraw.chord(dc, y, sh)), Graphics.TEXT_JUSTIFY_CENTER);
                 y += sh;
             }
             // The phone sends at most Pages.MAX_DEVICES: the last page says how
@@ -363,7 +363,7 @@ class QuotaView extends WatchUi.View {
             fh = dc.getFontHeight(font);
         }
         for (var i = 0; i < lines.size(); i++) {
-            dc.drawText(w / 2, y, font, Draw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh)), Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(w / 2, y, font, PageDraw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh)), Graphics.TEXT_JUSTIFY_CENTER);
             y += fh;
         }
         return y;

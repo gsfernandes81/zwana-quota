@@ -142,15 +142,16 @@ DATA LEFT       ↻@00:00
 ```
 
 When the reading cannot be taken at face value, the reason takes the paid
-figure's place beside what is left (or the title's, if it does not fit there):
+figure's place beside what is left, or the title's if it does not fit there:
 
 - `new day`: the reset has passed since the reading. The figure is
   yesterday's, and the grant it does not count has already landed.
 - `2h ago`: no reading has arrived for more than two send intervals (an hour).
 - `offline`: the portal said the session was down when it was read.
 
-Squeezed, each has a short form: `new`, `2h`, `!` (never `off`, which would
-read as data switched off).
+Where even the title's place is too narrow for the word, a short form is
+drawn instead: `old` where the figure is out of date (`new day`, `2h ago`),
+`!` where it cannot be vouched for (`offline`, or a reading with no time).
 
 The watch works out its staleness from the reading's own timestamp. It never
 believes the phone's "live" flag, which was true when it was sent and says

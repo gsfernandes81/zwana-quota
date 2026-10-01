@@ -13,13 +13,18 @@ import Toybox.Time.Gregorian;
 // only the watch knows what time it is *now*:
 //
 //   new day  the reset has passed since the reading: the figure is
-//   (new)    yesterday's, and the grant it does not count has landed
+//   (old)    yesterday's, and the grant it does not count has landed
 //   2h ago   older than two send intervals: sends have stopped arriving
-//   (2h)
+//   (old)
+//   no time  the reading carries no time, so its age cannot be told
+//   (!)
 //   offline  the portal said the session was down when it was read
 //   (!)
 //
-// each with the short form after it that a squeezed face draws instead.
+// each with the short form under it that a squeezed face draws instead:
+// "old" where the figure is out of date, "!" where it cannot be vouched
+// for. Never "new" (it would read as fresh), a bare age beside a size, "?"
+// (which is "no reading") or "off" (data switched off).
 //
 // It never trusts the phone's `live`, which was true when it was sent and
 // says nothing about now.
@@ -40,8 +45,9 @@ module Quota {
     // the honest failure, rather than new keys being read by old rules.
     const VERSION = 1;
 
-    // Keep a message from the phone. False if it was not one, or if it is
-    // older than the one already kept: the background service stores a
+    // Keep a message from the phone. False if it was not one, if storage
+    // refused it outside the app (in the app it is still held in memory), or
+    // if it is older than the one already kept: the background service stores a
     // message and also hands it to the app, which may start much later, and
     // that late copy must not replace a newer send. Ordered by when the phone
     // sent it rather than by its number, which starts again from 1 whenever
@@ -60,7 +66,8 @@ module Quota {
         }
         // The app holds it in memory first: a refused write must not leave
         // the pages drawing the older message, nor an ask waiting on a `sent`
-        // it has already been given.
+        // it has already been given. Held only there, it is the app's alone:
+        // the glance and the app's next start still read the older copy.
         if (remember) {
             memo = d;
         }
@@ -165,21 +172,21 @@ module Quota {
         return reset;
     }
 
-    // How old a reading is, longest spelling first: 40m ago, 40m.
-    function ago(seconds as Number) as Array<String> {
-        var n = (seconds < 5400) ? (seconds / 60).toString() + "m" : ((seconds + 1800) / 3600).toString() + "h";
-        return [n + " ago", n];
+    function ago(seconds as Number) as String {
+        if (seconds < 5400) {
+            return (seconds / 60).toString() + "m ago";
+        }
+        return ((seconds + 1800) / 3600).toString() + "h ago";
     }
 
     // Why the figure cannot be taken at face value, or null if it can:
     // longest spelling first, the last short enough for any squeeze, so the
-    // warning is drawn rather than cut. Never a bare "off", which would read
-    // as the data being switched off.
+    // warning is drawn rather than cut (the forms are in the header).
     function mark(d as Dictionary) as Array<String>? {
         var now = Time.now().value();
         var reset = num(d, "reset");
         if (reset > 0 && now >= reset) {
-            return ["new day", "new"];
+            return ["new day", "old"];
         }
         var every = num(d, "every");
         if (every <= 0 || every > DAY) {
@@ -187,11 +194,11 @@ module Quota {
         }
         var ts = num(d, "ts");
         if (ts <= 0) {
-            return ["no time", "?"];
+            return ["no time", "!"];
         }
         var age = now - ts;
         if (age > 2 * every) {
-            return ago(age);
+            return [ago(age), "old"];
         }
         if (d.get("online") == false) {
             return ["offline", "!"];

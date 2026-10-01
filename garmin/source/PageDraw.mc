@@ -124,4 +124,25 @@ module PageDraw {
         }
         return true;
     }
+
+    // [text], shortened with an ellipsis until it is no wider than [width].
+    // Bounded by the text's length, so it always ends. Not
+    // Graphics.fitTextToArea: that places line breaks, and how it cuts one
+    // line -- at a character, or back to the last space, or not at all in a
+    // name with none, such as a host name -- is not documented.
+    function clip(dc as Graphics.Dc, font as Graphics.FontType, text as String, width as Number) as String {
+        if (width <= 0) {
+            return "";
+        }
+        if (dc.getTextWidthInPixels(text, font) <= width) {
+            return text;
+        }
+        for (var n = text.length() - 1; n > 0; n--) {
+            var cut = (text.substring(0, n) as String) + "...";
+            if (dc.getTextWidthInPixels(cut, font) <= width) {
+                return cut;
+            }
+        }
+        return "";
+    }
 }
