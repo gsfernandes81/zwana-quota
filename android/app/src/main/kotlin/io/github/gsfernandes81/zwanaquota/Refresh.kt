@@ -96,7 +96,7 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted && reading != null) push(reading, live)
+        if (pushWanted) push(reading, live)
     }
 
     /**
@@ -221,12 +221,17 @@ class Refresher(context: Context) {
      * watch keeps is the newest it was given, and offeredMacs holds the devices
      * of the newest made -- the same, unless that send did not get through.
      * [live] is whether this run read [reading]; a newer one another run
-     * stored is sent as not live.
+     * stored is sent as not live, and is sent even when this run has none.
+     * With no reading anywhere there is nothing to send.
      */
-    private fun push(reading: Reading, live: Boolean) {
+    private fun push(reading: Reading?, live: Boolean) {
         synchronized(SENDING) {
             val stored = store.reading()
-            val (newest, fresh) = if (stored != null && stored.ts > reading.ts) stored to false else reading to live
+            val (newest, fresh) = when {
+                reading == null -> (stored ?: return) to false
+                stored != null && stored.ts > reading.ts -> stored to false
+                else -> reading to live
+            }
             val now = Instant.now()
             val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
             val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
@@ -494,9 +499,10 @@ object Work {
     }
 
     /**
-     * The watch asked for a reading: read now and send it back. KEEP: an ask
-     * arriving while an earlier ask is still being read is answered by that
-     * read's send -- the job's last act, and new to the watch whatever it asked
+     * The watch asked for a reading: read now and send it back (the newest
+     * reading there is, if the read fails; nothing only if the phone has never
+     * had one). KEEP: an ask arriving while an earlier ask is still being read
+     * is answered by that read's send -- the job's last act, and new to the watch whatever it asked
      * against -- so asks never queue up reads of their own, however often a
      * watch asks.
      */
