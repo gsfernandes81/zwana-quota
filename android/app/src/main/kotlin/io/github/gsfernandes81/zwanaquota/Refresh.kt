@@ -223,8 +223,8 @@ class Refresher(context: Context) {
      * Send the watch the newest reading there is. One send at a time, from a
      * worker or the listener alike, and the whole message is made inside it:
      * the reading and the session as they are stored when this send's turn
-     * comes, so a run that waited here, or whose read failed, never sends
-     * something older than what went before it. `sent` is the moment the
+     * comes, so a run that waited here, or whose read failed, sends what is
+     * stored rather than what it set out with. `sent` is the moment the
      * message is made, in whole seconds, or one past the last send's when that
      * is later -- never equal to it: the watch keeps a message only if it is
      * not older than the one it has, and takes one as an ask's answer only if

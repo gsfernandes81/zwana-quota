@@ -99,7 +99,9 @@ class WatchListener : Service() {
                 // answered, with the reading there is (Refresher.resend): the
                 // watch takes any new message as its answer, and tells the
                 // wearer "no answer from phone" when none comes.
-                if (now - store.lastAsk < ASK_GAP_SECONDS) {
+                // A lastAsk in the future (the clock stepped back) is no gap:
+                // that press reads, and sets lastAsk right again.
+                if (now >= store.lastAsk && now - store.lastAsk < ASK_GAP_SECONDS) {
                     // How the send went is the `watch` note that follows.
                     store.note("listener", "$watch asked again; resending")
                     val had = try {
