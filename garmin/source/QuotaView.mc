@@ -57,7 +57,7 @@ class QuotaView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
         var d = Quota.last();
-        var sub = Draw.subscreen();
+        var sub = PageDraw.subscreen();
         var p = current();
         if (p != 0 && !Quota.hasSession(d)) {
             noSession(dc, sub, p == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
@@ -75,7 +75,7 @@ class QuotaView extends WatchUi.View {
         title(dc, titles, sub);
         if (sub != null) {
             var s = sub as Array<Number>;
-            Draw.subBackground(dc, s);
+            PageDraw.subBackground(dc, s);
             dc.drawText(s[0], s[1], Graphics.FONT_MEDIUM, "?", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         }
@@ -85,7 +85,7 @@ class QuotaView extends WatchUi.View {
         var w = dc.getWidth();
         var lines = ["not sent yet:", "update the phone app,", "then Send now"];
         for (var i = 0; i < lines.size(); i++) {
-            var text = Draw.clip(dc, font, lines[i], Draw.chord(dc, y, fh));
+            var text = Draw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh));
             dc.drawText(w / 2, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);
             y += fh;
         }
@@ -105,7 +105,7 @@ class QuotaView extends WatchUi.View {
             var s = sub as Array<Number>;
             var y = s[1] - fh / 2;
             var right = s[0] - s[2] - s[2] / 2 - 4;
-            var left = (dc.getWidth() - Draw.chord(dc, y, fh)) / 2;
+            var left = (dc.getWidth() - PageDraw.chord(dc, y, fh)) / 2;
             var text = Draw.fit(dc, font, titles, right - left);
             if (text != null) {
                 dc.drawText(right, y, font, text as String, Graphics.TEXT_JUSTIFY_RIGHT);
@@ -138,12 +138,12 @@ class QuotaView extends WatchUi.View {
         if (y < below + 1) {
             y = below + 1;
         }
-        var text = Draw.fit(dc, font, ladder as Array<String>, Draw.chord(dc, y, fh));
+        var text = Draw.fit(dc, font, ladder as Array<String>, PageDraw.chord(dc, y, fh));
         // Nothing fits down at the narrow bottom: try just under the page's
         // content, where the round screen is wider.
         if (text == null && below + 3 < y) {
             y = below + 3;
-            text = Draw.fit(dc, font, ladder as Array<String>, Draw.chord(dc, y, fh));
+            text = Draw.fit(dc, font, ladder as Array<String>, PageDraw.chord(dc, y, fh));
         }
         if (text == null) {
             return;
@@ -160,8 +160,8 @@ class QuotaView extends WatchUi.View {
         // The sub-window: the share left, as the bar bent into a ring.
         if (sub != null) {
             var s = sub as Array<Number>;
-            Draw.subBackground(dc, s);
-            Draw.ring(dc, s[0], s[1], s[2] - 5, share);
+            PageDraw.subBackground(dc, s);
+            PageDraw.ring(dc, s[0], s[1], s[2] - 5, share);
             var pct = (d == null) ? "--" : Quota.str(d, "share");
             dc.drawText(s[0], s[1], Graphics.FONT_XTINY, pct,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -175,7 +175,7 @@ class QuotaView extends WatchUi.View {
         var unit = (space == null) ? "" : figure.substring(space + 1, figure.length()) as String;
         var big = Graphics.FONT_NUMBER_MEDIUM;
         var small = Graphics.FONT_TINY;
-        if (!Draw.numeric(number) || dc.getTextWidthInPixels(number, big) + dc.getTextWidthInPixels(" " + unit, small) > w * 3 / 4) {
+        if (!PageDraw.numeric(number) || dc.getTextWidthInPixels(number, big) + dc.getTextWidthInPixels(" " + unit, small) > w * 3 / 4) {
             big = Graphics.FONT_MEDIUM;
             number = figure;
             unit = "";
@@ -222,7 +222,7 @@ class QuotaView extends WatchUi.View {
             if (paid.length() > 0) {
                 var pf = Graphics.FONT_XTINY;
                 var ph = dc.getFontHeight(pf);
-                var text = Draw.fit(dc, pf, [paid + " paid"], Draw.chord(dc, y, ph));
+                var text = Draw.fit(dc, pf, [paid + " paid"], PageDraw.chord(dc, y, ph));
                 if (text != null) {
                     dc.drawText(w / 2, y, pf, text as String, Graphics.TEXT_JUSTIFY_CENTER);
                     y += ph;
@@ -232,7 +232,7 @@ class QuotaView extends WatchUi.View {
 
         var mark = (d == null) ? null : Quota.mark(d as Dictionary);
         if (mark != null) {
-            footer(dc, [mark as String], y);
+            footer(dc, mark, y);
         } else if (d == null) {
             footer(dc, ["open zwana quota on phone", "open on phone"], y);
         } else if (Quota.canAsk(d)) {
@@ -250,9 +250,9 @@ class QuotaView extends WatchUi.View {
         // filled dot for on and a ring for off.
         if (sub != null) {
             var s = sub as Array<Number>;
-            Draw.subBackground(dc, s);
+            PageDraw.subBackground(dc, s);
             if (act.length() > 0) {
-                Draw.powerIcon(dc, s[0], s[1] + 2, s[2] * 2 / 5);
+                PageDraw.powerIcon(dc, s[0], s[1] + 2, s[2] * 2 / 5);
             } else if (on) {
                 dc.fillCircle(s[0], s[1], s[2] / 3);
             } else {
@@ -302,7 +302,7 @@ class QuotaView extends WatchUi.View {
         if (sub != null) {
             title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE"], sub);
             var s = sub as Array<Number>;
-            Draw.subBackground(dc, s);
+            PageDraw.subBackground(dc, s);
             var sf = Graphics.FONT_SMALL;
             if (dc.getTextWidthInPixels(which, sf) > 2 * s[2] - 10) {
                 sf = Graphics.FONT_XTINY;
@@ -324,7 +324,7 @@ class QuotaView extends WatchUi.View {
             y = deviceName(dc, name.length() > 0 ? name : "?", y + 2);
             var role = Quota.item(Quota.arr(d, "dr"), i);
             if (role.length() > 0) {
-                dc.drawText(w / 2, y, small, Draw.clip(dc, small, role, Draw.chord(dc, y, sh)), Graphics.TEXT_JUSTIFY_CENTER);
+                dc.drawText(w / 2, y, small, Draw.clip(dc, small, role, PageDraw.chord(dc, y, sh)), Graphics.TEXT_JUSTIFY_CENTER);
                 y += sh;
             }
             // The phone sends at most Pages.MAX_DEVICES: the last page says how
@@ -348,22 +348,22 @@ class QuotaView extends WatchUi.View {
         var fonts = [Graphics.FONT_MEDIUM, Graphics.FONT_SMALL, Graphics.FONT_TINY] as Array<Graphics.FontType>;
         for (var f = 0; f < fonts.size(); f++) {
             var lh = dc.getFontHeight(fonts[f]);
-            if (dc.getTextWidthInPixels(name, fonts[f]) <= Draw.chord(dc, y, lh)) {
+            if (dc.getTextWidthInPixels(name, fonts[f]) <= PageDraw.chord(dc, y, lh)) {
                 dc.drawText(w / 2, y, fonts[f], name, Graphics.TEXT_JUSTIFY_CENTER);
                 return y + lh;
             }
         }
         var font = Graphics.FONT_TINY;
         var fh = dc.getFontHeight(font);
-        var cut = Draw.breakAt(name);
+        var cut = PageDraw.breakAt(name);
         var lines = [name.substring(0, cut) as String, name.substring(cut, name.length()) as String];
-        if (dc.getTextWidthInPixels(lines[0], font) > Draw.chord(dc, y, fh)
-                || dc.getTextWidthInPixels(lines[1], font) > Draw.chord(dc, y + fh, fh)) {
+        if (dc.getTextWidthInPixels(lines[0], font) > PageDraw.chord(dc, y, fh)
+                || dc.getTextWidthInPixels(lines[1], font) > PageDraw.chord(dc, y + fh, fh)) {
             font = Graphics.FONT_XTINY;
             fh = dc.getFontHeight(font);
         }
         for (var i = 0; i < lines.size(); i++) {
-            dc.drawText(w / 2, y, font, Draw.clip(dc, font, lines[i], Draw.chord(dc, y, fh)), Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(w / 2, y, font, Draw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh)), Graphics.TEXT_JUSTIFY_CENTER);
             y += fh;
         }
         return y;
