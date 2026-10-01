@@ -27,11 +27,11 @@ So asking is a setting, off by default: **Let the watch ask for a reading**.
 While it (and sending) is on, `WatchListener` runs as a foreground service
 of type `connectedDevice` holding the SDK's app-event listener, re-registered
 every 15 minutes in case Garmin Connect restarted, and started again at boot
-and after an update. A message from the watch app enqueues a read-and-send,
-at most one per 20 seconds; one inside those 20 seconds is answered with the
-reading already there, if there is one, rather than dropped unanswered.
-Sends to the watch go one at a time, each carrying the newest reading stored
-when its turn comes. The app does not ask for permission to post
+and after an update. Each ask for a reading from the watch enqueues its own
+read-and-send, queued behind one still going: the watch asks again only once
+the last ask was answered, so there is no burst to fold. Sends to the watch
+go one at a time, each carrying the newest reading stored when its turn
+comes. The app does not ask for permission to post
 notifications, so on Android 13+ the service's notification is not shown.
 
 The watch offers to ask only when the phone's last reading says it is

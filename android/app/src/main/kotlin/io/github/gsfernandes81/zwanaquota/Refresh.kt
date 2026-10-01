@@ -100,18 +100,6 @@ class Refresher(context: Context) {
     }
 
     /**
-     * Send the watch the reading there is, without reading the portal: the
-     * answer to a watch that asked again within [WatchListener]'s gap, which
-     * would otherwise wait out its minute and say "no answer from phone".
-     * False when there is no reading to send. Blocks while another send is
-     * going ([push]): called off the main thread.
-     */
-    fun resend(): Boolean {
-        push(store.reading() ?: return false, live = false)
-        return true
-    }
-
-    /**
      * Throw the data switch, then read everything again so the face shows
      * what it did. The action is checked against the session as it is now
      * ([PortalClient.apply]), so a tap on a picture drawn before someone
@@ -220,8 +208,8 @@ class Refresher(context: Context) {
     }
 
     /**
-     * Send the watch the newest reading there is. One send at a time, from a
-     * worker or the listener alike, and the whole message is made inside it:
+     * Send the watch the newest reading there is. One send at a time,
+     * whichever job it comes from, and the whole message is made inside it:
      * the reading and the session as they are stored when this send's turn
      * comes, so a run that waited here, or whose read failed, sends what is
      * stored rather than what it set out with. `sent` is the moment the
@@ -505,8 +493,13 @@ object Work {
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 
-    /** The watch asked for a reading: read now and send it back. */
-    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
+    /**
+     * The watch asked for a reading: read now and send it back. Each ask gets
+     * its own read and send, queued behind one still going rather than
+     * dropped: the watch asks only once its last ask was answered, so one
+     * arriving while that job finishes is a new ask, not a repeat.
+     */
+    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

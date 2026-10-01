@@ -111,12 +111,10 @@ class Store(context: Context) {
         }?.toMap().orEmpty()
         set(value) = prefs.edit().putString("offeredMacs", value.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
 
-    /** When the watch last asked, in epoch seconds: so a burst of presses is one read. */
-    var lastAsk: Long
-        get() = prefs.getLong("lastAsk", 0)
-        set(value) = prefs.edit().putLong("lastAsk", value).apply()
-
-    /** When the watch was last sent a reading, in epoch seconds; 0 for never. */
+    /**
+     * The `sent` stamp of the last message made for the watch, in epoch
+     * seconds -- at or just past when it was made (Refresher.push); 0 for never.
+     */
     var lastPush: Long
         get() = prefs.getLong("lastPush", 0)
         set(value) = prefs.edit().putLong("lastPush", value).apply()

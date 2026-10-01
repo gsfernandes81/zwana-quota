@@ -17,7 +17,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
-import java.time.Instant
 
 /**
  * Listens for the watch asking for a reading, and answers with one.
@@ -92,27 +91,12 @@ class WatchListener : Service() {
         val store = Store(this)
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
-        val now = Instant.now().epochSecond
         when (command) {
             WatchCommand.Refresh -> {
-                // A burst of presses is one read. A press inside it is still
-                // answered, with the reading there is (Refresher.resend): the
-                // watch takes any new message as its answer, and tells the
-                // wearer "no answer from phone" when none comes.
-                // A lastAsk in the future (the clock stepped back) is no gap:
-                // that press reads, and sets lastAsk right again.
-                if (now >= store.lastAsk && now - store.lastAsk < ASK_GAP_SECONDS) {
-                    // How the send went is the `watch` note that follows.
-                    store.note("listener", "$watch asked again; resending")
-                    val had = try {
-                        Refresher(this).resend()
-                    } catch (e: Exception) {
-                        return store.note("listener", "could not resend: ${e.javaClass.simpleName}")
-                    }
-                    if (!had) store.note("listener", "no reading to resend yet")
-                    return
-                }
-                store.lastAsk = now
+                // Every ask is a read. The watch asks again only once the
+                // last ask was answered or given up on (Ask.mc), so there is
+                // no burst to fold here; an ask left unanswered would only
+                // tell the wearer "no answer from phone".
                 store.note("listener", "$watch asked for a reading")
                 Work.askedByWatch(this)
             }
@@ -164,7 +148,6 @@ class WatchListener : Service() {
         private const val CHANNEL = "watch-listener"
         private const val NOTIFICATION_ID = 7
         private const val RELISTEN_MINUTES = 15L
-        private const val ASK_GAP_SECONDS = 20L
 
         /** In this process; false after the process was killed, which is what [sync] needs to know. */
         @Volatile
