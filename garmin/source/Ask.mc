@@ -37,9 +37,7 @@ module Ask {
     }
 
     function refresh() as Void {
-        if (Quota.canAsk(Quota.last())) {
-            send({"ask" => "refresh"}, "refresh");
-        }
+        send({"ask" => "refresh"}, "refresh");
     }
 
     // Whether [message] can be sent now. While another ask is on its way it
