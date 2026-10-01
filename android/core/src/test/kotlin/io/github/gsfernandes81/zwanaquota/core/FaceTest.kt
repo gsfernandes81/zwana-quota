@@ -225,7 +225,7 @@ class FaceTest {
     fun `the payload's keys are the wire contract the watch reads`() {
         val d = doc()
         val keys = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1800).keys
-        // garmin/source/Quota.mc reads these; renaming one silently blanks the glance.
+        // garmin/source reads these; renaming one silently blanks the glance.
         assertTrue(keys.containsAll(listOf("v", "ts", "sent", "every", "reset", "rem", "pool", "online", "fig", "share", "paid", "ask", "re", "rw")))
     }
 

@@ -28,7 +28,8 @@ import Toybox.WatchUi;
 // Nothing here runs in the glance or the background.
 module Ask {
     // How long a request for a reading is waited on before it is called
-    // unanswered: the phone's read, and its send back.
+    // unanswered: the phone's one portal timeout and its send back;
+    // tests/test_watch_contract.py holds them to it.
     const WAIT = 60;
     // How long a switch or a removal is waited on. The phone makes one only
     // within QuotaWorker.WATCH_SWITCH_SECONDS (45 s) of hearing it, so none is

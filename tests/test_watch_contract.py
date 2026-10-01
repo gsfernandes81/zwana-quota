@@ -19,6 +19,7 @@ REFRESH_KT = ROOT / "android" / "app" / "src" / "main" / "kotlin" / "io" / "gith
 GARMIN_KT = ROOT / "android" / "app" / "src" / "main" / "kotlin" / "io" / "github" / "gsfernandes81" / "zwanaquota" / "Garmin.kt"
 CORE = ROOT / "android" / "core" / "src" / "main" / "kotlin" / "io" / "github" / "gsfernandes81" / "zwanaquota" / "core"
 FACE_KT = CORE / "Face.kt"
+PORTAL_KT = CORE / "Portal.kt"
 WATCH_KT = CORE / "Watch.kt"
 ANSWERS_KT = CORE / "Answers.kt"
 WATCH_SOURCES = sorted((ROOT / "garmin" / "source").glob("*.mc"))
@@ -87,3 +88,15 @@ def test_the_phone_keeps_a_request_for_a_reading_while_the_watch_waits_on_it():
     pending = number(r"const val PENDING_MILLIS\s*=\s*([\d_]+)L", ANSWERS_KT)
     wait = number(r"const WAIT\s*=\s*(\d+);", ASK_MC)
     assert pending >= wait * 1000
+
+
+def test_a_failed_read_for_the_watch_is_answered_while_the_watch_still_waits():
+    # A read stops at the first request that fails, so a portal that does not
+    # answer costs one timeout; the send back is bounded by its own wait (the
+    # watch has the message before the phone has the receipt). Garmin
+    # Connect is already ready on this path: the listener that heard the ask
+    # made it so.
+    timeout = number(r"const val TIMEOUT_SECONDS\s*=\s*(\d+)", PORTAL_KT)
+    send = number(r"const val SEND_SECONDS\s*=\s*(\d+)L", GARMIN_KT)
+    wait = number(r"const WAIT\s*=\s*(\d+);", ASK_MC)
+    assert timeout + send < wait
