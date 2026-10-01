@@ -171,9 +171,10 @@ Solar, beside START) shows each page's one number or what START does.
 | **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch | switch data (with **switch data** on) |
 | **Device**, one per device | its name, as large as it fits, and whether it switched data on or joined | which of how many (`2/3`) | take that device off, when it is one that can be |
 
-The session pages appear once the phone has read the session: one page per
-device, this phone first, up to eight (the last says how many more). Anything
-that takes a device off data asks first, in the watch's own confirmation.
+The session pages say so until the phone has sent the session; then one page
+per device, this phone first, up to eight (the last says how many more).
+Anything that takes a device off data asks first, in the watch's own
+confirmation.
 
 ### Building the watch app
 

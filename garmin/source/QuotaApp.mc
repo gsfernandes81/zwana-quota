@@ -42,7 +42,8 @@ class QuotaApp extends Application.AppBase {
     // at its next start if not -- and to the glance, when it is the one on
     // screen. Pages is not in the glance, so only the app refits it. The
     // glance redraws whether or not it could store the message itself: the
-    // background service stored it too, and the glance reads from storage.
+    // background service stored it too where it could, and the glance reads
+    // from storage, so it draws the newest copy that was kept.
     function onBackgroundData(data as Application.PersistableType) as Void {
         var kept = Quota.store(data);
         if (!app) {
