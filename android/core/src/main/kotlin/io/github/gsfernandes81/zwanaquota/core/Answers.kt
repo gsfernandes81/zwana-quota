@@ -10,6 +10,9 @@ package io.github.gsfernandes81.zwanaquota.core
  * is answered by the job that did it or refused it, and by nothing else. A
  * request for a reading is answered by a reading taken after the phone heard
  * it, or by the phone's word on why there is none: [settle].
+ *
+ * One list for one watch: the ids are only unique to the watch that made
+ * them, and a second watch on the same phone is not supported.
  */
 object Answers {
     /** How many answers every message carries: more than a wearer asks between two messages. */

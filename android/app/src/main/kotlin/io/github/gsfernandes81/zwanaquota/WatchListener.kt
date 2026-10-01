@@ -82,7 +82,17 @@ class WatchListener : Service() {
     private fun listen(why: String) {
         Thread {
             // The SDK calls back on the main thread; the journal is file I/O.
-            val outcome = Garmin.listen(this) { watch, message -> Thread { asked(watch, message) }.start() }
+            val outcome = Garmin.listen(this) { watch, message ->
+                Thread {
+                    // Uncaught on a bare thread, a failure would take the
+                    // process, and the listener with it, down.
+                    try {
+                        asked(watch, message)
+                    } catch (e: Exception) {
+                        Store(this).note("listener", "failed on $watch's message: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
+                    }
+                }.start()
+            }
             if (outcome != lastOutcome) Store(this).note("listener", "$outcome ($why)")
             lastOutcome = outcome
         }.start()
@@ -95,7 +105,7 @@ class WatchListener : Service() {
         val id = WatchCommand.idOf(message)
         when (command) {
             WatchCommand.Refresh -> {
-                // Every ask is a job of its own, or folded into an earlier
+                // Every ask is a job of its own, queued after an earlier
                 // ask's still going (Work.askedByWatch), and answered by the
                 // first reading begun after this moment (Answers.settle).
                 store.note("listener", "$watch asked for a reading")

@@ -24,6 +24,7 @@ import io.github.gsfernandes81.zwanaquota.core.PortalClient
 import io.github.gsfernandes81.zwanaquota.core.PortalError
 import io.github.gsfernandes81.zwanaquota.core.Reading
 import io.github.gsfernandes81.zwanaquota.core.Route
+import io.github.gsfernandes81.zwanaquota.core.Session
 import io.github.gsfernandes81.zwanaquota.core.SessionAction
 import io.github.gsfernandes81.zwanaquota.core.SessionChanged
 import io.github.gsfernandes81.zwanaquota.core.TooLate
@@ -111,64 +112,59 @@ class Refresher(context: Context) {
      * ([PortalClient.apply]), so a tap on a picture drawn before someone
      * else changed things does nothing rather than the wrong thing.
      */
-    fun switch(action: SessionAction, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) {
-        if (!vault.signedIn) {
-            askId?.let { store.answer(it, "sign in on phone") }
-            return run(force = false, pushWanted, trigger)
+    fun switch(action: SessionAction, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) =
+        change(action.name.lowercase(), "data switch failed", "switch failed", pushWanted, trigger, askId, deadline) { client, allowed ->
+            client.apply(action, allowed)
         }
-        val (client, network) = connect(Networks.path(app))
-        val notice = try {
-            store.save(client.apply(action) { Instant.now().epochSecond <= deadline })
-            store.note("session", "${action.name.lowercase()} ok over ${network()} ($trigger)")
-            askId?.let { store.answer(it, "") }
-            null
-        } catch (e: TooLate) {
-            store.note("session", "${action.name.lowercase()} not sent: ${e.message}")
-            askId?.let { store.answer(it, "too late") }
-            "too late: nothing done"
-        } catch (e: SessionChanged) {
-            store.note("session", "${action.name.lowercase()} not sent: ${e.message}")
-            readSession(client)
-            askId?.let { store.answer(it, "changed elsewhere") }
-            "changed elsewhere: nothing done"
-        } catch (e: PortalError) {
-            store.note("session", "${action.name.lowercase()} failed over ${network()}: ${e.message}")
-            askId?.let { store.answer(it, "switch failed") }
-            "data switch failed: ${e.message}"
-        }
-        run(force = true, pushWanted, trigger, notice)
-    }
 
     /**
      * Take one other device off the session, then read everything again so
      * the widget and the watch show it. [remove] checks the device is still
      * one this phone may take off.
      */
-    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) {
+    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int? = null, deadline: Long = Long.MAX_VALUE) =
+        change("remove $ip", "remove failed", "remove failed", pushWanted, trigger, askId, deadline) { client, allowed ->
+            client.remove(ip, expectedMac = store.offeredMacs[ip], allowed = allowed)
+        }
+
+    /**
+     * Make one change to the session with [send], given whether it may still
+     * be sent ([deadline]), then read everything again. What came of it is
+     * noted as [what], drawn on the face if it was not done ([failed] when the
+     * portal refused it), and answers the watch's ask [askId], if there is one
+     * ([failedWord] when the portal refused it).
+     */
+    private fun change(
+        what: String,
+        failed: String,
+        failedWord: String,
+        pushWanted: Boolean,
+        trigger: String,
+        askId: Int?,
+        deadline: Long,
+        send: (PortalClient, () -> Boolean) -> Session,
+    ) {
         if (!vault.signedIn) {
             askId?.let { store.answer(it, "sign in on phone") }
             return run(force = false, pushWanted, trigger)
         }
         val (client, network) = connect(Networks.path(app))
-        val notice = try {
-            store.save(client.remove(ip, expectedMac = store.offeredMacs[ip]) { Instant.now().epochSecond <= deadline })
-            store.note("session", "removed $ip over ${network()} ($trigger)")
-            askId?.let { store.answer(it, "") }
-            null
+        val (notice, word) = try {
+            store.save(send(client) { Instant.now().epochSecond <= deadline })
+            store.note("session", "$what ok over ${network()} ($trigger)")
+            null to ""
         } catch (e: TooLate) {
-            store.note("session", "remove $ip not sent: ${e.message}")
-            askId?.let { store.answer(it, "too late") }
-            "too late: nothing done"
+            store.note("session", "$what not sent: ${e.message}")
+            "too late: nothing done" to "too late"
         } catch (e: SessionChanged) {
-            store.note("session", "remove $ip not sent: ${e.message}")
+            store.note("session", "$what not sent: ${e.message}")
             readSession(client)
-            askId?.let { store.answer(it, "changed elsewhere") }
-            "changed elsewhere: nothing done"
+            "changed elsewhere: nothing done" to "changed elsewhere"
         } catch (e: PortalError) {
-            store.note("session", "remove $ip failed over ${network()}: ${e.message}")
-            askId?.let { store.answer(it, "remove failed") }
-            "remove failed: ${e.message}"
+            store.note("session", "$what failed over ${network()}: ${e.message}")
+            "$failed: ${e.message}" to failedWord
         }
+        askId?.let { store.answer(it, word) }
         run(force = true, pushWanted, trigger, notice)
     }
 
@@ -473,21 +469,11 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                     if (!screenOn && !watchDue) return Result.success()
                     refresher.run(force = false, pushWanted = store.watchEnabled, trigger = trigger)
                 }
-                else -> {
-                    refresher.run(
-                        force = inputData.getBoolean(FORCE, false),
-                        pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled,
-                        trigger = trigger,
-                    )
-                    // A request for a reading folded into this job after its
-                    // read began has no reading yet (Answers.settle): read
-                    // again for it. Twice at most, so a watch asking without
-                    // pause cannot hold the job.
-                    var again = 2
-                    while (trigger == Work.WATCH_ASKED && again-- > 0 && store.asks { pending, _ -> pending.isNotEmpty() }) {
-                        refresher.run(force = true, pushWanted = true, trigger = trigger)
-                    }
-                }
+                else -> refresher.run(
+                    force = inputData.getBoolean(FORCE, false),
+                    pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled,
+                    trigger = trigger,
+                )
             }
             store.note("worker", "ran ($trigger)")
             // The listener, if it should be running and the system stopped it.
@@ -547,9 +533,6 @@ object Work {
     private const val ASKED = "watch-asked"
     private const val ANSWER = "watch-answer"
 
-    /** The trigger of a read the watch asked for, which the worker reads again for asks folded in late. */
-    const val WATCH_ASKED = "watch asked"
-
     fun refresh(context: Context, force: Boolean, trigger: String) = enqueue(context, REFRESH, force, false, trigger)
 
     /**
@@ -601,13 +584,13 @@ object Work {
     /**
      * The watch asked for a reading: read now and send it back (the newest
      * reading stored, if the read fails at the portal or is not made; nothing
-     * if none is).
-     * KEEP: an ask arriving while an earlier ask's job is still going is folded
-     * into it and answered by that job's send -- unless it was made against that
-     * very send before the job ended, which the watch then waits out. So asks
-     * never queue up reads of their own.
+     * if none is). APPEND_OR_REPLACE: an ask heard while an earlier ask's job
+     * is still going gets a job of its own after it, since an ask is answered
+     * only by a reading begun after the phone heard it ([Answers.settle]). The
+     * watch sends one ask at a time (Ask.free), so this never queues more
+     * than one.
      */
-    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, WATCH_ASKED, ExistingWorkPolicy.KEEP)
+    fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.APPEND_OR_REPLACE)
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)

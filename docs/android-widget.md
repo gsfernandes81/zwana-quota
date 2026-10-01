@@ -33,9 +33,10 @@ the watch lists the ids of the last 16 asks the phone answered and what
 became of each (`re`, `rw`; `core/.../Answers.kt`): a watch takes an ask as
 answered only when its own id comes back, not when any message does. Each
 ask for a reading enqueues a read-and-send; one arriving while an earlier
-ask's job is still going is folded into it, and the job reads again for it
-if its read had already begun, since an ask is answered only by a reading
-begun after the phone heard it (or by why there is none). Messages to the
+ask's job is still going is queued after it, since an ask is answered only
+by a reading begun after the phone heard it (or by why there is none). The
+watch sends one ask at a time, and the answers are one list for one watch:
+a second watch paired to the same phone is not supported. Messages to the
 watch are made one at a time, each with the newest reading the phone has
 when its turn comes.
 

@@ -136,7 +136,7 @@ class Store(context: Context) {
             val result = change(pending, answers)
             prefs.edit()
                 .putString("askPending", pending.takeLast(Answers.KEEP).joinToString("\n") { "${it.id}\t${it.heardAt}" })
-                .putString("askAnswers", Answers.keep(emptyList(), answers).joinToString("\n") { "${it.id}\t${it.word.replace(Regex("[\t\n]"), " ")}" })
+                .putString("askAnswers", answers.takeLast(Answers.KEEP).joinToString("\n") { "${it.id}\t${it.word.replace('\t', ' ').replace('\n', ' ')}" })
                 .apply()
             result
         }
