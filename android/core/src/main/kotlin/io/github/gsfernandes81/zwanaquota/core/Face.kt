@@ -205,7 +205,10 @@ object WatchPayload {
             "ts" to epochInt(doc.readingTaken),
             "sent" to epochInt(now),
             "every" to everySeconds,
-            "reset" to epochInt(doc.reset),
+            // The reset after the reading, not after whenever the document was
+            // derived: the watch's "new day" is that reset having passed, so a
+            // reading from before it, sent after it, must say so.
+            "reset" to epochInt(Pipeline.nextReset(doc.readingTaken)),
             "rem" to kib(doc.remainderBytes),
             "pool" to kib(doc.poolBytes),
             "grant" to kib(doc.grantBytes),

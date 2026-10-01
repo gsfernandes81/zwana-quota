@@ -202,9 +202,19 @@ class FaceTest {
                 assertTrue(v is Int || v is Boolean || v is String, "$k is ${v::class}")
                 if (v is Int) assertTrue(v >= 0, "$k = $v")
             }
-            assertEquals(Pipeline.nextReset(now).epochSecond.toInt(), payload["reset"])
+            assertEquals(Pipeline.nextReset(d.readingTaken).epochSecond.toInt(), payload["reset"])
             assertEquals(Format.size(remainder), payload["fig"])
         }
+    }
+
+    @Test
+    fun `the watch is sent the reset after the reading, so one from before it reads as a new day`() {
+        // Read at 23:30 the night before, sent at 20:30: the reset between is
+        // the one sent, already passed, which is the watch's "new day".
+        val d = doc(age = 21.0 * 3600)
+        val reset = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1, 1800)["reset"] as Int
+        assertEquals(Pipeline.nextReset(d.readingTaken).epochSecond.toInt(), reset)
+        assertTrue(reset <= now.epochSecond)
     }
 
     @Test

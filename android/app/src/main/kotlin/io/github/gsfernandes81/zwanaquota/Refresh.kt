@@ -212,9 +212,8 @@ class Refresher(context: Context) {
      * to Garmin Connect one at a time, whichever job they come from, and each
      * is made inside its turn: the newer of this run's reading and the one
      * stored by then (by `ts`, when each read began; another run may have
-     * read since), with the session as stored -- derived as of the reading's
-     * own time, so its `reset` is the one that follows it (the watch's "new
-     * day" is that reset having passed). `sent` is the moment the message is made, in whole seconds, so
+     * read since), with the session as stored. (The `reset` sent is the one
+     * after the reading, whenever the message is made: WatchPayload.) `sent` is the moment the message is made, in whole seconds, so
      * while the clock runs forward a later message never carries an earlier
      * stamp -- and that stamp, not the order they reach the watch (a send the
      * phone gave up waiting on may still arrive), is what the watch goes by: it
@@ -235,11 +234,7 @@ class Refresher(context: Context) {
                 else -> reading to live
             }
             val now = Instant.now()
-            // Derived as of the reading's own time, so `reset` is the one after
-            // it: what the watch's "new day" compares against. Its age is as of
-            // now.
-            val at = Pipeline.instantOf(newest.ts)
-            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, at)
+            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
             val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
             // Offered only while the listener is actually up, not merely
             // switched on: Android can refuse to restart it, and a watch
