@@ -217,8 +217,10 @@ object Garmin {
      * How long a send waits for Garmin Connect to say it was delivered. A
      * send waited out may still arrive; this only bounds how long the next
      * message is held behind it (Refresher.push makes them one at a time),
-     * and is part of what a watch waiting on an answer waits through
-     * (Ask.WAIT_SWITCH; the arithmetic is at QuotaWorker.WATCH_SWITCH_SECONDS).
+     * and is part of what a watch waiting on an answer waits through: Ask.WAIT
+     * for a reading (with one portal timeout) and Ask.WAIT_SWITCH for a switch
+     * (the arithmetic is at QuotaWorker.WATCH_SWITCH_SECONDS), both held by
+     * tests/test_watch_contract.py.
      */
     const val SEND_SECONDS = 20L
 }

@@ -7,9 +7,8 @@ package io.github.gsfernandes81.zwanaquota.core
  * The watch gives every ask an id (garmin/source/Ask.mc), and the phone sends
  * back, in every message, the ids of the last [KEEP] asks it answered and
  * what became of each ([WatchPayload]: `re`, `rw`). A data switch or a removal
- * is answered by the job that did it, or by the phone's refusal of it: the
- * listener's (`not allowed`, `phone busy`) or the job's (`too late`,
- * `changed elsewhere`), and by nothing else. A
+ * is answered by its job, with "" for done or a word for why not, or by the
+ * listener refusing it (`not allowed`, `phone busy`), and by nothing else. A
  * request for a reading is answered by a reading taken after the phone heard
  * it, or by the phone's word on why there is none: [settle].
  *
