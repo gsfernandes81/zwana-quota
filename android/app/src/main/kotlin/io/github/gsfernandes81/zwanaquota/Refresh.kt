@@ -213,12 +213,13 @@ class Refresher(context: Context) {
      * the reading and the session as they are stored when this send's turn
      * comes, so a run that waited here, or whose read failed, sends what is
      * stored rather than what it set out with. `sent` is the moment the
-     * message is made, in whole seconds, or one past the last send's when that
-     * is later -- never equal to it: the watch keeps a message only if it is
-     * not older than the one it has, and takes one as an ask's answer only if
-     * its `sent` differs. So the message the watch keeps is the newest it was
-     * given, and offeredMacs holds the devices of the newest made -- the same,
-     * unless that send did not get through.
+     * message is made, in whole seconds, taken inside the lock, so while the
+     * clock runs forward a later send never carries an earlier stamp: the
+     * watch keeps a message only if it is not older than the one it has, and
+     * takes one as an ask's answer only if its `sent` differs. So the message
+     * the watch keeps is the newest it was given, and offeredMacs holds the
+     * devices of the newest made -- the same, unless that send did not get
+     * through.
      * [live] is whether this run read [reading]; a newer one another run
      * stored is sent as not live.
      */
@@ -237,7 +238,7 @@ class Refresher(context: Context) {
             val known = store.session()?.takeIf { vault.signedIn }
             val canControl = canAsk && store.watchCanControl
             val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
-            val sent = maxOf(now.epochSecond, store.lastPush + 1)
+            val sent = now.epochSecond
             // Which device each offered address was, so a removal asked for
             // later cannot take off whoever has the address by then.
             store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
@@ -462,9 +463,20 @@ object Work {
     /** The watch-only periodic send before the widget had one of its own. */
     private const val OLD_WATCH = "watch-every-30m"
     private const val SWITCH = "data-switch"
+    private const val WATCH_SWITCH = "watch-switch"
+    private const val WIDGET_UPDATE = "widget-update"
     private const val ASKED = "watch-asked"
 
-    fun refresh(context: Context, force: Boolean, trigger: String) = enqueue(context, REFRESH, force, false, trigger)
+    /**
+     * A forced read (a tap, "Read now", signing in) and the widget's unforced
+     * update go under names of their own: under one, a tap that came while an
+     * update was still waiting to run was dropped, and the update then read
+     * nothing (the cache being fresh enough for it), so the tap did nothing.
+     * KEEP within each, so a second tap while the first is on its way is one
+     * read.
+     */
+    fun refresh(context: Context, force: Boolean, trigger: String) =
+        enqueue(context, if (force) REFRESH else WIDGET_UPDATE, force, false, trigger)
 
     /**
      * Throw the data switch. KEEP, so a second tap while the first is still
@@ -478,9 +490,13 @@ object Work {
     }
 
     /**
-     * The watch asked to switch data or take a device off. KEEP, as for the
-     * widget's switch: a second press while the first is on its way is
-     * dropped, and the worker checks either against the portal first.
+     * The watch asked to switch data or take a device off. Under a name of its
+     * own, not the widget's switch: sharing it, a watch command that came
+     * while a widget switch was on its way was dropped, and that switch's send
+     * then reached the watch as if it were the answer. KEEP, as for the
+     * widget's: a second press while the first is on its way is dropped, and
+     * the worker checks either against the portal first, so the two running
+     * side by side is safe.
      */
     fun fromWatch(context: Context, command: WatchCommand) {
         val data = Data.Builder().putAll(input(true, true, "watch")).putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond)
@@ -490,7 +506,7 @@ object Work {
             WatchCommand.Refresh -> return askedByWatch(context)
         }
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(WATCH_SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 
     /**

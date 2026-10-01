@@ -111,12 +111,7 @@ class Store(context: Context) {
         }?.toMap().orEmpty()
         set(value) = prefs.edit().putString("offeredMacs", value.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
 
-    /**
-     * The `sent` stamp of the last message made for the watch, in epoch
-     * seconds: monotonic, at or past the moment it was made, and ahead of the
-     * clock after a step back until the clock catches up (Refresher.push); 0
-     * for never.
-     */
+    /** The `sent` stamp of the last message made for the watch, in epoch seconds (Refresher.push); 0 for never. */
     var lastPush: Long
         get() = prefs.getLong("lastPush", 0)
         set(value) = prefs.edit().putLong("lastPush", value).apply()
