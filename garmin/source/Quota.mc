@@ -127,8 +127,8 @@ module Quota {
         return (v instanceof String) ? v as String : "";
     }
 
-    // Whether the phone sent the data session (`dat`): only then are there
-    // pages for it.
+    // Whether the phone sent the data session (`dat`); until then its pages
+    // read `not sent yet`.
     function hasSession(d as Dictionary?) as Boolean {
         return d != null && str(d, "dat").length() > 0;
     }
