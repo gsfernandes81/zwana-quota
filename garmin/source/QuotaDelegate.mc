@@ -15,7 +15,7 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
 
     function onSelect() as Boolean {
         var d = Quota.last();
-        var page = view.shown();
+        var page = view.current();
         if (page == 0) {
             if (!Quota.canAsk(d)) {
                 return false;
@@ -35,7 +35,7 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             var message = {"do" => act};
             var label = Quota.str(dd, "actl").toLower();
             var question = Quota.str(dd, "cq");
-            if (!Ask.free(label)) {
+            if (!Ask.free(message)) {
                 return true;
             }
             if (question.length() > 0) {
@@ -51,12 +51,13 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
         if (ip.length() == 0) {
             return false;
         }
-        if (!Ask.free("disconnecting")) {
+        var off = {"rm" => ip};
+        if (!Ask.free(off)) {
             return true;
         }
         var name = Quota.item(Quota.arr(dd, "dn"), i);
         WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + (name.length() > 0 ? name : ip) + "?"),
-            new SendConfirm({"rm" => ip}, "disconnecting"), WatchUi.SLIDE_IMMEDIATE);
+            new SendConfirm(off, "disconnecting"), WatchUi.SLIDE_IMMEDIATE);
         return true;
     }
 }

@@ -23,7 +23,7 @@ import Toybox.WatchUi;
 // One view per page, made by the loop as it turns to it.
 class QuotaView extends WatchUi.View {
     // The page the loop made this view for. What it draws and what START
-    // does is shown(), which is this unless the pages have since shrunk.
+    // does is current(), which is this unless the pages have since shrunk.
     var page as Number;
 
     function initialize(p as Number) {
@@ -39,7 +39,7 @@ class QuotaView extends WatchUi.View {
     // there are, until it is replaced (Pages.refit), has its extra pages
     // shown as the last. Worked out afresh, never stored, so a count that
     // comes back finds the view on its own page again.
-    function shown() as Number {
+    function current() as Number {
         return Pages.clamp(page, Pages.count(Quota.last()));
     }
 
@@ -58,7 +58,7 @@ class QuotaView extends WatchUi.View {
         dc.clear();
         var d = Quota.last();
         var sub = Draw.subscreen();
-        var p = shown();
+        var p = current();
         if (p != 0 && !Quota.hasSession(d)) {
             noSession(dc, sub, p == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
         } else if (p == 1) {

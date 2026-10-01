@@ -130,19 +130,19 @@ once, and every build after installs in place.
 
 ### What it shows
 
-The glance is laid out as Garmin's Body Battery glance is: a title, a bar
-whose thick part is what is left and thin part what has gone (full at the
-reset), and under it what is left and, after a reset icon, when tonight's
-grant lands:
+The glance is laid out as Garmin's Body Battery glance is: a title and,
+after a reset icon, when tonight's grant lands; a bar whose thick part is what
+is left and thin part what has gone (full at the reset); and under it what is
+left and, beside it, how much of it is paid:
 
 ```
-Data Left
+DATA LEFT       ↻@00:00
 ████████━━━━━━━━━━━━━━
-301 MiB         ↻@00:00
+301 MiB      0 MiB paid
 ```
 
-When the reading cannot be taken at face value, the reason is shown at the
-right of the title row:
+When the reading cannot be taken at face value, the reason takes the paid
+figure's place beside what is left (or the title's, if it does not fit there):
 
 - `new day`: the reset has passed since the reading. The figure is
   yesterday's, and the grant it does not count has already landed.
@@ -167,10 +167,6 @@ Solar, beside START) shows each page's one number or what START does.
 The session pages appear once the phone has read the session: one page per
 device, this phone first, up to eight (the last says how many more). Anything
 that takes a device off data asks first, in the watch's own confirmation.
-
-The glance shows when the grant lands at the right of its title row, and how
-much is paid beside the figure below, when nothing more urgent (the reading's
-age, `offline`) needs that room and it fits.
 
 ### Building the watch app
 
