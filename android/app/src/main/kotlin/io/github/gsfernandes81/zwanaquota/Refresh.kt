@@ -102,16 +102,14 @@ class Refresher(context: Context) {
     /**
      * Send the watch the reading there is, without reading the portal: the
      * answer to a watch that asked again within [WatchListener]'s gap, which
-     * would otherwise wait out its minute and say "no answer from phone". A
-     * watch takes a message as its answer only if its `sent` -- whole seconds
-     * -- differs from the one it asked against, so this never sends in the
-     * same second as the last send. Blocks: called off the main thread.
+     * would otherwise wait out its minute and say "no answer from phone".
+     * False when there is no reading to send. Blocks while another send is
+     * going ([push]): called off the main thread.
      */
-    fun resend() {
-        val reading = store.reading() ?: return
-        val wait = (store.lastPush + 1) * 1000 - System.currentTimeMillis()
-        if (wait > 0) Thread.sleep(wait)
+    fun resend(): Boolean {
+        val reading = store.reading() ?: return false
         push(reading, live = false, Instant.now())
+        return true
     }
 
     /**
@@ -233,12 +231,21 @@ class Refresher(context: Context) {
         val known = store.session()?.takeIf { vault.signedIn }
         val canControl = canAsk && store.watchCanControl
         val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
-        // Which device each offered address was, so a removal asked for later
-        // cannot take off whoever has the address by then.
-        store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
-        val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
-        store.lastPush = now.epochSecond
-        store.note("watch", Garmin.send(app, payload).joinToString("; "))
+        // One send at a time, from a worker or the listener alike. `sent` is
+        // when it goes, in whole seconds, and always later than the last: the
+        // watch keeps a message only if it is not older than the one it has,
+        // and takes one as an ask's answer only if its `sent` differs. So the
+        // message the watch keeps is the last one sent, and offeredMacs holds
+        // that message's devices.
+        synchronized(SENDING) {
+            val sent = maxOf(Instant.now().epochSecond, store.lastPush + 1)
+            // Which device each offered address was, so a removal asked for
+            // later cannot take off whoever has the address by then.
+            store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
+            val payload = WatchPayload.build(doc, face, Instant.ofEpochSecond(sent), store.nextSequence(), EVERY_SECONDS, canAsk, session)
+            store.lastPush = sent
+            store.note("watch", Garmin.send(app, payload).joinToString("; "))
+        }
     }
 
     private fun faceOf(reading: Reading?, live: Boolean, now: Instant, why: String?): Face {
@@ -249,6 +256,9 @@ class Refresher(context: Context) {
     }
 
     companion object {
+        /** Held for the whole of a send to the watch ([push]). */
+        private val SENDING = Any()
+
         /** quota_widget.DEFAULT_MAX_AGE and the tile's CACHE_MAX_AGE. */
         const val MAX_AGE_SECONDS = 45.0
 

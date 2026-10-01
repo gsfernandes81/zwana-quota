@@ -100,8 +100,12 @@ class WatchListener : Service() {
                 // watch takes any new message as its answer, and tells the
                 // wearer "no answer from phone" when none comes.
                 if (now - store.lastAsk < ASK_GAP_SECONDS) {
-                    store.note("listener", "$watch asked again; sending the last reading")
-                    return Refresher(this).resend()
+                    val sent = try {
+                        Refresher(this).resend()
+                    } catch (e: Exception) {
+                        return store.note("listener", "$watch asked again; could not resend: ${e.javaClass.simpleName}")
+                    }
+                    return store.note("listener", if (sent) "$watch asked again; sent the last reading" else "$watch asked again; no reading to send yet")
                 }
                 store.lastAsk = now
                 store.note("listener", "$watch asked for a reading")
