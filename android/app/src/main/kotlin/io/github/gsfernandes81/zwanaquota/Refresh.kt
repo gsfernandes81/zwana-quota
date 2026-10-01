@@ -478,13 +478,9 @@ object Work {
     }
 
     /**
-     * The watch asked to switch data or take a device off. Under the widget's
-     * switch name, appended: a watch command that comes while a switch is on
-     * its way runs after it, and its check against the portal then sees what
-     * that switch did (SessionChanged if it no longer applies). The watch's
-     * own Ask refuses a repeat while one is waiting, so there is no burst to
-     * fold; one that is old by the time it runs is dropped by
-     * SWITCH_LIFETIME_SECONDS.
+     * The watch asked to switch data or take a device off. KEEP, as for the
+     * widget's switch: a second press while the first is on its way is
+     * dropped, and the worker checks either against the portal first.
      */
     fun fromWatch(context: Context, command: WatchCommand) {
         val data = Data.Builder().putAll(input(true, true, "watch")).putLong(QuotaWorker.ASKED_AT, Instant.now().epochSecond)
@@ -494,7 +490,7 @@ object Work {
             WatchCommand.Refresh -> return askedByWatch(context)
         }
         val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(data.build()).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 
     /**
