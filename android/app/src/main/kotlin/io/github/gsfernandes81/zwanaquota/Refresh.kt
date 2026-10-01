@@ -251,9 +251,10 @@ class Refresher(context: Context) {
      * is sent even when this run has none.
      * With no reading anywhere there is nothing to send. Each message also
      * answers the watch's asks ([Answers]): the requests for a reading heard
-     * before its reading began, or, with [why] (why this run read nothing
-     * new; null when it did), before [tried] (when this run began, epoch ms),
-     * and every switch or removal a job has answered.
+     * before its reading began, or, with [why] (why the read the watch asked
+     * for has nothing new; null when it has, and for any read it did not ask
+     * for), before [tried] (when this run began, epoch ms), and every switch
+     * or removal a job has answered.
      */
     private fun push(reading: Reading?, tried: Long? = null, why: String? = null) {
         synchronized(SENDING) {
@@ -458,7 +459,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 QuotaWidget.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
                 if (askId != null) {
                     store.answer(askId, "too late")
-                    refresher.sendStored()
+                    if (store.watchEnabled) refresher.sendStored()
                 }
                 return Result.success()
             }

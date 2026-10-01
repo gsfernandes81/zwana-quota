@@ -40,6 +40,7 @@ module Ask {
     const ID_KEY = "aid";
 
     var current as Asking? = null;   // the last ask; null before the first
+    var lastIssued as Number = 0;    // the last id given, while the app runs
     var timer as Timer.Timer? = null;
 
     // Whether the ask is on its way: made, not failed, not answered, and
@@ -102,10 +103,14 @@ module Ask {
     }
 
     // An id no ask has had: one more than the last, and never behind the
-    // clock, so ids still move on if storage lost the last one. No random
-    // numbers: nothing about them needs to be unguessable, only new.
+    // clock, so ids still move on if storage lost the last one; the last
+    // given is also held here, so they move on while storage refuses. No
+    // random numbers: nothing about them needs to be unguessable, only new.
     function nextId() as Number {
         var id = Time.now().value();
+        if (lastIssued >= id) {
+            id = lastIssued + 1;
+        }
         try {
             var last = Application.Storage.getValue(ID_KEY);
             if (last instanceof Number && last >= id) {
@@ -113,8 +118,9 @@ module Ask {
             }
             Application.Storage.setValue(ID_KEY, id);
         } catch (e instanceof Lang.Exception) {
-            // Unkept, the clock alone still moves on between asks.
+            // Unkept, the id held here and the clock still move on.
         }
+        lastIssued = id;
         return id;
     }
 
