@@ -36,7 +36,8 @@ class QuotaGlance extends WatchUi.GlanceView {
         var line = dc.getFontHeight(font);
         // The bar's height: 6px on the Solar's glance, 4 on a short one.
         var bh = (dc.getHeight() >= 56) ? 6 : 4;
-        var gap = 3;
+        var gap = 3;      // between the rows
+        var space = 6;    // between two things on one row
         var top = (dc.getHeight() - 2 * line - bh - 2 * gap) / 2;
         if (top < 0) {
             top = 0;
@@ -48,7 +49,7 @@ class QuotaGlance extends WatchUi.GlanceView {
         var y = top + line + gap + bh + gap;
         var figure = Quota.figure(d);
         dc.drawText(0, y, font, figure, Graphics.TEXT_JUSTIFY_LEFT);
-        var room = width - dc.getTextWidthInPixels(figure, font) - 6;
+        var room = width - dc.getTextWidthInPixels(figure, font) - space;
         var ladder = Quota.resetAt(d);
         var mark = (d == null) ? null : Quota.mark(d);
         var above = null;   // the spelling of the mark that takes the title's place
@@ -70,7 +71,7 @@ class QuotaGlance extends WatchUi.GlanceView {
                 if (w <= room) {
                     dc.drawText(width, y, font, spelt[i], Graphics.TEXT_JUSTIFY_RIGHT);
                     placed = true;
-                } else if (clock + w + 6 <= width) {
+                } else if (clock + w + space <= width) {
                     above = spelt[i];
                     placed = true;
                 }
@@ -97,7 +98,7 @@ class QuotaGlance extends WatchUi.GlanceView {
             }
             // The arrowhead reaches past the ring by about half its radius.
             var icon = 2 * ir + ir / 2 + 4;
-            var need = (above == null) ? 0 : dc.getTextWidthInPixels(above as String, font) + 6;
+            var need = (above == null) ? 0 : dc.getTextWidthInPixels(above as String, font) + space;
             var text = Draw.fit(dc, font, spellings, width - icon - need);
             var drawIcon = (text != null);
             if (text == null) {
@@ -105,7 +106,7 @@ class QuotaGlance extends WatchUi.GlanceView {
             }
             var tw = dc.getTextWidthInPixels(text as String, font);
             dc.drawText(width, top, font, text as String, Graphics.TEXT_JUSTIFY_RIGHT);
-            used = tw + 6;
+            used = tw + space;
             if (drawIcon) {
                 Draw.resetIcon(dc, width - tw - 3 - ir - ir / 2, top + line / 2, ir);
                 used += icon;

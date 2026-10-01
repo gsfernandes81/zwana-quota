@@ -472,6 +472,15 @@ object Work {
     /** The watch asked for a reading: read now and send it back. */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
+    /**
+     * The watch asked again within [WatchListener]'s gap: send it the reading
+     * there is, read again only if that is older than
+     * [Refresher.MAX_AGE_SECONDS]. Under the same name and KEEP, so while the
+     * first ask is still on its way this is dropped, and that one's send is
+     * the answer to both.
+     */
+    fun answerWatch(context: Context) = enqueue(context, ASKED, false, true, "watch asked again", ExistingWorkPolicy.KEEP)
+
     /** Send to the watch now, whether or not the periodic send is on: the test button. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)
 
