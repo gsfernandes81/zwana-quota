@@ -14,7 +14,7 @@ module Draw {
     // square ends and right angles, pixel-crisp. What is left is a thick bar
     // from the left; then a small gap; then what has gone as a thin line to
     // the right end, centred on the thick bar's height. [h] is the thick
-    // bar's height; the thin line is 2px (3 on a big screen), the gap 2px.
+    // bar's height; the thin line is 2px (3 on a big screen), the gap the same.
     // [share] is 0 to 1, or below 0 for no reading: the thin line alone.
     function bar(dc as Graphics.Dc, x as Number, y as Number, w as Number, h as Number, share as Float) as Void {
         var thin = h >= 9 ? 3 : 2;

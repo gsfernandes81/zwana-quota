@@ -33,15 +33,14 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
                 return false;
             }
             var message = {"do" => act};
-            var label = Quota.str(dd, "actl").toLower();
             var question = Quota.str(dd, "cq");
             if (!Ask.free(message)) {
                 return true;
             }
             if (question.length() > 0) {
-                WatchUi.pushView(new WatchUi.Confirmation(question), new SendConfirm(message, label), WatchUi.SLIDE_IMMEDIATE);
+                WatchUi.pushView(new WatchUi.Confirmation(question), new SendConfirm(message), WatchUi.SLIDE_IMMEDIATE);
             } else {
-                Ask.send(message, label);
+                Ask.send(message);
             }
             return true;
         }
@@ -57,20 +56,18 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
         }
         var name = Quota.item(Quota.arr(dd, "dn"), i);
         WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + (name.length() > 0 ? name : ip) + "?"),
-            new SendConfirm(off, "disconnecting"), WatchUi.SLIDE_IMMEDIATE);
+            new SendConfirm(off), WatchUi.SLIDE_IMMEDIATE);
         return true;
     }
 }
 
-// Yes sends [message]; no sends nothing.
+// Yes sends [message], if the phone still allows it; no sends nothing.
 class SendConfirm extends WatchUi.ConfirmationDelegate {
     var message as Dictionary;
-    var label as String;
 
-    function initialize(m as Dictionary, l as String) {
+    function initialize(m as Dictionary) {
         ConfirmationDelegate.initialize();
         message = m;
-        label = l;
     }
 
     // `ctl` is checked again here: a message may have come while the
@@ -79,7 +76,7 @@ class SendConfirm extends WatchUi.ConfirmationDelegate {
     function onResponse(response as WatchUi.Confirm) as Boolean {
         if (response == WatchUi.CONFIRM_YES) {
             if (Quota.canControl(Quota.last())) {
-                Ask.send(message, label);
+                Ask.send(message);
             } else {
                 Ask.toast("not offered now, not sent");
             }
