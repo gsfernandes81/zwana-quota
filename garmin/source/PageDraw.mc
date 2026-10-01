@@ -37,10 +37,10 @@ module PageDraw {
     function ring(dc as Graphics.Dc, cx as Number, cy as Number, r as Number, share as Float) as Void {
         var gap = 10;
         dc.setPenWidth(1);
-        // Under a degree is drawn as nothing left: an arc from 90 to 90 would
-        // be the whole circle, a spent day drawn as a full one.
-        var sweep = (share * 360).toNumber();
-        if (sweep < 1) {
+        // Under half a percent is drawn as nothing left -- the label inside
+        // reads 0% there, and an arc from 90 to 90 would be the whole
+        // circle, a spent day drawn as a full one.
+        if (share < 0.005) {
             dc.drawCircle(cx, cy, r);
             return;
         }
@@ -50,6 +50,7 @@ module PageDraw {
             dc.setPenWidth(1);
             return;
         }
+        var sweep = (share * 360).toNumber();
         var end = norm(90 - sweep);
         dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 90, end);
         dc.setPenWidth(1);
