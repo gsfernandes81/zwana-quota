@@ -96,7 +96,7 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted && reading != null) push(reading, live, now)
+        if (pushWanted && reading != null) push(reading, live)
     }
 
     /**
@@ -107,8 +107,7 @@ class Refresher(context: Context) {
      * going ([push]): called off the main thread.
      */
     fun resend(): Boolean {
-        val reading = store.reading() ?: return false
-        push(reading, live = false, Instant.now())
+        push(store.reading() ?: return false, live = false)
         return true
     }
 
@@ -220,25 +219,35 @@ class Refresher(context: Context) {
         return changed
     }
 
-    private fun push(reading: Reading, live: Boolean, now: Instant) {
-        val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, live, now)
-        val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
-        // Offered only while the listener is actually up, not merely switched
-        // on: Android can refuse to restart it, and a watch should not offer
-        // what nobody will hear.
-        val canAsk = store.watchEnabled && store.watchCanAsk && WatchListener.running
-        val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
-        val known = store.session()?.takeIf { vault.signedIn }
-        val canControl = canAsk && store.watchCanControl
-        val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
-        // One send at a time, from a worker or the listener alike. `sent` is
-        // when it goes, in whole seconds, and always later than the last: the
-        // watch keeps a message only if it is not older than the one it has,
-        // and takes one as an ask's answer only if its `sent` differs. So the
-        // message the watch keeps is the last one sent, and offeredMacs holds
-        // that message's devices.
+    /**
+     * Send the watch the newest reading there is. One send at a time, from a
+     * worker or the listener alike, and the whole message is made inside it:
+     * the reading and the session as they are stored when this send's turn
+     * comes, so a run that waited here, or whose read failed, never sends
+     * something older than what went before it. `sent` is when it goes, in
+     * whole seconds, and always later than the last: the watch keeps a message
+     * only if it is not older than the one it has, and takes one as an ask's
+     * answer only if its `sent` differs. So the message the watch keeps is
+     * the newest, and offeredMacs holds its devices.
+     * [live] is whether this run read [reading]; a newer one another run
+     * stored is sent as not live.
+     */
+    private fun push(reading: Reading, live: Boolean) {
         synchronized(SENDING) {
-            val sent = maxOf(Instant.now().epochSecond, store.lastPush + 1)
+            val stored = store.reading()
+            val (newest, fresh) = if (stored != null && stored.ts > reading.ts) stored to false else reading to live
+            val now = Instant.now()
+            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
+            val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
+            // Offered only while the listener is actually up, not merely
+            // switched on: Android can refuse to restart it, and a watch
+            // should not offer what nobody will hear.
+            val canAsk = store.watchEnabled && store.watchCanAsk && WatchListener.running
+            val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
+            val known = store.session()?.takeIf { vault.signedIn }
+            val canControl = canAsk && store.watchCanControl
+            val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
+            val sent = maxOf(now.epochSecond, store.lastPush + 1)
             // Which device each offered address was, so a removal asked for
             // later cannot take off whoever has the address by then.
             store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
