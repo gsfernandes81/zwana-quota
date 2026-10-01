@@ -9,6 +9,11 @@ import Toybox.WatchUi;
 // reading does -- a new message from the phone, told apart from the last by
 // its `sent`.
 //
+// How an ask goes is told in the watch's own toasts (WatchUi.showToast), as
+// Garmin has an asynchronous event told: one when it is sent, one if the
+// phone cannot be reached, one if no answer comes within WAIT. An answer
+// needs none: the page it changes is redrawn.
+//
 // Offered only when the phone's last message said it is listening (`ask`,
 // and `ctl` for switching): the phone runs its listener only while its
 // settings allow, and a watch should not offer what nobody will answer. The
@@ -21,7 +26,7 @@ module Ask {
     var at as Number = 0;        // when it was last asked, watch time; 0 never
     var before as Number = 0;    // the kept reading's `sent` when it was asked
     var failed as Boolean = false;
-    var what as String = "";     // what was asked, for the status line
+    var what as String = "";     // what was asked, for the toasts
     var timer as Timer.Timer? = null;
 
     function answered() as Boolean {
@@ -39,11 +44,16 @@ module Ask {
         }
     }
 
-    // Send [message], unless asking is not offered or one is on its way.
-    // [label] is what the status line calls it meanwhile.
+    // Send [message], unless asking is not offered or one is on its way --
+    // which a press meanwhile is told again, rather than seeming ignored.
+    // [label] is what the toasts call it.
     function send(message as Dictionary, label as String) as Void {
         var d = Quota.last();
-        if (!Quota.canAsk(d) || waiting()) {
+        if (!Quota.canAsk(d)) {
+            return;
+        }
+        if (waiting()) {
+            sending();
             return;
         }
         at = Time.now().value();
@@ -53,34 +63,31 @@ module Ask {
         try {
             Communications.transmit(message, null, new AskListener());
         } catch (e instanceof Lang.Exception) {
-            failed = true;
+            unreached();
+            return;
         }
-        // Redraw once the wait is over, so "asking" does not stand forever.
+        sending();
+        // Once the wait is over, say so if nothing came.
         if (timer != null) {
             (timer as Timer.Timer).stop();
         }
         timer = new Timer.Timer();
-        (timer as Timer.Timer).start(new Lang.Method(Ask, :redraw), (WAIT + 1) * 1000, false);
-        WatchUi.requestUpdate();
+        (timer as Timer.Timer).start(new Lang.Method(Ask, :expired), (WAIT + 1) * 1000, false);
     }
 
-    function redraw() as Void {
-        WatchUi.requestUpdate();
+    function sending() as Void {
+        WatchUi.showToast(what.equals("refresh") ? "asking phone" : what, null);
     }
 
-    // How the last ask stands, longest spelling first for the footer to fit,
-    // or null when there is nothing to say (never asked, or answered).
-    function status() as Array<String>? {
-        if (at == 0 || answered()) {
-            return null;
+    function unreached() as Void {
+        failed = true;
+        WatchUi.showToast("phone not reached", null);
+    }
+
+    function expired() as Void {
+        if (at > 0 && !failed && !answered()) {
+            WatchUi.showToast("no answer from phone", null);
         }
-        if (failed) {
-            return ["phone not reached", "no phone"];
-        }
-        if (waiting()) {
-            return what.equals("refresh") ? ["asking phone...", "asking..."] : [what + "...", "sending..."];
-        }
-        return ["no answer from phone", "no answer"];
     }
 }
 
@@ -93,7 +100,6 @@ class AskListener extends Communications.ConnectionListener {
     }
 
     function onError() as Void {
-        Ask.failed = true;
-        WatchUi.requestUpdate();
+        Ask.unreached();
     }
 }

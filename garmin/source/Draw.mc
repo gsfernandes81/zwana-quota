@@ -133,19 +133,15 @@ module Draw {
         return 2 * Math.sqrt(r * r - dy * dy).toNumber() - 8;
     }
 
-    // [text], shortened with an ellipsis until it is no wider than [width].
-    // Bounded by the text's length, so it always ends.
+    // [text] on one line no wider than [width], cut with the watch's own
+    // ellipsis where it is not (Graphics.fitTextToArea); "" if not even that
+    // fits.
     function clip(dc as Graphics.Dc, font as Graphics.FontType, text as String, width as Number) as String {
-        if (dc.getTextWidthInPixels(text, font) <= width) {
-            return text;
+        if (width <= 0) {
+            return "";
         }
-        for (var n = text.length() - 1; n > 0; n--) {
-            var cut = (text.substring(0, n) as String) + "...";
-            if (dc.getTextWidthInPixels(cut, font) <= width) {
-                return cut;
-            }
-        }
-        return "";
+        var fitted = Graphics.fitTextToArea(text, font, width, dc.getFontHeight(font), true);
+        return (fitted == null) ? "" : fitted as String;
     }
 
     // Where to split [text] in two: just after the '-', '.', '_' or space
