@@ -188,7 +188,7 @@ object Garmin {
     }
 
     private fun sendTo(iq: ConnectIQ, device: IQDevice, app: IQApp, payload: HashMap<String, Any>): String {
-        val answer = AtomicReference("no answer in 30s")
+        val answer = AtomicReference("no answer in ${SEND_SECONDS}s")
         val done = CountDownLatch(1)
         try {
             iq.sendMessage(device, app, payload, object : ConnectIQ.IQSendMessageListener {
@@ -207,9 +207,18 @@ object Garmin {
         } catch (e: Exception) {
             return "not sent: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim()
         }
-        done.await(30, TimeUnit.SECONDS)
+        done.await(SEND_SECONDS, TimeUnit.SECONDS)
         return answer.get()
     }
 
     private const val READY = "ready"
+
+    /**
+     * How long a send waits for Garmin Connect to say it was delivered. A
+     * send waited out may still arrive; this only bounds how long the next
+     * message is held behind it (Refresher.push makes them one at a time),
+     * and is part of what a watch waiting on an answer waits through
+     * (QuotaWorker.WATCH_SWITCH_SECONDS).
+     */
+    const val SEND_SECONDS = 20L
 }

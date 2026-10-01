@@ -36,6 +36,23 @@ class WatchTest {
         }
     }
 
+    @Test
+    fun `an ask's id is read beside its command, and only a whole number is one`() {
+        val asked = listOf(mapOf("rm" to laptop, "id" to 1790000001))
+        assertEquals(WatchCommand.Remove(laptop), WatchCommand.parse(asked))
+        assertEquals(1790000001, WatchCommand.idOf(asked))
+        for (none in listOf(null, emptyList(), listOf(mapOf("ask" to "refresh")), listOf(mapOf("id" to "7")), listOf(mapOf("id" to 7.0)))) {
+            assertNull(WatchCommand.idOf(none), "$none")
+        }
+    }
+
+    @Test
+    fun `a removal past its deadline is not sent`() {
+        val posts = mutableListOf<Pair<String, String>>()
+        assertFailsWith<TooLate> { client(true, me, setOf(laptop), posts).remove(laptop) { false } }
+        assertTrue(posts.isEmpty())
+    }
+
     private fun session(primary: String, joined: List<String>, on: Boolean = true) = Session(on, primary, 0, me, joined)
 
     @Test

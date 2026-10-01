@@ -26,9 +26,6 @@ import Toybox.Time.Gregorian;
 // for. Never "new" (it would read as fresh), a bare age beside a size, "?"
 // (which is "no reading") or "off" (data switched off).
 //
-// It never trusts the phone's `live`, which was true when it was sent and
-// says nothing about now.
-//
 // And the reset time is on every face, whatever else is squeezed: it is the
 // one thing on it that cannot be inferred from the rest.
 //
@@ -50,8 +47,7 @@ module Quota {
     // if it is older than the one already kept: the background service stores a
     // message and also hands it to the app, which may start much later, and
     // that late copy must not replace a newer send. Ordered by when the phone
-    // sent it rather than by its number, which starts again from 1 whenever
-    // the phone app is reinstalled.
+    // sent it, `sent`.
     function store(data as Application.PersistableType?) as Boolean {
         if (!(data instanceof Dictionary)) {
             return false;
@@ -65,7 +61,7 @@ module Quota {
             return false;
         }
         // The app holds it in memory first: a refused write must not leave
-        // the pages drawing the older message, nor an ask waiting on a `sent`
+        // the pages drawing the older message, nor an ask waiting on an answer
         // it has already been given. Held only there, it is the app's alone:
         // the glance and the app's next start still read the older copy.
         if (remember) {

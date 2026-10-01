@@ -1,3 +1,4 @@
+import Toybox.Application;
 import Toybox.Communications;
 import Toybox.Lang;
 import Toybox.Time;
@@ -5,17 +6,20 @@ import Toybox.Timer;
 import Toybox.WatchUi;
 
 // Asking the phone for something: a fresh reading, a data switch, a device
-// off. One small message each, and the answer comes back the way every
-// reading does -- a new message from the phone, told apart from the last by
-// its `sent`.
+// off. One small message each, carrying an id, and the answer comes back the
+// way every reading does -- in the phone's next message, which lists the ids
+// of the asks it has answered (`re`) and beside each what became of it
+// (`rw`: "" for done, else a word to show). A phone app older than ids sends
+// no `re`, and then any new message, told apart by its `sent`, is the answer.
 //
 // How an ask goes is told in the watch's own toasts (WatchUi.showToast), as
 // Garmin has an asynchronous event told: one when it is sent ("asking
 // phone", whatever was asked: the phone decides), one if the phone cannot
-// be reached, one if no answer comes within WAIT, and one when an ask is
-// refused -- another on its way, or, at a confirmation's Yes, no longer
-// allowed (QuotaDelegate). An answer needs none: the page it changes is
-// redrawn.
+// be reached, one if no answer comes within the wait, one with the phone's
+// word if it did not do what was asked ("too late", "phone busy"), and one
+// when an ask is refused here -- another on its way, or, at a
+// confirmation's Yes, no longer allowed (QuotaDelegate). An answer that did
+// what was asked needs none: the page it changes is redrawn.
 //
 // Offered only when the phone's last message said it is listening (`ask`,
 // and `ctl` for switching): the phone runs its listener only while its
@@ -23,20 +27,29 @@ import Toybox.WatchUi;
 // phone checks every request against the portal again before acting on it.
 // Nothing here runs in the glance or the background.
 module Ask {
-    // How long an ask is waited on before it is called unanswered.
+    // How long a request for a reading is waited on before it is called
+    // unanswered: the phone's read, and its send back.
     const WAIT = 60;
+    // How long a switch or a removal is waited on. The phone makes one only
+    // within QuotaWorker.WATCH_SWITCH_SECONDS (45 s) of hearing it, so none is
+    // made after this has run out; tests/test_watch_contract.py holds the two
+    // to each other.
+    const WAIT_SWITCH = 90;
+    // Where the last id is kept, so an app started again does not reuse one
+    // the phone still lists as answered.
+    const ID_KEY = "aid";
 
     var current as Asking? = null;   // the last ask; null before the first
     var timer as Timer.Timer? = null;
 
     // Whether the ask is on its way: made, not failed, not answered, and
-    // not yet waited on for WAIT.
+    // not yet waited on for its wait.
     function waiting() as Boolean {
         if (current == null) {
             return false;
         }
         var a = current as Asking;
-        return !a.failed && !a.answered() && Time.now().value() - a.at < WAIT;
+        return !a.failed && !a.answered() && Time.now().value() - a.at < a.wait;
     }
 
     function refresh() as Void {
@@ -63,10 +76,17 @@ module Ask {
         if (!Quota.canAsk(d) || !free(message)) {
             return;
         }
-        var a = new Asking(Quota.num(d as Dictionary, "sent"), message.toString());
+        var wait = message.hasKey("ask") ? WAIT : WAIT_SWITCH;
+        var a = new Asking(nextId(), wait, Quota.num(d as Dictionary, "sent"), message.toString());
         current = a;
+        // Sent with its id, on a copy: [message] stays as it was spelt.
+        var out = {"id" => a.id} as Dictionary;
+        var keys = message.keys();
+        for (var i = 0; i < keys.size(); i++) {
+            out.put(keys[i], message.get(keys[i]));
+        }
         try {
-            Communications.transmit(message, null, new AskListener(a));
+            Communications.transmit(out, null, new AskListener(a));
         } catch (e instanceof Lang.Exception) {
             unreached(a);
             return;
@@ -78,7 +98,41 @@ module Ask {
         }
         var t = timer as Timer.Timer;
         t.stop();
-        t.start(new Lang.Method(Ask, :expired), (WAIT + 1) * 1000, false);
+        t.start(new Lang.Method(Ask, :expired), (wait + 1) * 1000, false);
+    }
+
+    // An id no ask has had: one more than the last, and never behind the
+    // clock, so ids still move on if storage lost the last one. No random
+    // numbers: nothing about them needs to be unguessable, only new.
+    function nextId() as Number {
+        var id = Time.now().value();
+        try {
+            var last = Application.Storage.getValue(ID_KEY);
+            if (last instanceof Number && last >= id) {
+                id = last + 1;
+            }
+            Application.Storage.setValue(ID_KEY, id);
+        } catch (e instanceof Lang.Exception) {
+            // Unkept, the clock alone still moves on between asks.
+        }
+        return id;
+    }
+
+    // A message came from the phone. If it answers the ask waited on with a
+    // word, show the word, once.
+    function heard() as Void {
+        if (current == null) {
+            return;
+        }
+        var a = current as Asking;
+        if (a.failed || a.told || !a.answered()) {
+            return;
+        }
+        a.told = true;
+        var word = a.word();
+        if (word.length() > 0) {
+            toast(word);
+        }
     }
 
     // Ask [a] did not reach the phone. A late failure of an earlier ask says
@@ -105,27 +159,65 @@ module Ask {
     }
 }
 
-// One ask: when it was made, the reading it was made against, what it was,
-// and whether it failed to reach the phone. A new one replaces it on each
-// send, so its listener can tell whether it is still the one waited on.
+// One ask: its id, how long it is waited on, when it was made, the reading
+// it was made against, what it was, and whether it failed to reach the
+// phone. A new one replaces it on each send, so its listener can tell
+// whether it is still the one waited on.
 class Asking {
+    var id as Number;
+    var wait as Number;        // seconds: Ask.WAIT or Ask.WAIT_SWITCH
     var at as Number;          // watch time when it was made
     var before as Number;      // the kept reading's `sent` then
     // The message, spelt: every ask is one key, so its toString is a stable
     // spelling of it to tell a repeat by.
     var message as String;
     var failed as Boolean = false;
+    var told as Boolean = false;   // its answer's word has been shown
 
-    function initialize(sent as Number, m as String) {
+    function initialize(i as Number, w as Number, sent as Number, m as String) {
+        id = i;
+        wait = w;
         at = Time.now().value();
         before = sent;
         message = m;
     }
 
-    // Whether a reading has come since: the answer, as every reading comes.
-    function answered() as Boolean {
+    // Where the phone's last message lists this ask among those it answered:
+    // -1 if it does not, -2 if it lists none at all (a phone app older than
+    // ids). Bounded by the list's size, which the phone keeps to 16.
+    function place() as Number {
         var d = Quota.last();
-        return d != null && Quota.num(d, "sent") != before;
+        if (d == null) {
+            return -1;
+        }
+        var re = d.get("re");
+        if (!(re instanceof Array)) {
+            return -2;
+        }
+        var ids = re as Array;
+        for (var i = 0; i < ids.size(); i++) {
+            if (ids[i] instanceof Number && ids[i] == id) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // Whether the phone has answered it: by its id, or from an older phone
+    // app by any message since.
+    function answered() as Boolean {
+        var i = place();
+        if (i == -2) {
+            return Quota.num(Quota.last() as Dictionary, "sent") != before;
+        }
+        return i >= 0;
+    }
+
+    // What became of it: "" for done or not yet answered, else the phone's word.
+    function word() as String {
+        var d = Quota.last();
+        var i = place();
+        return (d == null || i < 0) ? "" : Quota.item(Quota.arr(d, "rw"), i);
     }
 }
 

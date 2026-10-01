@@ -16,6 +16,7 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import io.github.gsfernandes81.zwanaquota.core.Answers
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
 
 /**
@@ -91,21 +92,37 @@ class WatchListener : Service() {
         val store = Store(this)
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
+        val id = WatchCommand.idOf(message)
         when (command) {
             WatchCommand.Refresh -> {
                 // Every ask is a job of its own, or folded into an earlier
-                // ask's still going (Work.askedByWatch). No time gap: one left
-                // unanswered would only tell the wearer "no answer from phone".
+                // ask's still going (Work.askedByWatch), and answered by the
+                // first reading begun after this moment (Answers.settle).
                 store.note("listener", "$watch asked for a reading")
+                id?.let { store.asks { pending, _ -> pending.add(Answers.Pending(it, System.currentTimeMillis())) } }
                 Work.askedByWatch(this)
             }
             else -> {
                 // Switching and removing only with their own setting on. The
                 // watch only offers them then, so this refuses a stale watch
                 // that still thinks it may.
-                if (!store.watchCanControl) return store.note("listener", "$watch asked to $command; not allowed in settings")
+                val refusal = when {
+                    !store.watchCanControl -> "not allowed"
+                    // One switch at a time, whoever asked: a second is
+                    // refused rather than queued behind the first.
+                    Work.switchBusy(this) -> "phone busy"
+                    else -> null
+                }
+                if (refusal != null) {
+                    store.note("listener", "$watch asked to $command; $refusal")
+                    if (id != null) {
+                        store.answer(id, refusal)
+                        Work.answer(this)
+                    }
+                    return
+                }
                 store.note("listener", "$watch asked to $command")
-                Work.fromWatch(this, command)
+                Work.fromWatch(this, command, id)
             }
         }
     }

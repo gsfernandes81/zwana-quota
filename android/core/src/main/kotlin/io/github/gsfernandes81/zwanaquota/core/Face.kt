@@ -9,12 +9,12 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** How much is left, as a word: what the colour follows and the watch is sent. */
-enum class Level(val word: String) {
-    OK("ok"),
-    LOW("low"),
-    CRITICAL("critical"),
-    UNKNOWN("unknown"),
+/** How much is left, graded: what the colour follows. */
+enum class Level {
+    OK,
+    LOW,
+    CRITICAL,
+    UNKNOWN,
 }
 
 /**
@@ -174,8 +174,7 @@ data class Face(
  * the phone's own face draws: the watch holds no unit ladder, no thresholds
  * and no grades, so there is no third copy of any of them to drift.
  *
- * The watch works out staleness itself, from `ts`: it never trusts `live`,
- * which was true when the phone sent it and says nothing about now.
+ * The watch works out staleness itself, from `ts`.
  *
  * `reset` is the reset after the reading, not after the send, so it may
  * already have passed when the message arrives: that is the watch's "new day".
@@ -189,6 +188,14 @@ data class Face(
  * reading. The watch offers to ask only when it is true, so the setting that
  * turns the listener on is also what shows the offer: nothing on the watch
  * mentions asking unless the phone would answer.
+ *
+ * `re` and `rw` answer the watch's asks by their ids ([Answers]): `re` the
+ * ids of the last few asks the phone has answered, `rw` beside each what
+ * became of it -- "" for done, else a word for the watch to show ("too
+ * late", "phone busy"). A bounded list rather than the one ask this message
+ * answers, so a later message that supersedes it on the watch still does.
+ * Always sent, perhaps empty: the watch tells an older phone app by its
+ * absence.
  */
 object WatchPayload {
     const val VERSION = 1
@@ -197,14 +204,13 @@ object WatchPayload {
         doc: Document,
         face: Face,
         now: Instant,
-        sequence: Int,
         everySeconds: Int,
         canAsk: Boolean = false,
         session: Map<String, Any> = emptyMap(),
+        answers: List<Answers.Answer> = emptyList(),
     ): HashMap<String, Any> =
         hashMapOf<String, Any>(
             "v" to VERSION,
-            "n" to sequence,
             "ts" to epochInt(doc.readingTaken),
             "sent" to epochInt(now),
             "every" to everySeconds,
@@ -214,16 +220,13 @@ object WatchPayload {
             "reset" to epochInt(Pipeline.nextReset(doc.readingTaken)),
             "rem" to kib(doc.remainderBytes),
             "pool" to kib(doc.poolBytes),
-            "grant" to kib(doc.grantBytes),
-            "free" to kib(doc.freeLeftBytes),
             "online" to doc.online,
-            "live" to doc.live,
             "fig" to face.figure,
             "share" to Format.percent(doc.remainderBytes.toDouble() / maxOf(1L, doc.poolBytes)),
-            "gfig" to Format.size(doc.grantBytes),
             "paid" to Format.mib(doc.paidLeftBytes),
-            "level" to face.level.word,
             "ask" to canAsk,
+            "re" to ArrayList(answers.map { it.id }),
+            "rw" to ArrayList(answers.map { it.word }),
         ).apply { putAll(session) }
 
     private fun kib(bytes: Long): Int = (maxOf(0L, bytes) / 1024).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
