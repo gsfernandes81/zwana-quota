@@ -45,7 +45,7 @@ module Ask {
 
     // Whether [message] can be sent now. While another ask is on its way it
     // cannot, and is told so -- checked before a confirmation is asked, so
-    // nobody confirms something that will not be sent. The very same
+    // nobody confirms something another ask would stop. The very same
     // message again (the same device, not merely another disconnect) is told
     // it is already on its way.
     function free(message as Dictionary) as Boolean {
