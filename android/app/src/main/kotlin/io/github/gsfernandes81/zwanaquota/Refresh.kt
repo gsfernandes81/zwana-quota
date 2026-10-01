@@ -500,11 +500,11 @@ object Work {
 
     /**
      * The watch asked for a reading: read now and send it back (the newest
-     * reading there is, if the read fails; nothing only if the phone has never
-     * had one). KEEP: an ask arriving while an earlier ask is still being read
-     * is answered by that read's send -- the job's last act, and new to the watch whatever it asked
-     * against -- so asks never queue up reads of their own, however often a
-     * watch asks.
+     * reading stored, if the read fails or is not made; nothing if none is).
+     * KEEP: an ask arriving while an earlier ask's job is still going is folded
+     * into it -- answered by that job's send if it arrives before the send
+     * reaches its watch, and otherwise dropped until the job ends, the time of
+     * the send to each watch -- so asks never queue up reads of their own.
      */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
