@@ -208,18 +208,18 @@ class Refresher(context: Context) {
     }
 
     /**
-     * Send the watch the newest reading there is. One send at a time,
-     * whichever job it comes from, and the whole message is made inside it:
-     * the reading and the session as they are stored when this send's turn
-     * comes, so a run that waited here, or whose read failed, sends what is
-     * stored rather than what it set out with. `sent` is the moment the
-     * message is made, in whole seconds, taken inside the lock, so while the
-     * clock runs forward a later send never carries an earlier stamp: the
-     * watch keeps a message only if it is not older than the one it has, and
-     * takes one as an ask's answer only if its `sent` differs. So the message
-     * the watch keeps is the newest it was given, and offeredMacs holds the
-     * devices of the newest made -- the same, unless that send did not get
-     * through.
+     * Send the watch the newest reading there is. Messages are made and handed
+     * to Garmin Connect one at a time, whichever job they come from, and each
+     * is made inside its turn: the newer of this run's reading and the one
+     * stored by then (another run may have read since), with the session as
+     * stored. `sent` is the moment the message is made, in whole seconds, so
+     * while the clock runs forward a later message never carries an earlier
+     * stamp -- and that stamp, not the order they reach the watch (a send the
+     * phone gave up waiting on may still arrive), is what the watch goes by: it
+     * keeps a message only if it is not older than the one it has, and takes
+     * one as an ask's answer only if its `sent` differs. So the message the
+     * watch keeps is the newest it was given, and offeredMacs holds the devices
+     * of the newest made -- the same, unless that send did not get through.
      * [live] is whether this run read [reading]; a newer one another run
      * stored is sent as not live.
      */
@@ -495,9 +495,10 @@ object Work {
 
     /**
      * The watch asked for a reading: read now and send it back. KEEP: an ask
-     * arriving while one is still being read is answered by that read's send
-     * -- the job's last act, and new to the watch whatever it asked against --
-     * so one read is in flight however often a watch asks.
+     * arriving while an earlier ask is still being read is answered by that
+     * read's send -- the job's last act, and new to the watch whatever it asked
+     * against -- so asks never queue up reads of their own, however often a
+     * watch asks.
      */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
