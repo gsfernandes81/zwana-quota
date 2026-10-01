@@ -62,8 +62,8 @@ class QuotaGlance extends WatchUi.GlanceView {
             // title's place beside the bare clock -- the least the reset
             // time can shrink to.
             var spelt = mark as Array<String>;
-            var clocks = (ladder == null) ? [""] : ladder as Array<String>;
-            var clock = dc.getTextWidthInPixels(clocks[clocks.size() - 1], font) + 6;
+            var clocks = ladder as Array<String>;
+            var clock = dc.getTextWidthInPixels(clocks[clocks.size() - 1], font);
             var placed = false;
             for (var i = 0; i < spelt.size() && !placed; i++) {
                 var w = dc.getTextWidthInPixels(spelt[i], font);

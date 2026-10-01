@@ -148,6 +148,7 @@ figure's place beside what is left, or the title's if it does not fit there:
   yesterday's, and the grant it does not count has already landed.
 - `2h ago`: no reading has arrived for more than two send intervals (an hour).
 - `offline`: the portal said the session was down when it was read.
+- `no time`: the reading carries no time, so its age cannot be told.
 
 Where even the title's place is too narrow for the word, a short form is
 drawn instead: `old` where the figure is out of date (`new day`, `2h ago`),
