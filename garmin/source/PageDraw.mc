@@ -35,9 +35,9 @@ module PageDraw {
         var gap = 10;
         dc.setPenWidth(1);
         // In whole degrees. An arc from 90 to 90 is the whole circle, so
-        // under a degree is drawn as nothing (as is no reading, share -1); a
-        // gap of two degrees or less is not one at a 4px pen, so that is
-        // drawn as full.
+        // under a degree is drawn as nothing left -- the thin ring alone, as
+        // for no reading (share -1); a gap of two degrees or less is not one
+        // at a 4px pen, so that is drawn as full.
         var sweep = (share * 360).toNumber();
         if (sweep <= 0) {
             dc.drawCircle(cx, cy, r);
