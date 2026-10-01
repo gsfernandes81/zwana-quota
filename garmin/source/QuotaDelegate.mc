@@ -15,7 +15,8 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
 
     function onSelect() as Boolean {
         var d = Quota.last();
-        if (view.page == 0) {
+        var page = view.shown();
+        if (page == 0) {
             if (!Quota.canAsk(d)) {
                 return false;
             }
@@ -26,7 +27,7 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             return false;
         }
         var dd = d as Dictionary;
-        if (view.page == 1) {
+        if (page == 1) {
             var act = Quota.str(dd, "act");
             if (act.length() == 0) {
                 return false;
@@ -34,6 +35,9 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             var message = {"do" => act};
             var label = Quota.str(dd, "actl").toLower();
             var question = Quota.str(dd, "cq");
+            if (!Ask.free(label)) {
+                return true;
+            }
             if (question.length() > 0) {
                 WatchUi.pushView(new WatchUi.Confirmation(question), new SendConfirm(message, label), WatchUi.SLIDE_IMMEDIATE);
             } else {
@@ -42,10 +46,13 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         // A device's page: that device, if the phone offered to take it off.
-        var i = view.page - 2;
+        var i = page - 2;
         var ip = view.deviceIp(dd, i);
         if (ip.length() == 0) {
             return false;
+        }
+        if (!Ask.free("disconnecting")) {
+            return true;
         }
         var name = Quota.item(Quota.arr(dd, "dn"), i);
         WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + (name.length() > 0 ? name : ip) + "?"),

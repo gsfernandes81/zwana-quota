@@ -44,16 +44,23 @@ module Ask {
         }
     }
 
-    // Send [message], unless asking is not offered or one is on its way --
-    // which a press meanwhile is told again, rather than seeming ignored.
+    // Whether [label] can be sent now. While another ask is on its way it
+    // cannot, and is told so -- checked before a confirmation is asked, so
+    // nobody confirms something that will not be sent. Pressing again for
+    // the same thing is told it is still on its way.
+    function free(label as String) as Boolean {
+        if (!waiting()) {
+            return true;
+        }
+        toast(label.equals(what) ? spelled(what) : "phone busy, not sent");
+        return false;
+    }
+
+    // Send [message], unless asking is not offered or one is on its way.
     // [label] is what the toasts call it.
     function send(message as Dictionary, label as String) as Void {
         var d = Quota.last();
-        if (!Quota.canAsk(d)) {
-            return;
-        }
-        if (waiting()) {
-            sending();
+        if (!Quota.canAsk(d) || !free(label)) {
             return;
         }
         at = Time.now().value();
@@ -61,45 +68,61 @@ module Ask {
         failed = false;
         what = label;
         try {
-            Communications.transmit(message, null, new AskListener());
+            Communications.transmit(message, null, new AskListener(at));
         } catch (e instanceof Lang.Exception) {
-            unreached();
+            unreached(at);
             return;
         }
-        sending();
-        // Once the wait is over, say so if nothing came.
-        if (timer != null) {
-            (timer as Timer.Timer).stop();
+        toast(spelled(what));
+        // Once the wait is over, say so if nothing came. One timer, kept.
+        if (timer == null) {
+            timer = new Timer.Timer();
         }
-        timer = new Timer.Timer();
-        (timer as Timer.Timer).start(new Lang.Method(Ask, :expired), (WAIT + 1) * 1000, false);
+        var t = timer as Timer.Timer;
+        t.stop();
+        t.start(new Lang.Method(Ask, :expired), (WAIT + 1) * 1000, false);
     }
 
-    function sending() as Void {
-        WatchUi.showToast(what.equals("refresh") ? "asking phone" : what, null);
+    function spelled(label as String) as String {
+        return label.equals("refresh") ? "asking phone" : label;
     }
 
-    function unreached() as Void {
+    // The ask made at [stamp] did not reach the phone. A late failure of an
+    // earlier ask says nothing about the one now waited on.
+    function unreached(stamp as Number) as Void {
+        if (stamp != at) {
+            return;
+        }
         failed = true;
-        WatchUi.showToast("phone not reached", null);
+        toast("phone not reached");
     }
 
     function expired() as Void {
         if (at > 0 && !failed && !answered()) {
-            WatchUi.showToast("no answer from phone", null);
+            toast("no answer from phone");
+        }
+    }
+
+    function toast(text as String) as Void {
+        if (WatchUi has :showToast) {
+            WatchUi.showToast(text, null);
         }
     }
 }
 
+// Hears whether the ask made at [stamp] reached the phone.
 class AskListener extends Communications.ConnectionListener {
-    function initialize() {
+    var stamp as Number;
+
+    function initialize(s as Number) {
         ConnectionListener.initialize();
+        stamp = s;
     }
 
     function onComplete() as Void {
     }
 
     function onError() as Void {
-        Ask.unreached();
+        Ask.unreached(stamp);
     }
 }

@@ -16,8 +16,10 @@ import Toybox.WatchUi;
 //
 // The replacing waits while something else is on top of the loop (the
 // watch's confirmation, before a device is taken off): replacing the top
-// view then would replace the confirmation, not the loop. It happens when a
-// page is shown again.
+// view then would replace the confirmation, not the loop. Whether the loop
+// is on top is asked of the view stack itself (getCurrentView), not inferred
+// from onShow and onHide. It is caught up when a page is shown again, or at
+// the next message.
 module Pages {
     // The most devices given a page each: what the phone sends at most
     // (WatchSession.MAX_DEVICES), and a bound on the pages whatever arrives.
@@ -25,9 +27,7 @@ module Pages {
 
     var built as Number = 0;      // the count the loop on screen was built for
     var at as Number = 0;         // the page last shown
-    var on as Number = 0;         // the serial of the page view on screen; 0 none
-    var serials as Number = 0;
-    var stale as Boolean = false; // the count changed while a page was not shown
+    var stale as Boolean = false; // the count changed while the loop was covered
     var timer as Timer.Timer? = null;
 
     // How many devices have a page of their own.
@@ -47,15 +47,28 @@ module Pages {
         return 2 + (n > 0 ? n : 1);
     }
 
+    // [page] where there are [n] pages: the last for one past it. The one
+    // rule for a page that is no longer there, for the loop and the views.
+    function clamp(page as Number, n as Number) as Number {
+        return page < 0 ? 0 : (page >= n ? n - 1 : page);
+    }
+
     // A loop for the pages there are now, opening on [page], or on the last
     // page if there are no longer that many.
     function loop(page as Number) as [WatchUi.ViewLoop, WatchUi.ViewLoopDelegate] {
         var n = count(Quota.last());
         built = n;
         stale = false;
-        var p = page < 0 ? 0 : (page >= n ? n - 1 : page);
-        var l = new WatchUi.ViewLoop(new QuotaPages(n), {:page => p, :wrap => true});
+        var l = new WatchUi.ViewLoop(new QuotaPages(n), {:page => clamp(page, n), :wrap => true});
         return [l, new WatchUi.ViewLoopDelegate(l)];
+    }
+
+    // Whether the loop is the top of the view stack -- the loop itself or one
+    // of its pages, however the firmware reports it -- and so the view that
+    // switchToView would replace.
+    function onTop() as Boolean {
+        var top = WatchUi.getCurrentView()[0];
+        return top instanceof WatchUi.ViewLoop || top instanceof QuotaView;
     }
 
     // A message arrived: redraw, and replace the loop if its count is no
@@ -66,7 +79,7 @@ module Pages {
             WatchUi.requestUpdate();
             return;
         }
-        if (on == 0) {
+        if (!onTop()) {
             stale = true;
             return;
         }
@@ -74,31 +87,18 @@ module Pages {
         WatchUi.switchToView(pair[0], pair[1], WatchUi.SLIDE_IMMEDIATE);
     }
 
-    function serial() as Number {
-        serials += 1;
-        return serials;
-    }
-
-    // Page [page], with view [id], is on screen. A count that changed while
-    // it was not is caught up now -- just after, not inside the view's
-    // onShow, which is no place to replace the view being shown.
-    function shown(id as Number, page as Number) as Void {
-        on = id;
+    // Page [page] is on screen. A count that changed while the loop was
+    // covered is caught up now -- just after, not inside the view's onShow,
+    // which is no place to replace the view being shown. One timer, kept.
+    function shown(page as Number) as Void {
         at = page;
         if (stale) {
-            if (timer != null) {
-                (timer as Timer.Timer).stop();
+            if (timer == null) {
+                timer = new Timer.Timer();
             }
-            timer = new Timer.Timer();
-            (timer as Timer.Timer).start(new Lang.Method(Pages, :refit), 50, false);
-        }
-    }
-
-    // View [id] has gone. The loop may show the next page before it hides
-    // this one, so only the view on screen clears it.
-    function gone(id as Number) as Void {
-        if (on == id) {
-            on = 0;
+            var t = timer as Timer.Timer;
+            t.stop();
+            t.start(new Lang.Method(Pages, :refit), 50, false);
         }
     }
 }
