@@ -6,8 +6,8 @@ import Toybox.System;
 import Toybox.WatchUi;
 
 // The watch app: a glance for the glance loop, the pages behind it
-// (Pages.mc), and a background service that catches the phone's message when neither is on
-// screen -- which is nearly always.
+// (Pages.mc), and a background service that catches the phone's message
+// when neither is on screen -- which is nearly always.
 (:background, :glance)
 class QuotaApp extends Application.AppBase {
     // Whether this is the app itself -- not the glance or the background,

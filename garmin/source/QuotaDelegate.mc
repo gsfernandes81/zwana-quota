@@ -3,8 +3,10 @@ import Toybox.WatchUi;
 
 // START on a page. UP and DOWN are the loop's (Pages.mc) and pass through
 // here untouched. START does the page's one thing, and only what the phone's
-// last message offered: on a device's page, take that device off. Anything
-// that takes a device off data asks first, in the watch's own confirmation.
+// last message offered: a fresh reading on the first page, the data switch
+// on the Connection page, and on a device's page, taking that device off
+// (QuotaView.mc lists them). Anything that takes a device off data asks
+// first, in the watch's own confirmation.
 class QuotaDelegate extends WatchUi.BehaviorDelegate {
     var view as QuotaView;
 

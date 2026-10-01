@@ -2,15 +2,15 @@ import Toybox.Graphics;
 import Toybox.Lang;
 
 // What the glance draws, and the pages with it, the way the Instinct's own
-// screens draw theirs: square ends and right angles, crisp on its MIP
-// screen, white on black. Only what the glance uses is here, since the
+// screens draw theirs: square ends and right angles, crisp on the Solar's
+// MIP screen, white on black. Only what the glance uses is here, since the
 // glance runs in a few dozen kilobytes and loads all of a (:glance) module;
 // what only the pages draw is PageDraw.
 //
 // Every size is worked out from what it is given; nothing assumes a screen.
 (:glance)
 module Draw {
-    // The Body Battery bar, as the watch draws its own on a MIP screen:
+    // The Body Battery bar, as the watch draws its own:
     // square ends and right angles, pixel-crisp. What is left is a thick bar
     // from the left; then a small gap; then what has gone as a thin line to
     // the right end, centred on the thick bar's height. [h] is the thick
