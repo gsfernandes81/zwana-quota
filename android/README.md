@@ -168,8 +168,9 @@ The session pages appear once the phone has read the session: one page per
 device, this phone first, up to eight (the last says how many more). Anything
 that takes a device off data asks first, in the watch's own confirmation.
 
-The glance's title row shows how much is paid too, when nothing more urgent
-(the reading's age, `offline`) needs the room and it fits beside `DATA`.
+The glance shows when the grant lands at the right of its title row, and how
+much is paid beside the figure below, when nothing more urgent (the reading's
+age, `offline`) needs that room and it fits.
 
 ### Building the watch app
 
