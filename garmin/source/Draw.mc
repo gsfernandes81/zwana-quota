@@ -139,6 +139,9 @@ module Draw {
     // line -- at a character, or back to the last space, or not at all in a
     // name with none, such as a host name -- is not documented.
     function clip(dc as Graphics.Dc, font as Graphics.FontType, text as String, width as Number) as String {
+        if (width <= 0) {
+            return "";
+        }
         if (dc.getTextWidthInPixels(text, font) <= width) {
             return text;
         }

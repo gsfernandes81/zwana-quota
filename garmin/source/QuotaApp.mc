@@ -10,6 +10,10 @@ import Toybox.WatchUi;
 // screen -- which is nearly always.
 (:background, :glance)
 class QuotaApp extends Application.AppBase {
+    // Whether this is the app itself -- not the glance or the background,
+    // which run this same class without the pages.
+    var app as Boolean = false;
+
     function initialize() {
         AppBase.initialize();
     }
@@ -25,6 +29,7 @@ class QuotaApp extends Application.AppBase {
             Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
         }
         Quota.remember = true;
+        app = true;
         return Pages.loop(0);
     }
 
@@ -39,14 +44,15 @@ class QuotaApp extends Application.AppBase {
 
     // What the background service passed on: now if the app is running, or
     // at its next start if not -- and to the glance, when it is the one on
-    // screen. Pages is not in the glance, so only the app refits it.
+    // screen. Pages is not in the glance, so only the app refits it. The
+    // glance redraws whether or not it could store the message itself: the
+    // background service stored it too, and the glance reads from storage.
     function onBackgroundData(data as Application.PersistableType) as Void {
-        if (Quota.store(data)) {
-            if (Quota.remember) {
-                Pages.refit();
-            } else {
-                WatchUi.requestUpdate();
-            }
+        var kept = Quota.store(data);
+        if (!app) {
+            WatchUi.requestUpdate();
+        } else if (kept) {
+            Pages.refit();
         }
     }
 
