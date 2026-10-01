@@ -18,11 +18,19 @@ import Toybox.WatchUi;
 // The session pages exist only when the phone sent the session (`dat`);
 // START does anything only when the phone said it would listen (`ask`,
 // `ctl`).
+//
+// Each page is its own view, and turning a page slides the next one in over
+// it, as Garmin's guidelines have a page loop do ("Use Transitions to Suggest
+// Page Loops"): DOWN slides it up from below, UP down from above, the watch's
+// own carousel. switchToView replaces the view rather than stacking it, so
+// BACK still leaves the app from any page, and the old view and its delegate
+// are let go.
 class QuotaView extends WatchUi.View {
-    var page as Number = 0;
+    var page as Number;
 
-    function initialize() {
+    function initialize(p as Number) {
         View.initialize();
+        page = p;
     }
 
     // The most devices given a page each: what the phone sends at most
@@ -46,12 +54,14 @@ class QuotaView extends WatchUi.View {
         return 2 + (n > 0 ? n : 1);
     }
 
-    // One page on, round from the last to the first and back. The count is
-    // read again each time, since a new message can add or take devices.
+    // One page on, round from the last to the first and back, sliding in the
+    // way it was asked for: on round the loop as well, so the carousel never
+    // reverses under the thumb. The count is read again each time, since a
+    // new message can add or take devices.
     function turn(by as Number) as Void {
         var n = pages(Quota.last());
-        page = ((page + by) % n + n) % n;
-        WatchUi.requestUpdate();
+        var next = new QuotaView(((page + by) % n + n) % n);
+        WatchUi.switchToView(next, new QuotaDelegate(next), by > 0 ? WatchUi.SLIDE_UP : WatchUi.SLIDE_DOWN);
     }
 
     // The IP START may ask the phone to take off from device page [i], or ""
