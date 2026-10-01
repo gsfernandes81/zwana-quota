@@ -46,8 +46,8 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
- * One refresh: read the portal if the cache is too old, draw the widget, and
- * send the watch the result if the watch is switched on.
+ * One refresh: read the portal if the cache is too old, draw the widget, and,
+ * when a send is wanted, send the watch the newest reading.
  *
  * quota_widget.current()'s policy, minus its lock and its detached child --
  * WorkManager's unique work is both of those. The cache is answered from for
@@ -96,7 +96,7 @@ class Refresher(context: Context) {
         // to name is drawn by its IP meanwhile, never holds up the figure.
         if (live && nameDevices(path)) QuotaWidget.draw(app, face)
 
-        if (pushWanted && reading != null) push(reading, live, now)
+        if (pushWanted) push(reading, live)
     }
 
     /**
@@ -207,23 +207,51 @@ class Refresher(context: Context) {
         return changed
     }
 
-    private fun push(reading: Reading, live: Boolean, now: Instant) {
-        val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, live, now)
-        val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
-        // Offered only while the listener is actually up, not merely switched
-        // on: Android can refuse to restart it, and a watch should not offer
-        // what nobody will hear.
-        val canAsk = store.watchEnabled && store.watchCanAsk && WatchListener.running
-        val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
-        val known = store.session()?.takeIf { vault.signedIn }
-        val canControl = canAsk && store.watchCanControl
-        val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
-        // Which device each offered address was, so a removal asked for later
-        // cannot take off whoever has the address by then.
-        store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
-        val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
-        store.lastPush = now.epochSecond
-        store.note("watch", Garmin.send(app, payload).joinToString("; "))
+    /**
+     * Send the watch the newest reading there is. Messages are made and handed
+     * to Garmin Connect one at a time, whichever job they come from, and each
+     * is made inside its turn: the newer of this run's reading and the one
+     * stored by then (by `ts`, when each read began; another run may have read
+     * since), with the session as stored. (The `reset` sent is the one after
+     * the reading, whenever the message is made: WatchPayload.) `sent` is the
+     * moment the message is made, in whole seconds, so while the clock runs
+     * forward a later message never carries an earlier stamp -- and that
+     * stamp, not the order they reach the watch (a send the phone gave up
+     * waiting on may still arrive), is what the watch goes by: it keeps a
+     * message only if it is not older than the one it has, and takes one as an
+     * ask's answer only if its `sent` differs. So the message the watch keeps
+     * is the newest it was given, and offeredMacs holds the devices of the
+     * newest made -- the same, unless that send did not get through.
+     * [live] is whether this run read [reading]; a newer one another run
+     * stored is sent as not live, and is sent even when this run has none.
+     * With no reading anywhere there is nothing to send.
+     */
+    private fun push(reading: Reading?, live: Boolean) {
+        synchronized(SENDING) {
+            val stored = store.reading()
+            val (newest, fresh) = when {
+                reading == null -> (stored ?: return) to false
+                stored != null && stored.ts > reading.ts -> stored to false
+                else -> reading to live
+            }
+            val now = Instant.now()
+            val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, fresh, now)
+            val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
+            // Offered only while the listener is actually up, not merely
+            // switched on: Android can refuse to restart it, and a watch
+            // should not offer what nobody will hear.
+            val canAsk = store.watchEnabled && store.watchCanAsk && WatchListener.running
+            val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
+            val known = store.session()?.takeIf { vault.signedIn }
+            val canControl = canAsk && store.watchCanControl
+            val session = known?.let { WatchSession.fields(it, names, canControl) }.orEmpty()
+            // Which device each offered address was, so a removal asked for
+            // later cannot take off whoever has the address by then.
+            store.offeredMacs = if (known != null && canControl) known.macs.filterKeys { known.removable(it) } else emptyMap()
+            val payload = WatchPayload.build(doc, face, now, store.nextSequence(), EVERY_SECONDS, canAsk, session)
+            store.lastPush = now.epochSecond
+            store.note("watch", Garmin.send(app, payload).joinToString("; "))
+        }
     }
 
     private fun faceOf(reading: Reading?, live: Boolean, now: Instant, why: String?): Face {
@@ -234,6 +262,9 @@ class Refresher(context: Context) {
     }
 
     companion object {
+        /** Held for the whole of a send to the watch ([push]). */
+        private val SENDING = Any()
+
         /** quota_widget.DEFAULT_MAX_AGE and the tile's CACHE_MAX_AGE. */
         const val MAX_AGE_SECONDS = 45.0
 
@@ -384,7 +415,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger)
                 inputData.getBoolean(PERIODIC, false) -> {
                     // Screen on: read, as the Tasker tile's profile does, and
-                    // send the watch the result too. Screen off: nobody is
+                    // send the watch a reading too. Screen off: nobody is
                     // looking at the widget, so nothing -- unless the watch has
                     // gone its send interval without one.
                     val screenOn = applicationContext.getSystemService(PowerManager::class.java)?.isInteractive != false
@@ -469,7 +500,15 @@ object Work {
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 
-    /** The watch asked for a reading: read now and send it back. */
+    /**
+     * The watch asked for a reading: read now and send it back (the newest
+     * reading stored, if the read fails at the portal or is not made; nothing
+     * if none is).
+     * KEEP: an ask arriving while an earlier ask's job is still going is folded
+     * into it and answered by that job's send -- unless it was made against that
+     * very send before the job ended, which the watch then waits out. So asks
+     * never queue up reads of their own.
+     */
     fun askedByWatch(context: Context) = enqueue(context, ASKED, true, true, "watch asked", ExistingWorkPolicy.KEEP)
 
     /** Send to the watch now, whether or not the periodic send is on: the test button. */

@@ -177,6 +177,9 @@ data class Face(
  * The watch works out staleness itself, from `ts`: it never trusts `live`,
  * which was true when the phone sent it and says nothing about now.
  *
+ * `reset` is the reset after the reading, not after the send, so it may
+ * already have passed when the message arrives: that is the watch's "new day".
+ *
  * `paid` is how much of what is left is paid data, in whole MiB whatever
  * its size, spelled here like every other figure.
  *
@@ -205,7 +208,10 @@ object WatchPayload {
             "ts" to epochInt(doc.readingTaken),
             "sent" to epochInt(now),
             "every" to everySeconds,
-            "reset" to epochInt(doc.reset),
+            // The reset after the reading, not after whenever the document was
+            // derived: the watch's "new day" is that reset having passed, so a
+            // reading from before it, sent after it, must say so.
+            "reset" to epochInt(Pipeline.nextReset(doc.readingTaken)),
             "rem" to kib(doc.remainderBytes),
             "pool" to kib(doc.poolBytes),
             "grant" to kib(doc.grantBytes),

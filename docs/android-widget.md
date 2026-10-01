@@ -27,9 +27,13 @@ So asking is a setting, off by default: **Let the watch ask for a reading**.
 While it (and sending) is on, `WatchListener` runs as a foreground service
 of type `connectedDevice` holding the SDK's app-event listener, re-registered
 every 15 minutes in case Garmin Connect restarted, and started again at boot
-and after an update. A message from the watch app enqueues a read-and-send,
-at most one per 20 seconds. The app does not ask for permission to post
-notifications, so on Android 13+ the service's notification is not shown.
+and after an update. Each ask for a reading from the watch enqueues a
+read-and-send; one arriving while an earlier ask's job is still going is
+folded into it and answered by that job's send, unless it was made against
+that very send while the job was still finishing. Messages to the watch are
+made one at a time, each with the newest reading the phone has when its turn
+comes. The app does not ask for permission to post notifications, so on
+Android 13+ the service's notification is not shown.
 
 The watch offers to ask only when the phone's last reading says it is
 listening (the payload's `ask`), so the setting is also what shows the offer:
@@ -160,12 +164,15 @@ six hours and a silence one hour, because addresses are handed out again.
 One `HashMap`, built in one place (`WatchPayload` in `core/.../Face.kt`) and
 tested there. The SDK carries Integer, Float, String, Boolean, List and
 HashMap, and **no Long**, so byte counts go as whole KiB and times as epoch
-seconds. The figures go as the strings the phone's own face draws (the paid part as
-`paid`, in whole MiB at every size): the watch holds no unit ladder, no thresholds and no grades, which is how a third
-language avoids a third copy. `tests/test_watch_contract.py` reads both
-sources as text and fails `make test` when a key the watch reads is not one
-the phone sends, when the versions differ, or when the app id in
-`garmin/manifest.xml` is not the phone's `APP_ID`.
+seconds. `reset` is the reset after the reading, which may already have
+passed when the message arrives: the watch's "new day". The figures go as
+the strings the phone's own face draws (the paid part as `paid`, in whole
+MiB at every size): the watch holds no unit ladder, no thresholds and no
+grades, which is how a third language avoids a third copy.
+`tests/test_watch_contract.py` reads both sources as text and fails
+`make test` when a key the watch reads is not one the phone sends, when the
+versions differ, or when the app id in `garmin/manifest.xml` is not the
+phone's `APP_ID`.
 
 The watch refuses to be crashed by what it is sent: every key is read
 through a type check that turns a missing or mistyped value into 0 or "", a

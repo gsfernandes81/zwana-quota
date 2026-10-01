@@ -17,7 +17,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
-import java.time.Instant
 
 /**
  * Listens for the watch asking for a reading, and answers with one.
@@ -92,12 +91,11 @@ class WatchListener : Service() {
         val store = Store(this)
         if (!wanted(store)) return
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
-        val now = Instant.now().epochSecond
         when (command) {
             WatchCommand.Refresh -> {
-                // A burst of presses is one read.
-                if (now - store.lastAsk < ASK_GAP_SECONDS) return
-                store.lastAsk = now
+                // Every ask is a job of its own, or folded into an earlier
+                // ask's still going (Work.askedByWatch). No time gap: one left
+                // unanswered would only tell the wearer "no answer from phone".
                 store.note("listener", "$watch asked for a reading")
                 Work.askedByWatch(this)
             }
@@ -149,7 +147,6 @@ class WatchListener : Service() {
         private const val CHANNEL = "watch-listener"
         private const val NOTIFICATION_ID = 7
         private const val RELISTEN_MINUTES = 15L
-        private const val ASK_GAP_SECONDS = 20L
 
         /** In this process; false after the process was killed, which is what [sync] needs to know. */
         @Volatile

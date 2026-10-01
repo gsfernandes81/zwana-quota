@@ -242,6 +242,7 @@ data class Document(
     val credits: Double,
     val bytesPerCredit: Long,
     val reserveBytes: Long,
+    /** The next reset from derive time, as quota_widget's JSON has it; the watch is sent the one after the reading instead (WatchPayload). */
     val reset: Instant,
     val secondsUntilReset: Long,
     val allocatedBytes: Long,
