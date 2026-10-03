@@ -60,12 +60,11 @@ module PageDraw {
 
     var roundEdge as Boolean? = null;  // the screen's left edge is curved
 
-    // The page indicator, as a ViewLoop draws one: a segment per page down
-    // the middle of the left edge, top to bottom, page [page]'s bold, over a
-    // black edge of its own so it reads over the page -- round the edge on a
-    // round or semi-round screen, straight down it where the edge is flat
-    // (the Instinct 3 Solar's). Its sizes follow the screen, as they are on
-    // a 176-pixel one.
+    // The page indicator: a mark per page down the middle of the left edge,
+    // top to bottom, page [page]'s the one that stands out -- an arc of
+    // segments round the edge on a round or semi-round screen, a column of
+    // boxes straight down it where the edge is flat (the Instinct 3
+    // Solar's). Its sizes follow the screen, as they are on a 176-pixel one.
     function indicator(dc as Graphics.Dc, page as Number, n as Number) as Void {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
@@ -82,8 +81,8 @@ module PageDraw {
     }
 
     // Round the edge: segments of 9 degrees with 3 between, narrower when
-    // there are many (6 at the most pages there are, Pages.count), so the
-    // arc keeps to 90 degrees of the left edge, clear of the title above it.
+    // there are many (6 degrees at the most there are: ten, Pages.count),
+    // so the arc keeps to 90 degrees of the left edge, clear of the title.
     function arcIndicator(dc as Graphics.Dc, cx as Number, cy as Number, half as Number, page as Number, n as Number) as Void {
         var r = half - half * 6 / 88;
         var gap = 3;
@@ -103,26 +102,32 @@ module PageDraw {
         dc.setPenWidth(1);
     }
 
-    // Straight down a flat edge: segments of 12 pixels with 4 between,
-    // shorter when there are many, so the bar keeps to the middle two
-    // fifths of the edge, on its flat part and clear of the title.
+    // Straight down a flat edge, as the watch's own page loops draw it: a
+    // small box per page at the very edge, page [page]'s filled and the
+    // others outlined, 7 by 13 pixels with 2 between, over black -- shorter
+    // when there are many, so the column keeps to the middle two fifths of
+    // the edge, on its flat part and clear of the title.
     function barIndicator(dc as Graphics.Dc, cy as Number, half as Number, page as Number, n as Number) as Void {
-        var gap = half * 4 / 88;
-        var most = half * 4 / 5;
-        var seg = (most - (n - 1) * gap) / n;
-        var full = half * 12 / 88;
-        seg = seg > full ? full : (seg < 1 ? 1 : seg);
-        var span = n * seg + (n - 1) * gap;
+        var x = half / 88;
+        var w = half * 7 / 88;
+        var line = half * 2 / 88;
+        var gap = half * 2 / 88;
+        var full = half * 13 / 88;
+        var box = (half * 4 / 5 - (n - 1) * gap) / n;
+        box = box > full ? full : box;
+        var span = n * box + (n - 1) * gap;
         var top = cy - span / 2;
-        var x = half * 6 / 88;           // the segments' centre line
-        var bold = half * 5 / 88;
-        var thin = half * 3 / 88;        // odd, as bold is, to share x
+        // Black behind the column, so nothing the page drew shows between.
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(0, top - gap, x + bold, span + 2 * gap);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(0, top - gap, x + w + gap, span + 2 * gap);
         for (var i = 0; i < n; i++) {
-            var w = i == page ? bold : thin;
-            dc.fillRectangle(x - w / 2, top + i * (seg + gap), w, seg);
+            var y = top + i * (box + gap);
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(x, y, w, box);
+            if (i != page) {
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+                dc.fillRectangle(x + line, y + line, w - 2 * line, box - 2 * line);
+            }
         }
     }
 

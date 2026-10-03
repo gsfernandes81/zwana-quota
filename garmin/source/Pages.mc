@@ -5,9 +5,9 @@ import Toybox.WatchUi;
 // The pages behind the glance, turned as a WatchUi.ViewLoop turns them: a
 // view each, UP and DOWN (or a swipe) sliding the next page in from the
 // side it lies on, round from the last page to the first, and the page
-// indicator -- a segment per page down the left edge, beside UP and DOWN,
-// this page's bold (PageDraw.indicator) -- drawn for a moment after each
-// turn.
+// indicator -- a mark per page down the left edge, beside UP and DOWN,
+// this page's standing out (PageDraw.indicator) -- up from the press until
+// a moment after the turn.
 // Not a ViewLoop itself: on an Instinct the loop has the watch draw its own
 // battery over the sub-window (Garmin's bug report "ViewLoop is completely
 // broken on Instinct 2", acknowledged and not fixed; the simulator does not
@@ -47,40 +47,29 @@ module Pages {
         return page < 0 ? 0 : (page >= n ? n - 1 : page);
     }
 
-    // The slide a turn makes, and how long the indicator stays after it,
-    // in milliseconds. As a ViewLoop shows its indicator after the turn, it
-    // comes up once the slide is over.
-    const SLIDE_MS = 400;
-    const INDICATOR_MS = 1500;
+    // How long the indicator stays, in milliseconds from the press: the
+    // slide, and about a second after it, as the watch's own page loops
+    // keep theirs. It is up from the press, so the page sliding in carries
+    // it and it never goes during the turn.
+    const INDICATOR_MS = 1300;
 
     var at as Number = 0;              // the page last turned to
     var indicating as Boolean = false; // the indicator is up
-    var timer as Timer.Timer? = null;  // puts it up, then takes it down
+    var timer as Timer.Timer? = null;  // takes it down
 
-    // Page [page] and its START delegate, the indicator to come up once the
-    // slide is over: after a turn, and when the pages are first opened.
+    // Page [page] and its START delegate, the indicator up from now: after
+    // a turn, and when the pages are first opened.
     function view(page as Number) as [QuotaView, QuotaDelegate] {
         at = page;
-        indicating = false;
-        later(:show, SLIDE_MS);
-        var v = new QuotaView(page);
-        return [v, new QuotaDelegate(v)];
-    }
-
-    // Pages.[what] in [ms], instead of anything waiting. One timer, kept.
-    function later(what as Symbol, ms as Number) as Void {
+        indicating = true;
         if (timer == null) {
             timer = new Timer.Timer();
         }
         var t = timer as Timer.Timer;
         t.stop();
-        t.start(new Lang.Method(Pages, what), ms, false);
-    }
-
-    function show() as Void {
-        indicating = true;
-        WatchUi.requestUpdate();
-        later(:hide, INDICATOR_MS);
+        t.start(new Lang.Method(Pages, :hide), INDICATOR_MS, false);
+        var v = new QuotaView(page);
+        return [v, new QuotaDelegate(v)];
     }
 
     function hide() as Void {
