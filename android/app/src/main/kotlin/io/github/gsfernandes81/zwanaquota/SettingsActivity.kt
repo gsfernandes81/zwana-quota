@@ -265,10 +265,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderAccount() {
         val login = vault.credentials()
         val showForm = login == null || editingLogin
-        // The line shows what went wrong with the form while it is up, else
-        // who is signed in; signed out with nothing wrong, nothing.
-        account.text = loginProblem?.takeIf { showForm }
-            ?: login?.let { getString(R.string.signed_in_as, it.username) }.orEmpty()
+        // What went wrong with the form (only ever set by a send that leaves
+        // the form up), else who is signed in; signed out, nothing.
+        account.text = loginProblem ?: login?.let { getString(R.string.signed_in_as, it.username) }.orEmpty()
         account.visibility = if (account.text.isEmpty()) View.GONE else View.VISIBLE
         loginForm.visibility = if (showForm) View.VISIBLE else View.GONE
         signedInActions.visibility = if (showForm) View.GONE else View.VISIBLE

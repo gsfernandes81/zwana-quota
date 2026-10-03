@@ -59,59 +59,71 @@ object Garmin {
     fun ready(context: Context, timeoutMs: Long = 10_000): ConnectIQ? {
         val app = context.applicationContext
         val iq = ConnectIQ.getInstance(app, ConnectIQ.IQConnectType.WIRELESS)
-        // Ready, even if it said so only after the last wait ran out.
-        if (state == READY) return iq
-        val done = CountDownLatch(1)
-        main.post {
-            // Undo the last start first, if there was one: each start
-            // registers a receiver and binds Garmin Connect anew, and only
-            // shutdown gives them back -- in the process the listener keeps
-            // alive for days, they would pile up, and each would hand on the
-            // watch's messages. It throws when nothing was started. The new
-            // receiver starts with no listener: registered again below.
-            try {
-                iq.shutdown(app)
-            } catch (_: Exception) {
-            }
-            try {
-                // autoUI false: the SDK would otherwise pop a "get Garmin
-                // Connect" dialog, from a background job, at someone who did
-                // not ask for a watch.
-                iq.initialize(app, false, object : ConnectIQ.ConnectIQListener {
-                    override fun onSdkReady() {
-                        state = READY
-                        done.countDown()
-                    }
-
-                    override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus?) {
-                        state = when (status) {
-                            ConnectIQ.IQSdkErrorStatus.GCM_NOT_INSTALLED -> "Garmin Connect is not installed"
-                            ConnectIQ.IQSdkErrorStatus.GCM_UPGRADE_NEEDED -> "Garmin Connect needs updating"
-                            else -> "Garmin Connect did not answer (${status?.name}): signed in? battery-restricted?"
+        if (state != READY) {
+            // A new start: a new, empty receiver, listening to nobody.
+            registered = false
+            val done = CountDownLatch(1)
+            main.post {
+                // Undo the last start first, if there was one: each start
+                // registers a receiver and binds Garmin Connect anew, and only
+                // shutdown gives them back -- in the process the listener keeps
+                // alive for days, they would pile up, and each would hand on the
+                // watch's messages. It throws when nothing was started. The new
+                // receiver starts with no listener: registered again below.
+                try {
+                    iq.shutdown(app)
+                } catch (_: Exception) {
+                }
+                try {
+                    // autoUI false: the SDK would otherwise pop a "get Garmin
+                    // Connect" dialog, from a background job, at someone who did
+                    // not ask for a watch.
+                    iq.initialize(app, false, object : ConnectIQ.ConnectIQListener {
+                        override fun onSdkReady() {
+                            state = READY
+                            done.countDown()
                         }
-                        done.countDown()
-                    }
 
-                    override fun onSdkShutDown() {
-                        state = "shut down"
-                    }
-                })
-            } catch (e: Exception) {
-                state = "SDK would not start: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim()
-                done.countDown()
+                        override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus?) {
+                            state = when (status) {
+                                ConnectIQ.IQSdkErrorStatus.GCM_NOT_INSTALLED -> "Garmin Connect is not installed"
+                                ConnectIQ.IQSdkErrorStatus.GCM_UPGRADE_NEEDED -> "Garmin Connect needs updating"
+                                else -> "Garmin Connect did not answer (${status?.name}): signed in? battery-restricted?"
+                            }
+                            done.countDown()
+                        }
+
+                        override fun onSdkShutDown() {
+                            state = "shut down"
+                        }
+                    })
+                } catch (e: Exception) {
+                    state = "SDK would not start: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim()
+                    done.countDown()
+                }
+            }
+            if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) state = "no answer from Garmin Connect in ${timeoutMs / 1000}s"
+            if (state != READY) return null
+        }
+        // Started since anyone listened -- just now, or with a "ready" that
+        // came after the last wait ran out: whoever listened before listens
+        // again before anything is sent saying the phone is listening.
+        if (!registered) {
+            listener?.let {
+                registered = true
+                register(iq, it)
             }
         }
-        if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) state = "no answer from Garmin Connect in ${timeoutMs / 1000}s"
-        if (state != READY) return null
-        // Started, so listening to nobody: whoever listened before listens
-        // again before anything is sent saying the phone is listening.
-        listener?.let { register(iq, it) }
         return iq
     }
 
     /** The last listener [listen] registered: what a new start registers again. */
     @Volatile
     private var listener: ((String, List<Any?>) -> Unit)? = null
+
+    /** Whether [listener] is registered with the SDK as it was last started. */
+    @Volatile
+    private var registered = false
 
     /**
      * What a [send] did: a line per watch (or one saying why nothing could be

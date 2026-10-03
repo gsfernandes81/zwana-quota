@@ -213,11 +213,13 @@ class Store(context: Context) {
      * threads and catch blocks, and a line lost to a full disk is the right
      * failure, where a crash would take the listener down with it.
      */
-    fun log(text: String) = synchronized(FILES) {
-        try {
-            val lines = (if (journal.exists()) journal.readLines() else emptyList()) + "${stamp()} $text"
-            replace(journal, lines.takeLast(JOURNAL_LINES).joinToString("\n", postfix = "\n"))
-        } catch (_: IOException) {
+    fun log(text: String) {
+        synchronized(FILES) {
+            try {
+                val lines = (if (journal.exists()) journal.readLines() else emptyList()) + "${stamp()} $text"
+                replace(journal, lines.takeLast(JOURNAL_LINES).joinToString("\n", postfix = "\n"))
+            } catch (_: IOException) {
+            }
         }
     }
 
