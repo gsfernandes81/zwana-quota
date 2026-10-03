@@ -204,15 +204,12 @@ knows what time it is now.
 
 Opening the glance shows the app, in pages: UP and DOWN (or a swipe) slide
 between them, round from the last page to the first; START does the page's
-one thing. On the Solar the round sub-window (top right, beside START) says
-where you are and what START does: UP's and DOWN's arrows at its top and
-bottom, a dot per page round its left side (this page's, the biggest, at 9
-o'clock; the pages before it above and after it below), and in the middle
-what START does on this page, or what is so where it does nothing. The
-AMOLEDs, without a sub-window, show an arc of a segment per page at the
-left edge.
+one thing. On the Solar the round sub-window (top right, beside START)
+shows, black on white, what START does on this page, or what is so where it
+does nothing. The AMOLEDs, without a sub-window, show an arc of a segment
+per page at the left edge for a moment after each turn.
 
-| page | shows | sub-window's middle | START |
+| page | shows | sub-window | START |
 |---|---|---|---|
 | **Data left** | the figure large, the bar, the reset time and the share left, how much of it is paid (`412 MiB paid`) | the refresh arrow; the phone struck through, with a `?`, when it is not listening | a fresh reading |
 | **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch, else `ON` or `OFF` | switch data (with **switch data** on) |

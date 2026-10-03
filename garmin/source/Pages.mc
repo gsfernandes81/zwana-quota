@@ -4,9 +4,9 @@ import Toybox.WatchUi;
 
 // The pages behind the glance, turned as the watch's own page loops turn
 // theirs: a view each, UP and DOWN (or a swipe) sliding the next page in
-// from the side it lies on, round from the last page to the first. Where a
-// page is among them, and what START does on it, is the sub-window's to
-// say (PageDraw.sub), or on a screen without one an indicator at the edge.
+// from the side it lies on, round from the last page to the first. What
+// START does on a page is the sub-window's to show (QuotaView.glyph); on a
+// screen without one, an indicator at the edge says where the page is.
 // Not a WatchUi.ViewLoop: on an Instinct the loop has the watch draw its own
 // battery over the sub-window (Garmin's bug report "ViewLoop is completely
 // broken on Instinct 2", acknowledged and not fixed; the simulator does not

@@ -4,8 +4,8 @@ import Toybox.WatchUi;
 
 // Behind the glance, in pages -- UP and DOWN move between them (Pages.mc),
 // START does the page's one thing, and the sub-window (top right on the
-// Solar, beside START) shows UP's and DOWN's arrows, the page's place in
-// the dots, and in its middle what START will do (PageDraw.sub, glyph):
+// Solar, beside START) shows in black on white what START will do there
+// (glyph):
 //
 //   0 Data left    the figure large, the bar, the reset and the share left,
 //                  how much of it is paid; sub-window: the refresh arrow,
@@ -72,54 +72,56 @@ class QuotaView extends WatchUi.View {
         } else {
             dataLeft(dc, d, sub);
         }
-        // Where the page is among the pages, and what START does: the
-        // sub-window, or the indicator where there is none.
+        // What START does: the sub-window. Where there is none, where the
+        // page is among the pages, for a moment after a turn.
         if (sub != null) {
             var s = sub as Array<Number>;
-            PageDraw.sub(dc, s, p, n);
+            PageDraw.sub(dc, s);
             glyph(dc, s, d, p);
         } else if (Pages.indicating) {
             PageDraw.indicator(dc, p, n);
         }
     }
 
-    // The sub-window's middle for page [p]: what START does there, or, where
+    // The sub-window's glyph for page [p]: what START does there, or, where
     // it does nothing, what is so instead.
     function glyph(dc as Graphics.Dc, s as Array<Number>, d as Dictionary?, p as Number) as Void {
         if (p != 0 && !Quota.hasSession(d)) {
-            PageDraw.wordGlyph(dc, s, "?");
+            PageDraw.word(dc, s, "?");
         } else if (p == 0) {
             if (d == null) {
                 // Nothing heard from the phone yet: nothing known about it.
-                PageDraw.wordGlyph(dc, s, "?");
+                PageDraw.word(dc, s, "?");
             } else if (Quota.canAsk(d)) {
-                PageDraw.refreshGlyph(dc, s);
+                PageDraw.glyph(dc, s, Glyphs.REFRESH);
             } else {
-                PageDraw.notListeningGlyph(dc, s);
+                PageDraw.glyph(dc, s, Glyphs.NOT_LISTENING);
             }
         } else if (p == 1) {
             var dd = d as Dictionary;
             if (Quota.canControl(dd) && Quota.str(dd, "act").length() > 0) {
-                PageDraw.powerGlyph(dc, s);
+                PageDraw.glyph(dc, s, Glyphs.POWER);
             } else {
-                PageDraw.wordGlyph(dc, s, Quota.str(dd, "dat").equals("on") ? "ON" : "OFF");
+                PageDraw.word(dc, s, Quota.str(dd, "dat").equals("on") ? "ON" : "OFF");
             }
         } else {
             var dd = d as Dictionary;
             var i = p - 2;
             if (Pages.devices(dd) == 0) {
-                PageDraw.wordGlyph(dc, s, "0");
+                PageDraw.word(dc, s, "0");
             } else if (deviceIp(dd, i).length() > 0) {
-                PageDraw.disconnectGlyph(dc, s);
+                PageDraw.glyph(dc, s, Glyphs.DISCONNECT);
             } else {
                 // Which device START cannot take off, as the phone names it.
                 var g = Quota.item(Quota.arr(dd, "dg"), i);
-                if (g.equals("main") || g.equals("mainphone")) {
-                    PageDraw.mainGlyph(dc, s, g.equals("mainphone"));
+                if (g.equals("main")) {
+                    PageDraw.glyph(dc, s, Glyphs.MAIN);
+                } else if (g.equals("mainphone")) {
+                    PageDraw.glyph(dc, s, Glyphs.MAIN_PHONE);
                 } else if (g.equals("phone")) {
-                    PageDraw.phoneGlyph(dc, s);
+                    PageDraw.glyph(dc, s, Glyphs.PHONE);
                 } else {
-                    PageDraw.deviceGlyph(dc, s);
+                    PageDraw.glyph(dc, s, Glyphs.DEVICE);
                 }
             }
         }
@@ -315,8 +317,7 @@ class QuotaView extends WatchUi.View {
         if (total < count) {
             total = count;
         }
-        // Which of how many, in the title where it fits: the sub-window's
-        // dots show the place, not the total.
+        // Which of how many, in the title where it fits.
         var which = (i + 1).toString() + "/" + total.toString();
         if (sub != null) {
             title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE " + which, which, "DEVICE"], sub);
