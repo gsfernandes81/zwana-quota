@@ -48,7 +48,7 @@ module Pages {
 
     // The slide a turn makes, and how long the indicator stays after it,
     // in milliseconds. As a ViewLoop shows its indicator after the turn, it
-    // comes up once the slide is over, and never slides with a page.
+    // comes up once the slide is over.
     const SLIDE_MS = 400;
     const INDICATOR_MS = 1500;
 
@@ -85,6 +85,16 @@ module Pages {
     function hide() as Void {
         indicating = false;
         WatchUi.requestUpdate();
+    }
+
+    // Page [page] has been covered -- by the confirmation START asks, not
+    // by a turn, which has already made another page the one turned to:
+    // the indicator does not come up underneath, to be found on return.
+    function covered(page as Number) as Void {
+        if (page == at && timer != null) {
+            (timer as Timer.Timer).stop();
+            indicating = false;
+        }
     }
 
     // Turn by [step] -- 1 for the next page, -1 for the one before, round

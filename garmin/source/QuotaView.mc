@@ -31,6 +31,10 @@ class QuotaView extends WatchUi.View {
         page = p;
     }
 
+    function onHide() as Void {
+        Pages.covered(page);
+    }
+
     // The page this view stands for now: one made for a page past the pages
     // there are now is the last. Worked out afresh, never stored, so a count
     // that comes back finds the view on its own page again.
