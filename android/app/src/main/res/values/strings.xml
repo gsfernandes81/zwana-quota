@@ -35,7 +35,7 @@
     <string name="listener_text">So the watch can ask for a fresh reading.</string>
     <string name="row_listener">Watch asks</string>
     <string name="watch_never">Nothing sent yet</string>
-    <string name="watch_no_garmin">Garmin Connect is not installed</string>
+    <string name="watch_no_garmin">Garmin Connect is not installed, or is turned off</string>
     <string name="watch_needs">Needs Garmin Connect signed in, and the zwana quota app installed on the watch and opened once. The widget works without any of it.</string>
 
     <string name="diagnostics">Diagnostics</string>

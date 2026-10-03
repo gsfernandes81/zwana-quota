@@ -72,10 +72,16 @@ class WatchListener : Service() {
             // Connect that restarted and forgot this app.
             main.postDelayed(relisten, 0)
             // The watch learns that the phone is listening from the next
-            // message it is sent (`ask`): send it one now, not at the next
-            // period -- after the process was killed, the last it was told
-            // was that nothing listens.
-            Work.pushNow(this)
+            // message it is sent (`ask`): send it the stored reading now, not
+            // at the next period -- after the process was killed, the last it
+            // was told was that nothing listens. No portal read for it.
+            Thread {
+                try {
+                    Refresher(this).sendStored()
+                } catch (e: Exception) {
+                    Store(this).note("watch", "not sent on listening: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
+                }
+            }.start()
         }
         return START_STICKY
     }

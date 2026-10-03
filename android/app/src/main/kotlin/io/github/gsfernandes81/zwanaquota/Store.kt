@@ -120,6 +120,15 @@ class Store(context: Context) {
      * The `sent` stamp of the last message made for the watch that carried a
      * run's reading, in epoch seconds (Refresher.push); 0 for never.
      */
+    /**
+     * Whether a message from this phone has ever reached the watch app: what
+     * makes the screen-off send worth a portal read (QuotaWorker), so a
+     * Garmin Connect installed for some other device costs nothing at night.
+     */
+    var watchReached: Boolean
+        get() = prefs.getBoolean("watchReached", false)
+        set(value) = prefs.edit().putBoolean("watchReached", value).apply()
+
     var lastPush: Long
         get() = prefs.getLong("lastPush", 0)
         set(value) = prefs.edit().putLong("lastPush", value).apply()

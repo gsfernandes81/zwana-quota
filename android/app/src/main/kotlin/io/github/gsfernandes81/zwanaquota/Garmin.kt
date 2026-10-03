@@ -95,12 +95,18 @@ object Garmin {
         return instance
     }
 
+    /** Whether the last [send] reached the watch app on any watch. */
+    @Volatile
+    var delivered = false
+        private set
+
     /**
      * Send [payload] to the watch app on every connected watch. Returns one
      * line per watch saying what happened, or one line saying why nothing
-     * could be tried.
+     * could be tried; [delivered] says whether any got there.
      */
     fun send(context: Context, payload: Map<String, Any>): List<String> {
+        delivered = false
         val iq = ready(context) ?: return listOf(state)
         val devices = try {
             iq.knownDevices.orEmpty()
@@ -114,7 +120,9 @@ object Garmin {
             if (status != "CONNECTED") {
                 "${device.friendlyName}: not sent, watch is $status"
             } else {
-                "${device.friendlyName}: ${sendTo(iq, device, app, HashMap(payload))}"
+                val outcome = sendTo(iq, device, app, HashMap(payload))
+                if (outcome == SENT) delivered = true
+                "${device.friendlyName}: $outcome"
             }
         }
     }
@@ -173,7 +181,7 @@ object Garmin {
                 override fun onMessageStatus(device: IQDevice?, app: IQApp?, status: ConnectIQ.IQMessageStatus?) {
                     answer.set(
                         when (status) {
-                            ConnectIQ.IQMessageStatus.SUCCESS -> "sent"
+                            ConnectIQ.IQMessageStatus.SUCCESS -> SENT
                             ConnectIQ.IQMessageStatus.FAILURE_DEVICE_NOT_CONNECTED -> "not sent, watch disconnected"
                             ConnectIQ.IQMessageStatus.FAILURE_INVALID_DEVICE -> "not sent, watch app missing? (${status.name})"
                             else -> "not sent: ${status?.name}"
@@ -190,6 +198,7 @@ object Garmin {
     }
 
     private const val READY = "ready"
+    private const val SENT = "sent"
 
     /**
      * How long a send waits for Garmin Connect to say it was delivered. A

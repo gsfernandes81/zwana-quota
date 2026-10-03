@@ -294,6 +294,7 @@ class Refresher(context: Context) {
             // reading (QuotaWorker's screen-off check).
             if (reading != null) store.lastPush = now.epochSecond
             store.note("watch", Garmin.send(app, payload).joinToString("; "))
+            if (Garmin.delivered) store.watchReached = true
         }
     }
 
@@ -473,7 +474,10 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                     // looking at the widget, so nothing -- unless the watch has
                     // gone its send interval without one.
                     val screenOn = applicationContext.getSystemService(PowerManager::class.java)?.isInteractive != false
-                    val watchDue = store.watchOn &&
+                    // Only for a watch this phone has reached: Garmin Connect
+                    // installed for some other device is no reason to read
+                    // the portal all night.
+                    val watchDue = store.watchOn && store.watchReached &&
                         Instant.now().epochSecond - store.lastPush >= Refresher.EVERY_SECONDS - 5 * 60
                     if (!screenOn && !watchDue) return Result.success()
                     refresher.run(force = false, pushWanted = store.watchOn, trigger = trigger)
@@ -486,11 +490,6 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 )
             }
             store.note("worker", "ran ($trigger)")
-            // The listener, if it should be running and the system stopped it;
-            // and the periodic job, if what it keeps fresh came or went (a
-            // widget, or Garmin Connect installed or removed).
-            WatchListener.sync(applicationContext, "worker")
-            Work.schedule(applicationContext)
         } catch (e: Exception) {
             // A failure here is drawn and noted, never retried in a loop: the
             // next tap or the next period is the retry.
@@ -498,6 +497,16 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             // Never leave "reading the portal..." standing.
             try {
                 Faces.draw(applicationContext, Refresher.cachedFace(applicationContext))
+            } catch (_: Exception) {
+            }
+        } finally {
+            // Whichever way the run went, early returns included: the
+            // listener, if it should be running and the system stopped it;
+            // and the periodic job, if what it keeps fresh came or went (a
+            // widget, or Garmin Connect installed or removed).
+            try {
+                WatchListener.sync(applicationContext, "worker")
+                Work.schedule(applicationContext)
             } catch (_: Exception) {
             }
         }
@@ -619,11 +628,7 @@ object Work {
         return manager.getWorkInfosForUniqueWork(name).get().any { it.id == request.id }
     }
 
-    /**
-     * Send the watch the stored reading now: what it may offer changed (the
-     * watch setting, or the listener coming up), and it learns that from
-     * the next message.
-     */
+    /** Send the watch a reading now: the watch setting changed, and the watch learns it from the next message. */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "setting", ExistingWorkPolicy.REPLACE)
 
     /**

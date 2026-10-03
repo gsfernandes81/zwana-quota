@@ -270,11 +270,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderWatch() {
+        val on = store.watchOn
         // Without Garmin Connect there is no watch to let do anything.
-        watchControlSwitch.isEnabled = store.watchOn
+        watchControlSwitch.isEnabled = on
         val last = readable(store.notes()["watch"])
         watchStatus.text = when {
-            !store.watchOn -> getString(R.string.watch_no_garmin)
+            !on -> getString(R.string.watch_no_garmin)
             last != null -> last
             else -> getString(R.string.watch_never)
         }
