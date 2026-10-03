@@ -78,7 +78,7 @@ class QuotaView extends WatchUi.View {
             var s = sub as Array<Number>;
             PageDraw.sub(dc, s, p, n);
             glyph(dc, s, d, p);
-        } else {
+        } else if (Pages.indicating) {
             PageDraw.indicator(dc, p, n);
         }
     }
@@ -111,8 +111,8 @@ class QuotaView extends WatchUi.View {
             } else {
                 // Which device START cannot take off, as the phone names it.
                 var g = Quota.item(Quota.arr(dd, "dg"), i);
-                if (g.equals("main")) {
-                    PageDraw.mainGlyph(dc, s);
+                if (g.equals("main") || g.equals("mainphone")) {
+                    PageDraw.mainGlyph(dc, s, g.equals("mainphone"));
                 } else if (g.equals("phone")) {
                     PageDraw.phoneGlyph(dc, s);
                 } else {
@@ -313,14 +313,12 @@ class QuotaView extends WatchUi.View {
         if (total < count) {
             total = count;
         }
-        var which = (count == 0) ? "0" : (i + 1).toString() + "/" + total.toString();
-
         // Which of how many: the sub-window's dots say it where there is
         // one, else the title.
         if (sub != null) {
             title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE"], sub);
         } else {
-            title(dc, count == 0 ? ["DEVICES"] : ["DEVICE " + which], sub);
+            title(dc, count == 0 ? ["DEVICES"] : ["DEVICE " + (i + 1).toString() + "/" + total.toString()], sub);
         }
 
         var small = Graphics.FONT_XTINY;

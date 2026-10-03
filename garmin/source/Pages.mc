@@ -1,4 +1,5 @@
 import Toybox.Lang;
+import Toybox.Timer;
 import Toybox.WatchUi;
 
 // The pages behind the glance, turned as the watch's own page loops turn
@@ -44,13 +45,35 @@ module Pages {
         return page < 0 ? 0 : (page >= n ? n - 1 : page);
     }
 
-    var top as QuotaView? = null;      // the page last turned to
+    // On a screen without a sub-window, how long the edge indicator stays,
+    // in milliseconds from the press: the slide and about a second after,
+    // so it does not lie over the page's text for good.
+    const INDICATOR_MS = 1300;
 
-    // Page [page] and its delegate (START, and UP and DOWN to turn).
+    var top as QuotaView? = null;      // the page last turned to
+    var indicating as Boolean = false; // the edge indicator is up
+    var timer as Timer.Timer? = null;  // takes it down
+
+    // Page [page] and its delegate (START, and UP and DOWN to turn), with
+    // the edge indicator up from now where there is no sub-window.
     function view(page as Number) as [QuotaView, QuotaDelegate] {
+        if (PageDraw.subscreen() == null) {
+            indicating = true;
+            if (timer == null) {
+                timer = new Timer.Timer();
+            }
+            var t = timer as Timer.Timer;
+            t.stop();
+            t.start(new Lang.Method(Pages, :hide), INDICATOR_MS, false);
+        }
         var v = new QuotaView(page);
         top = v;
         return [v, new QuotaDelegate(v)];
+    }
+
+    function hide() as Void {
+        indicating = false;
+        WatchUi.requestUpdate();
     }
 
     // Turn by [step] -- 1 for the next page, -1 for the one before, round

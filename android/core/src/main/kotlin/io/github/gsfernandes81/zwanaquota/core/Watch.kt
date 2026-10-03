@@ -12,8 +12,9 @@ package io.github.gsfernandes81.zwanaquota.core
  *   all, since at most [MAX_DEVICES] are sent. `dr` is, per name, how that
  *   device is on the session, in words: the watch gives each device a page.
  *   `dg` is, per name, the glyph its page's sub-window shows when START
- *   cannot take it off: `main` for the device that switched data on,
- *   `phone` for this phone (when it only joined), else empty.
+ *   cannot take it off: `main` for the device that switched data on
+ *   (`mainphone` when that is this phone), `phone` for this phone when it
+ *   only joined, else empty.
  * - `ctl` whether the watch may switch data and take devices off. Only then
  *   are `act` (what START does to the session, a [SessionAction] name),
  *   `actl` (that, in words), `cq` (the question to ask first, or empty) and
@@ -38,7 +39,7 @@ object WatchSession {
             "dg" to ArrayList(
                 sent.map {
                     when {
-                        it.ip == session.primaryIp -> "main"
+                        it.ip == session.primaryIp -> if (it.me) "mainphone" else "main"
                         it.me -> "phone"
                         else -> ""
                     }

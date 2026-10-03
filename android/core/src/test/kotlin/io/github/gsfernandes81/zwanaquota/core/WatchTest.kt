@@ -99,11 +99,11 @@ class WatchTest {
     }
 
     @Test
-    fun `each device's glyph: main for the one that switched data on, phone for this phone, else none`() {
-        // This phone switched data on: it is the main device.
+    fun `each device's glyph is main for the one that switched data on, phone for this phone, else none`() {
+        // This phone switched data on: it is the main device, and a phone.
         var s = session(me, listOf(laptop, tablet))
         var glyphs = WatchSession.fields(s, emptyMap(), canControl = false)["dg"] as List<*>
-        assertEquals(s.devices(emptyMap()).map { if (it.ip == me) "main" else "" }, glyphs)
+        assertEquals(s.devices(emptyMap()).map { if (it.ip == me) "mainphone" else "" }, glyphs)
         // This phone only joined: it is the phone, and the laptop the main device.
         s = session(laptop, listOf(me, tablet))
         glyphs = WatchSession.fields(s, emptyMap(), canControl = true)["dg"] as List<*>

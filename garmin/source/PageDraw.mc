@@ -101,34 +101,44 @@ module PageDraw {
         dc.fillRectangle(x0, cy + u(s, 4), u(s, 18), u(s, 2));
     }
 
-    // A device with a badge at its lower right, the two centred together;
-    // returns the badge's centre, cleared to black for what goes in it.
-    function badged(dc as Graphics.Dc, s as Array<Number>) as Array<Number> {
-        var x0 = s[0] - u(s, 12);
-        laptop(dc, s, x0, s[1]);
-        var bx = x0 + u(s, 20);
+    // A device -- this phone when [mine], else a laptop -- with a badge at
+    // its lower right, the two centred together; returns the badge's
+    // centre, cleared to black for what goes in it.
+    function badged(dc as Graphics.Dc, s as Array<Number>, mine as Boolean) as Array<Number> {
+        var bx = s[0];
         var by = s[1] + u(s, 4);
+        if (mine) {
+            var px = s[0] - u(s, 5);
+            phone(dc, s, px);
+            bx = px + u(s, 8);
+        } else {
+            var x0 = s[0] - u(s, 12);
+            laptop(dc, s, x0, s[1]);
+            bx = x0 + u(s, 20);
+        }
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         dc.fillCircle(bx, by, u(s, 7));
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         return [bx, by];
     }
 
-    // START takes this device off: the device, with a cross. The cross is 7
-    // by 7, two pixels thick, mirrored pixel for pixel about its centre.
+    // START takes this device off: the device, with a cross. The cross is 8
+    // wide by 7 tall in two-pixel strokes, the same mirrored left to right
+    // and top to bottom: each row's two strokes sit as far either side of
+    // the centre line, and row t is row 6 - t turned over.
     function disconnectGlyph(dc as Graphics.Dc, s as Array<Number>) as Void {
-        var b = badged(dc, s);
+        var b = badged(dc, s, false);
         var h = u(s, 3);
         for (var t = 0; t <= 2 * h; t++) {
             dc.fillRectangle(b[0] - h + t, b[1] - h + t, 2, 1);
-            dc.fillRectangle(b[0] + h - 1 - t, b[1] - h + t, 2, 1);
+            dc.fillRectangle(b[0] + h - t, b[1] - h + t, 2, 1);
         }
     }
 
     // The device that switched data on, which START cannot take off: the
-    // device, with a star.
-    function mainGlyph(dc as Graphics.Dc, s as Array<Number>) as Void {
-        var b = badged(dc, s);
+    // device -- this phone when [mine] -- with a star.
+    function mainGlyph(dc as Graphics.Dc, s as Array<Number>, mine as Boolean) as Void {
+        var b = badged(dc, s, mine);
         var big = u(s, 9) / 2.0;
         var small = u(s, 2);
         var pts = [] as Array<[Numeric, Numeric]>;
@@ -178,8 +188,9 @@ module PageDraw {
         dc.drawText(s[0] + u(s, 9), cy, Graphics.FONT_TINY, "?", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // The page indicator on a screen without a sub-window (the AMOLEDs): a
-    // segment per page round the middle of the left edge, top to bottom,
+    // The page indicator on a screen without a sub-window (the AMOLEDs,
+    // which are round), for a moment after each turn: a segment per page
+    // round the middle of the left edge, top to bottom,
     // page [page]'s bold, over a black edge of its own so it reads over the
     // page. Segments of 9 degrees with 3 between, narrower when there are
     // many (6 degrees at the most there are: ten, Pages.count), so the arc
