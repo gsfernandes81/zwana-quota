@@ -1,23 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Quick Settings tile's icon: a satellite and its signal, for the
-     ship's satellite link. The same in every state, by design: whether this
-     phone is on data is the tile's brightness, and the reading is its text.
-     White on transparent; the system tints it. -->
+<!-- The Quick Settings tile's icon: a satellite, its signal radiating from
+     it, for the ship's satellite link. The same in every state, by design:
+     whether this phone is on data is the tile's brightness, and the reading
+     is its text. White on transparent; the system tints it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- The body larger than either panel, the panels long along the diagonal. -->
     <group
         android:rotation="45"
-        android:translateX="14.5"
-        android:translateY="9.5">
+        android:scaleX="0.95"
+        android:scaleY="0.95"
+        android:translateX="14.8"
+        android:translateY="9.2">
         <path
             android:fillColor="@android:color/white"
-            android:pathData="M-2,-2.6h4v5.2h-4z M-4.2,-0.5h2.2v1h-2.2z M2,-0.5h2.2v1h-2.2z M-8.4,-2.6h4.2v5.2h-4.2z M4.2,-2.6h4.2v5.2h-4.2z M-0.6,2.6h1.2v1.4h-1.2z M-2,4h4v1.3h-4z" />
+            android:pathData="M-2.8,-2.8h5.6v5.6h-5.6z M2.8,-0.5h0.8v1h-0.8z M-3.6,-0.5h0.8v1h-0.8z M3.6,-1.6h5.4v3.2h-5.4z M-9,-1.6h5.4v3.2h-5.4z" />
     </group>
+    <!-- Two arcs centred on the satellite itself. -->
     <path
-        android:pathData="M3,16.5A4.5,4.5 0 0 1 7.5,21 M3,12A9,9 0 0 1 12,21"
+        android:pathData="M13.20,15.19A6.2,6.2 0 0 1 8.81,10.80 M13.06,19.05A10,10 0 0 1 4.95,10.94"
         android:strokeWidth="2"
         android:strokeColor="@android:color/white"
         android:strokeLineCap="round" />
