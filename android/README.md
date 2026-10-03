@@ -280,9 +280,10 @@ APK alone.
    shows the watch as a device in Explorer; from an Android phone it needs an
    MTP app.
 2. Unplug, then **open the app once** from the watch's apps list. Opening it
-   is what registers for the phone's messages; until then nothing arrives,
-   and it looks exactly like a dead link. Then add it to the glance loop
-   (Glances → Add → zwana quota).
+   is what registers for the phone's messages; until then nothing arrives.
+   The phone app says **Open zwana quota on your watch once** in red until
+   the watch app has told it it was opened, then sends it the latest
+   reading. Then add it to the glance loop (Glances → Add → zwana quota).
 
 An update is the same: copy the new `.prg` over the old one.
 
@@ -347,7 +348,8 @@ text. Work down this list:
    | `<watch>: sent` | the link is good |
 
    If it says `sent` but the glance stays on `quota ?`, the watch app was
-   not opened once after installing (step 5 above).
+   not opened once after installing (step 2 above); the app's screen says
+   so until it has been.
 3. **Leave it.** After an hour, `worker` should have advanced by itself. If it
    has not, the phone is holding the app back: the `battery` line says so, and
    **Battery: let it run in the background** is the way out. On Samsung phones,

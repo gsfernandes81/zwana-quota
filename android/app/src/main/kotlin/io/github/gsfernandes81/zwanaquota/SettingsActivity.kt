@@ -24,6 +24,7 @@ import androidx.core.widget.NestedScrollView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.color.DynamicColors
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
@@ -264,7 +265,15 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderAccount() {
         val login = vault.credentials()
         val showForm = login == null || editingLogin
-        account.text = if (login == null) getString(R.string.signed_out) else getString(R.string.signed_in_as, login.username)
+        // Signed out, the form needs no caption: the line shows only who is
+        // signed in, or that the form was sent half filled.
+        val missing = getString(R.string.missing_login)
+        account.text = when {
+            login != null -> getString(R.string.signed_in_as, login.username)
+            account.text.toString() == missing -> missing
+            else -> ""
+        }
+        account.visibility = if (account.text.isEmpty()) View.GONE else View.VISIBLE
         loginForm.visibility = if (showForm) View.VISIBLE else View.GONE
         signedInActions.visibility = if (showForm) View.GONE else View.VISIBLE
     }
@@ -274,11 +283,19 @@ class SettingsActivity : AppCompatActivity() {
         // Without Garmin Connect there is no watch to let do anything.
         watchControlSwitch.isEnabled = on
         val last = readable(store.notes()["watch"])
-        watchStatus.text = when {
-            !on -> getString(R.string.watch_no_garmin)
-            last != null -> last
-            else -> getString(R.string.watch_never)
+        // The two things only the person can fix, in the error colour: no
+        // Garmin Connect, or a watch app never opened (so registered for
+        // nothing the phone sends).
+        val (text, problem) = when {
+            !on -> getString(R.string.watch_no_garmin) to true
+            !store.watchHeard -> getString(R.string.watch_open_once) to true
+            last != null -> last to false
+            else -> getString(R.string.watch_never) to false
         }
+        watchStatus.text = text
+        watchStatus.setTextColor(
+            MaterialColors.getColor(watchStatus, if (problem) com.google.android.material.R.attr.colorError else com.google.android.material.R.attr.colorOnSurface),
+        )
     }
 
     private fun renderDiagnostics() {

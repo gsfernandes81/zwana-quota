@@ -231,11 +231,6 @@
                             android:text="@string/sign_out" />
                     </LinearLayout>
 
-                    <TextView
-                        style="@style/Zwana.Support"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/login_privacy"
-                        android:textAppearance="?attr/textAppearanceBodySmall" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -288,9 +283,6 @@
                         android:text="@string/watch_title"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
-                    <TextView
-                        style="@style/Zwana.Support"
-                        android:text="@string/watch_detail" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/watch_control_switch"
@@ -300,9 +292,6 @@
                         android:text="@string/watch_can_control"
                         android:textAppearance="?attr/textAppearanceTitleSmall" />
 
-                    <TextView
-                        style="@style/Zwana.Support"
-                        android:text="@string/watch_can_control_detail" />
 
                     <TextView
                         android:id="@+id/watch_status"
@@ -313,11 +302,6 @@
                         android:textColor="?attr/colorOnSurface"
                         app:drawableStartCompat="@drawable/ic_watch" />
 
-                    <TextView
-                        style="@style/Zwana.Support"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/watch_needs"
-                        android:textAppearance="?attr/textAppearanceBodySmall" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
