@@ -36,6 +36,13 @@ class ScreensTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val grant = 763L * 1024 * 1024
 
+    private companion object {
+        const val ME = "10.1.0.225"
+        const val LAPTOP = "10.1.0.125"
+        const val TABLET = "10.1.0.31"
+        val MACS = mapOf(LAPTOP to "aa:bb:cc:00:00:01", TABLET to "aa:bb:cc:00:00:02", "10.1.0.40" to "aa:bb:cc:00:00:03")
+    }
+
     @Test
     fun `a fresh reading, signed out, light`() {
         seed(remainder = 1_804_000_000, ageSeconds = 20, notes = false)
@@ -93,6 +100,91 @@ class ScreensTest {
             }
         }
         val out = File("build/screens/widget.png").apply { parentFile?.mkdirs() }
+        out.outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertTrue("nothing was written", out.length() > 0)
+    }
+
+    /**
+     * The panel the Quick Settings tile opens, as its dialog draws it: this
+     * phone switched data on with three others; the question before one is
+     * taken off; and data off. Also writes what the tile itself says at both
+     * widths beside it, since the tile is drawn by the system, not here.
+     */
+    @Test
+    fun `the tile's panel in each state, light`() {
+        val tiles = StringBuilder()
+        for (name in listOf("primary", "confirm", "off")) {
+            seed(remainder = 1_804_000_000, ageSeconds = 20, notes = false)
+            Store(context).save(if (name == "off") Session(false, null, 0, ME, emptyList()) else Session(true, ME, 0, ME, listOf(LAPTOP, TABLET, "10.1.0.40"), MACS))
+            val panel = panel()
+            if (name == "confirm") {
+                val rows = panel.view.findViewById<android.widget.LinearLayout>(R.id.devices)
+                rows.getChildAt(1).findViewById<View>(R.id.device_off).performClick()
+            }
+            shootPanel(panel.view, "panel-$name")
+            tiles.append(tileLines(name))
+        }
+        val out = File("build/screens/tile.txt").apply { parentFile?.mkdirs() }
+        out.writeText(tiles.toString())
+        assertTrue("nothing was written", out.length() > 0)
+    }
+
+    /** This phone joined a laptop's session, with a reading two hours old, dark. */
+    @Test
+    fun `the tile's panel joined to another's session with an old reading, dark`() {
+        RuntimeEnvironment.setQualifiers("+night")
+        seed(remainder = 190_000_000, ageSeconds = 2 * 3600, notes = false)
+        Store(context).save(Session(true, LAPTOP, 0, ME, listOf(ME, TABLET), MACS))
+        shootPanel(panel().view, "panel-joined")
+        File("build/screens/tile-joined.txt").writeText(tileLines("joined"))
+    }
+
+    /** The panel as the tile builds it, signed in, in a window so the meter draws (it draws only attached). */
+    private fun panel(): TilePanel {
+        Store(context).saveNames(
+            mapOf(LAPTOP to Store.Named("gavins-thinkpad", Instant.now().epochSecond), TABLET to Store.Named("galaxy-tab-s9", Instant.now().epochSecond)),
+        )
+        val window = Robolectric.buildActivity(android.app.Activity::class.java).setup().get()
+        val panel = TilePanel(
+            android.view.ContextThemeWrapper(window, R.style.Theme_Zwana),
+            object : TilePanel.Host {
+                override fun refresh() {}
+                override fun openApp() {}
+                override fun openPortal() {}
+                override fun close() {}
+            },
+        )
+        panel.render(Refresher.cachedFace(context), null, signedIn = true)
+        window.setContentView(panel.view)
+        return panel
+    }
+
+    private fun tileLines(name: String): String = buildString {
+        for (width in io.github.gsfernandes81.zwanaquota.core.TileWidth.entries) {
+            Store(context).tileWidth = width
+            val tile = QuotaTile.tileFace(context)
+            appendLine("$name $width: ${tile.label} | ${tile.subtitle} | ${tile.icon} | active=${tile.active}")
+        }
+    }
+
+    /** [view] on a dialog's surface, its rounded corners and its width on a phone. */
+    private fun shootPanel(view: View, name: String) {
+        val density = context.resources.displayMetrics.density
+        val w = (340 * density).toInt()
+        view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        view.layout(0, 0, w, view.measuredHeight)
+        val gap = (16 * density).toInt()
+        val sheet = Bitmap.createBitmap(w + 2 * gap, view.measuredHeight + 2 * gap, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(sheet)
+        canvas.drawColor(0xFF22324A.toInt())
+        val surface = android.util.TypedValue().also { view.context.theme.resolveAttribute(com.google.android.material.R.attr.colorSurfaceContainerHigh, it, true) }.data
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = surface }
+        canvas.drawRoundRect(gap.toFloat(), gap.toFloat(), (gap + w).toFloat(), (gap + view.measuredHeight).toFloat(), 28 * density, 28 * density, paint)
+        canvas.save()
+        canvas.translate(gap.toFloat(), gap.toFloat())
+        view.draw(canvas)
+        canvas.restore()
+        val out = File("build/screens/$name.png").apply { parentFile?.mkdirs() }
         out.outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
         assertTrue("nothing was written", out.length() > 0)
     }

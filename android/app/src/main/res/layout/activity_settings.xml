@@ -239,6 +239,37 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- The Quick Settings tile: only its width is asked, since
+                 Android never says it. -->
+            <com.google.android.material.card.MaterialCardView
+                style="?attr/materialCardViewOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        style="@style/Zwana.SectionTitle"
+                        android:text="@string/tile_settings" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/tile_wide_switch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/tile_wide"
+                        android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                    <TextView
+                        style="@style/Zwana.Support"
+                        android:text="@string/tile_wide_detail" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- The watch. -->
             <com.google.android.material.card.MaterialCardView
                 style="?attr/materialCardViewOutlinedStyle"

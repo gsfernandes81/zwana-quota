@@ -2,7 +2,8 @@
 
 The phone's metered-data readout: `zwana_quota.py` (the portal client for
 `ic.zwana.io`), `quota_widget.py` (the widget face and the library), and
-`tasker/zwana-tile` (the Quick Settings tile). Split out of the `or3`
+`tasker/zwana-tile` (the Tasker Quick Settings tile, superseded by the app's
+own `QuotaTile`). Split out of the `or3`
 monorepo's `termux/` on 2026-08-28. The `dlq` repo's nightly runner imports
 `quota_widget` from this checkout — this repo depends on nothing.
 

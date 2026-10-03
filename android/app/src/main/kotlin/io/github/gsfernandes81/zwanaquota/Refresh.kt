@@ -100,10 +100,10 @@ class Refresher(context: Context) {
 
         var face = faceOf(reading, live, now, why)
         if (notice != null) face = face.copy(footnote = notice, warning = true)
-        QuotaWidget.draw(app, face)
+        Faces.draw(app, face)
         // Names come after the first drawing: a device the network is slow
         // to name is drawn by its IP meanwhile, never holds up the figure.
-        if (live && nameDevices(path)) QuotaWidget.draw(app, face)
+        if (live && nameDevices(path)) Faces.draw(app, face)
 
         // Only the watch's own read answers its request with why it has no
         // reading: another job's failure says nothing of the read it waits on.
@@ -123,12 +123,13 @@ class Refresher(context: Context) {
 
     /**
      * Take one other device off the session, then read everything again so
-     * the widget and the watch show it. [remove] checks the device is still
-     * one this phone may take off.
+     * the widget, the tile and the watch show it. [remove] checks the device
+     * is still one this phone may take off, and still the one with
+     * [expectedMac] -- the MAC it had where it was offered -- when known.
      */
-    fun removeDevice(ip: String, pushWanted: Boolean, trigger: String, askId: Int?, deadline: Long) =
+    fun removeDevice(ip: String, expectedMac: String?, pushWanted: Boolean, trigger: String, askId: Int?, deadline: Long) =
         change("remove $ip", "remove failed", pushWanted, trigger, askId, deadline) { client, allowed ->
-            client.remove(ip, expectedMac = store.offeredMacs[ip], allowed = allowed)
+            client.remove(ip, expectedMac = expectedMac, allowed = allowed)
         }
 
     /**
@@ -456,7 +457,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             val deadline = inputData.getLong(DEADLINE, 0)
             if ((action != null || remove != null) && Instant.now().epochSecond > deadline) {
                 store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} past its deadline; too late, nothing done")
-                QuotaWidget.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
+                Faces.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
                 if (askId != null) {
                     store.answer(askId, "too late")
                     if (store.watchEnabled) refresher.sendStored()
@@ -465,7 +466,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             }
             when {
                 action != null -> refresher.switch(action, store.watchEnabled, trigger, askId, deadline)
-                remove != null -> refresher.removeDevice(remove, store.watchEnabled, trigger, askId, deadline)
+                remove != null -> refresher.removeDevice(remove, inputData.getString(MAC), store.watchEnabled, trigger, askId, deadline)
                 inputData.getBoolean(PERIODIC, false) -> {
                     // Screen on: read, as the Tasker tile's profile does, and
                     // send the watch a reading too. Screen off: nobody is
@@ -493,7 +494,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             store.note("worker", "failed ($trigger): ${e.javaClass.simpleName} ${e.message.orEmpty()}")
             // Never leave "reading the portal..." standing.
             try {
-                QuotaWidget.draw(applicationContext, Refresher.cachedFace(applicationContext))
+                Faces.draw(applicationContext, Refresher.cachedFace(applicationContext))
             } catch (_: Exception) {
             }
         }
@@ -507,11 +508,12 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
         const val ACTION = "action"
         const val PERIODIC = "periodic"
         const val REMOVE = "remove"
+        const val MAC = "mac"
         const val DEADLINE = "deadline"
         const val ASK_ID = "askId"
         const val ASKED = "asked"
 
-        /** How long after the widget's tap its switch may still run. */
+        /** How long after the widget's or the tile's tap its switch or removal may still run. */
         const val SWITCH_LIFETIME_SECONDS = 180L
 
         /**
@@ -548,10 +550,25 @@ object Work {
      * Throw the data switch. KEEP, so a second tap while the first is still
      * on its way is dropped rather than sent after it.
      */
-    fun switch(context: Context, action: SessionAction) {
-        val input = Data.Builder().putAll(input(true, false, "widget switch")).putString(QuotaWorker.ACTION, action.name)
-            .putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.SWITCH_LIFETIME_SECONDS).build()
-        val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input).build()
+    fun switch(context: Context, action: SessionAction, trigger: String = "widget switch") =
+        change(context, Data.Builder().putAll(input(true, false, trigger)).putString(QuotaWorker.ACTION, action.name))
+
+    /**
+     * Take the device at [ip] off data, from the tile's panel: only if it is
+     * still the device with [mac] there, when the portal listed one. The same
+     * one-at-a-time as [switch], under the same name, so a removal and a
+     * switch never cross.
+     */
+    fun remove(context: Context, ip: String, mac: String?) =
+        change(
+            context,
+            Data.Builder().putAll(input(true, false, "tile")).putString(QuotaWorker.REMOVE, ip)
+                .apply { mac?.let { putString(QuotaWorker.MAC, it) } },
+        )
+
+    private fun change(context: Context, input: Data.Builder) {
+        input.putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.SWITCH_LIFETIME_SECONDS)
+        val request = OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(input.build()).build()
         WorkManager.getInstance(context).enqueueUniqueWork(SWITCH, ExistingWorkPolicy.KEEP, request)
     }
 
@@ -580,6 +597,9 @@ object Work {
         }
         val switching = Data.Builder().putAll(input(true, true, "watch")).putString(key, value)
             .putLong(QuotaWorker.DEADLINE, Instant.now().epochSecond + QuotaWorker.WATCH_SWITCH_SECONDS)
+        // Which device the watch was offered at that address, so a removal
+        // cannot take off whoever has the address by the time it runs.
+        if (command is WatchCommand.Remove) Store(context).offeredMacs[command.ip]?.let { switching.putString(QuotaWorker.MAC, it) }
         askId?.let { switching.putInt(QuotaWorker.ASK_ID, it) }
         return startIfIdle(context, SWITCH, OneTimeWorkRequestBuilder<QuotaWorker>().setInputData(switching.build()).build())
     }

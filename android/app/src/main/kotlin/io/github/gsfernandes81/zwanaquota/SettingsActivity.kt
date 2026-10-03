@@ -32,6 +32,7 @@ import io.github.gsfernandes81.zwanaquota.core.Face
 import io.github.gsfernandes81.zwanaquota.core.Format
 import io.github.gsfernandes81.zwanaquota.core.Level
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
+import io.github.gsfernandes81.zwanaquota.core.TileWidth
 import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.Executors
@@ -133,7 +134,7 @@ class SettingsActivity : AppCompatActivity() {
             username.text?.clear()
             store.note("account", "signed out")
             store.forgetSession()
-            QuotaWidget.draw(this, Refresher.cachedFace(this))
+            Faces.draw(this, Refresher.cachedFace(this))
             render()
         }
 
@@ -166,6 +167,12 @@ class SettingsActivity : AppCompatActivity() {
             // reading says it may.
             if (store.watchEnabled) Work.pushNow(this)
             render()
+        }
+        val tileWide = findViewById<MaterialSwitch>(R.id.tile_wide_switch)
+        tileWide.isChecked = store.tileWidth == TileWidth.WIDE
+        tileWide.setOnCheckedChangeListener { _, on ->
+            // The tile takes it up the next time the panel shows it.
+            store.tileWidth = if (on) TileWidth.WIDE else TileWidth.STANDARD
         }
         findViewById<MaterialButton>(R.id.send_now).setOnClickListener { Work.pushNow(this) }
         findViewById<MaterialButton>(R.id.check_watch).setOnClickListener { checkWatch() }

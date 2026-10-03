@@ -1,11 +1,14 @@
 # zwana quota for Android, and on a Garmin Instinct 3
 
-One APK, two jobs:
+One APK, three jobs:
 
 - **a home-screen widget**: what is left of today's data, and when it resets,
   with a switch for the data connection and who is on it. It reads the portal
   itself and needs nothing else installed: no Termux, no Garmin Connect, no
   watch.
+- **a Quick Settings tile**: the same figure one swipe down from anywhere,
+  and a tap opens the device list, where each device can be taken off data
+  on its own. It replaces the Tasker tile (`../docs/quota-tile.md`).
 - **a Connect IQ companion**: when switched on, it sends the same reading to
   the zwana quota app on a Garmin Instinct 3 (`../garmin/`), which shows it
   as a glance.
@@ -81,6 +84,41 @@ them, and the IPs are what you see.
 
 The login is kept only on this phone, encrypted with a key in the Android
 Keystore. Backups and device transfer are switched off, so it does not travel.
+
+### The Quick Settings tile
+
+Pull the panel down, edit the tiles, and drag **Data left** in. It says:
+
+| tile size | shows |
+|---|---|
+| one cell | the icon alone: a tick, a warning triangle or an alert circle for the level, a clock when the reading is old, a cloud when the portal said the session was down, a question mark with no reading |
+| two cells | `1.68 GiB` over `96%, 05:30`: the figure, the share of today's pool and when it resets |
+| wider (One UI) | `96% of 1.75 GiB, +763 MiB 05:30`: the pool and tonight's top-up as well |
+
+Android never tells an app how wide its tile is, so if you drag it wider than
+two cells, switch on **Wide tile** in the app. The tile is lit while free data
+is left and dim once only paid data is, and it is never greyed out, since a
+tap is how a tile with no reading gets one. TalkBack reads all of it whatever
+the size.
+
+It is drawn whenever the panel is pulled down, from the last reading, and a
+read starts then if that reading is more than 45 seconds old: the figure moves
+a second later if it has changed. Nothing keeps it fresh in between, because
+nothing needs to.
+
+**Tap** opens a panel over the shade (Android's own tile dialog, not the app):
+the figure, the meter, the reset, the data switch, and every device on the
+session, this phone first. Each other device that joined has **Disconnect**,
+which asks in the panel first, then is checked against the portal before
+anything is sent, so a list that has changed since it was drawn does nothing
+(`changed elsewhere: nothing done`). The device that switched data on has no
+button: the portal takes it off only by switching data off, which is the
+switch at the top, and only the phone that switched it on can. On a locked
+phone the panel waits for the unlock, since it can take devices off. Signed
+out, a tap opens the app to sign in.
+
+**Long press** opens the app. The panel's **Portal** opens `ic.zwana.io` in
+the browser, which is what the Tasker tile's double tap did.
 
 ### Signing, so updates install over each other
 
@@ -283,7 +321,7 @@ The settings screen is the diagnostics screen: nobody using this has logcat,
 so everything that can fail says so there. **Share log** sends all of it as
 text. Work down this list:
 
-1. **The widget draws.** It says `quota ?` / `no reading` until the login is
+1. **The widget and the tile draw.** Each says `quota ?` until the login is
    saved, then the figure. `read` on the diagnostics screen says which
    network it went over. It should be Wi-Fi, since the portal is on the
    vessel's Wi-Fi.

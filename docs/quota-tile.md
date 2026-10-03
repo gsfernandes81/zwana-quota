@@ -1,5 +1,11 @@
 # The quota in the Quick Settings panel
 
+> **Superseded by the app's own tile.** The Android app now has a Quick
+> Settings tile of its own that needs no Tasker, AutoNotification or Termux,
+> and opens a device list on tap (`android/README.md`, "The Quick Settings
+> tile"). This page describes the Tasker setup it replaces, which stays in the
+> tree until the app's tile has been run on the phone.
+
 The data figure the [home-screen widget](../quota_widget.py) draws, on a
 Tasker Quick Settings tile — one swipe down from anywhere, including the lock
 screen, without leaving whatever you were doing.
