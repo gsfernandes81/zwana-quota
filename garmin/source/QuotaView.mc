@@ -242,11 +242,10 @@ class QuotaView extends WatchUi.View {
             var at = Quota.clock(Quota.nextReset(d as Dictionary)) + "  " + Quota.str(d as Dictionary, "share");
             var fh = dc.getFontHeight(font);
             var ir = fh * 3 / 10;
-            // The arrowhead reaches past the ring by about half its radius.
-            var icon = 2 * ir + ir / 2 + 5;
+            var icon = 2 * ir + 5;
             var tw = dc.getTextWidthInPixels(at, font);
             var left = (w - tw - icon) / 2;
-            Draw.resetIcon(dc, left + ir, y + fh / 2, ir);
+            Draw.clockIcon(dc, left + ir, y + fh / 2, ir);
             dc.drawText(left + icon, y, font, at, Graphics.TEXT_JUSTIFY_LEFT);
             y += fh;
 

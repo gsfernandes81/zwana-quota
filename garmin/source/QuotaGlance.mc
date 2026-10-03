@@ -4,7 +4,7 @@ import Toybox.WatchUi;
 
 // The glance, laid out as Garmin's own Body Battery glance is:
 //
-//   DATA LEFT           (reset)@00:00   title; when the grant lands
+//   DATA LEFT           (clock) @00:00  title; when the grant lands
 //   ==========----------                what is left of today, thick, then
 //                                       what has gone, thin: full at the
 //                                       reset, thinning as data is used
@@ -12,7 +12,7 @@ import Toybox.WatchUi;
 //                                       if so, else how much is paid
 //
 // Every row is the text font: the number fonts may hold digits and little
-// else. The reset icon is drawn, not a bitmap, so the glance carries no
+// else. The clock is drawn, not a bitmap, so the glance carries no
 // resources.
 //
 // Two things must always be drawn: the reset time, the one thing on the face
@@ -96,8 +96,9 @@ class QuotaGlance extends WatchUi.GlanceView {
             if (ir < 3) {
                 ir = 3;
             }
-            // The arrowhead reaches past the ring by about half its radius.
-            var icon = 2 * ir + ir / 2 + 4;
+            // The clock, and a clear gap before the time.
+            var pad = ir + 2;
+            var icon = 2 * ir + 1 + pad;
             var need = (above == null) ? 0 : dc.getTextWidthInPixels(above as String, font) + space;
             var text = Draw.fit(dc, font, spellings, width - icon - need);
             var drawIcon = (text != null);
@@ -108,7 +109,7 @@ class QuotaGlance extends WatchUi.GlanceView {
             dc.drawText(width, top, font, text as String, Graphics.TEXT_JUSTIFY_RIGHT);
             used = tw + space;
             if (drawIcon) {
-                Draw.resetIcon(dc, width - tw - 3 - ir - ir / 2, top + line / 2, ir);
+                Draw.clockIcon(dc, width - tw - pad - ir, top + line / 2, ir);
                 used += icon;
             }
         }

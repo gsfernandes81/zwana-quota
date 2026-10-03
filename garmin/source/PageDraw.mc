@@ -77,9 +77,25 @@ module PageDraw {
         }
     }
 
-    // START asks for a fresh reading: the circular arrow, clockwise.
+    // START asks for a fresh reading: a circular arrow, clockwise -- an open
+    // ring with a head at its gap.
     function refreshGlyph(dc as Graphics.Dc, s as Array<Number>) as Void {
-        Draw.resetIcon(dc, s[0] - 1, s[1], u(s, 8));
+        var cx = s[0] - 1;
+        var cy = s[1];
+        var r = u(s, 8);
+        dc.setPenWidth(r > 5 ? 2 : 1);
+        dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, 45, 345);
+        dc.setPenWidth(1);
+        var k = 0.7071;
+        var px = cx + r * k;
+        var py = cy - r * k;
+        var a = r * 0.7;
+        var b = a * 0.8;
+        dc.fillPolygon([
+            [(px + a * k).toNumber(), (py + a * k).toNumber()],
+            [(px - b * k).toNumber(), (py + b * k).toNumber()],
+            [(px + b * k).toNumber(), (py - b * k).toNumber()],
+        ]);
     }
 
     // START switches data: the power symbol.

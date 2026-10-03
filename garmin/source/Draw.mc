@@ -38,21 +38,14 @@ module Draw {
         }
     }
 
-    // A circular arrow, clockwise: an open ring with a head at its gap.
-    function resetIcon(dc as Graphics.Dc, cx as Number, cy as Number, r as Number) as Void {
-        dc.setPenWidth(r > 5 ? 2 : 1);
-        dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, 45, 345);
+    // A small clock, beside when the grant lands: a thin face, its hands at
+    // 12 and 3. Not a circular arrow, which on the pages is START's refresh
+    // in the sub-window just above (PageDraw.refreshGlyph).
+    function clockIcon(dc as Graphics.Dc, cx as Number, cy as Number, r as Number) as Void {
         dc.setPenWidth(1);
-        var k = 0.7071;
-        var px = cx + r * k;
-        var py = cy - r * k;
-        var a = r * 0.7;
-        var b = a * 0.8;
-        dc.fillPolygon([
-            [(px + a * k).toNumber(), (py + a * k).toNumber()],
-            [(px - b * k).toNumber(), (py + b * k).toNumber()],
-            [(px + b * k).toNumber(), (py - b * k).toNumber()],
-        ]);
+        dc.drawCircle(cx, cy, r);
+        dc.drawLine(cx, cy, cx, cy - r + 2);
+        dc.drawLine(cx, cy, cx + r - 2, cy);
     }
 
     // The longest of [ladder] no wider than [width]; null if none is.

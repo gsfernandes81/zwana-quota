@@ -174,12 +174,12 @@ once, and every build after installs in place.
 ### What it shows
 
 The glance is laid out as Garmin's Body Battery glance is: a title and,
-after a reset icon, when tonight's grant lands; a bar whose thick part is what
+after a small clock, when tonight's grant lands; a bar whose thick part is what
 is left and thin part what has gone (full at the reset); and under it what is
 left and, beside it, how much of it is paid:
 
 ```
-DATA LEFT       ↻@00:00
+DATA LEFT      ◷ @00:00
 ████████━━━━━━━━━━━━━━
 301 MiB      0 MiB paid
 ```
