@@ -1,6 +1,7 @@
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.System;
 import Toybox.WatchUi;
 
 // What only the pages draw, kept out of the glance's memory (Draw is what
@@ -57,18 +58,27 @@ module PageDraw {
         }
     }
 
-    // The page indicator, as a ViewLoop draws one: a segment per page in
-    // an arc round the middle of the left edge, top to bottom, page
-    // [page]'s bold, over a black edge of its own so it reads over the page.
-    // Its sizes follow the screen, as they are on a 176-pixel one.
+    // The page indicator, as a ViewLoop draws one: a segment per page down
+    // the middle of the left edge, top to bottom, page [page]'s bold, over a
+    // black edge of its own so it reads over the page -- round the edge on a
+    // round screen, straight down it where the edge is flat (the Instinct 3
+    // Solar's). Its sizes follow the screen, as they are on a 176-pixel one.
     function indicator(dc as Graphics.Dc, page as Number, n as Number) as Void {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
         var half = cx < cy ? cx : cy;
+        if (System.getDeviceSettings().screenShape == System.SCREEN_SHAPE_ROUND) {
+            arcIndicator(dc, cx, cy, half, page, n);
+        } else {
+            barIndicator(dc, cy, half, page, n);
+        }
+    }
+
+    // Round the edge: segments of 9 degrees with 3 between, narrower when
+    // there are many (6 at the most pages there are, Pages.count), so the
+    // arc keeps to 90 degrees of the left edge, clear of the title above it.
+    function arcIndicator(dc as Graphics.Dc, cx as Number, cy as Number, half as Number, page as Number, n as Number) as Void {
         var r = half - half * 6 / 88;
-        // Segments of 9 degrees with 3 between, narrower when there are
-        // many (6 at the most pages there are, Pages.count), so the arc
-        // keeps to 90 degrees of the left edge, clear of the title above it.
         var gap = 3;
         var seg = (90 - (n - 1) * gap) / n;
         seg = seg > 9 ? 9 : seg;
@@ -84,6 +94,29 @@ module PageDraw {
             dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, a, a + seg);
         }
         dc.setPenWidth(1);
+    }
+
+    // Straight down a flat edge: segments of 12 pixels with 4 between,
+    // shorter when there are many, so the bar keeps to the middle two
+    // fifths of the edge, on its flat part and clear of the title.
+    function barIndicator(dc as Graphics.Dc, cy as Number, half as Number, page as Number, n as Number) as Void {
+        var gap = half * 4 / 88;
+        var most = half * 4 / 5;
+        var seg = (most - (n - 1) * gap) / n;
+        var full = half * 12 / 88;
+        seg = seg > full ? full : (seg < 1 ? 1 : seg);
+        var span = n * seg + (n - 1) * gap;
+        var top = cy - span / 2;
+        var x = half * 6 / 88;           // the segments' centre line
+        var bold = half * 5 / 88;
+        var thin = half * 2 / 88;
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(0, top - gap, x + bold, span + 2 * gap);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        for (var i = 0; i < n; i++) {
+            var w = i == page ? bold : thin;
+            dc.fillRectangle(x - w / 2, top + i * (seg + gap), w, seg);
+        }
     }
 
     // [degrees] as 0 to 359.

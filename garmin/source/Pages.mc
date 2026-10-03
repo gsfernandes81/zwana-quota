@@ -5,8 +5,9 @@ import Toybox.WatchUi;
 // The pages behind the glance, turned as a WatchUi.ViewLoop turns them: a
 // view each, UP and DOWN (or a swipe) sliding the next page in from the
 // side it lies on, round from the last page to the first, and the page
-// indicator -- an arc of a segment per page on the left edge, beside UP
-// and DOWN, this page's segment bold -- drawn for a moment after each turn.
+// indicator -- a segment per page down the left edge, beside UP and DOWN,
+// this page's bold (PageDraw.indicator) -- drawn for a moment after each
+// turn.
 // Not a ViewLoop itself: on an Instinct the loop has the watch draw its own
 // battery over the sub-window (Garmin's bug report "ViewLoop is completely
 // broken on Instinct 2", acknowledged and not fixed; the simulator does not
