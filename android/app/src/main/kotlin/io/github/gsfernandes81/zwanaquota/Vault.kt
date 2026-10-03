@@ -29,20 +29,37 @@ import javax.crypto.spec.GCMParameterSpec
 class Vault(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("vault", Context.MODE_PRIVATE)
 
-    fun credentials(): Credentials? {
+    /**
+     * The login, decrypted once per process and kept: the tile, the widget
+     * and the settings screen ask on the main thread, often, and each
+     * decrypt is a round trip to the Keystore. Only this class changes it.
+     */
+    fun credentials(): Credentials? = synchronized(LOCK) {
+        if (!known) {
+            loaded = decrypt()
+            known = true
+        }
+        loaded
+    }
+
+    private fun decrypt(): Credentials? {
         val username = read("username") ?: return null
         val password = read("password") ?: return null
         return Credentials(username, password).takeIf { username.isNotBlank() && password.isNotEmpty() }
     }
 
-    fun setCredentials(credentials: Credentials) {
+    fun setCredentials(credentials: Credentials) = synchronized(LOCK) {
         write("username", credentials.username)
         write("password", credentials.password)
         // A new login is a new session.
         prefs.edit().remove("cookies").apply()
+        known = false
     }
 
-    fun signOut() = prefs.edit().clear().apply()
+    fun signOut() = synchronized(LOCK) {
+        prefs.edit().clear().apply()
+        known = false
+    }
 
     val signedIn: Boolean get() = credentials() != null
 
@@ -84,6 +101,11 @@ class Vault(context: Context) {
     }
 
     private companion object {
+        /** Held while the login is read or changed, so a read never keeps an old one. */
+        val LOCK = Any()
+        var loaded: Credentials? = null
+        var known = false
+
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "zwana-vault"
         const val TRANSFORMATION = "AES/GCM/NoPadding"

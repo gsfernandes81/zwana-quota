@@ -11,6 +11,7 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.view.ContextThemeWrapper
+import android.view.WindowManager
 import androidx.core.net.toUri
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -97,7 +98,15 @@ class QuotaTile : TileService() {
         dialog.setOnDismissListener { if (shown?.get() === panel) shown = null }
         shown = WeakReference(panel)
         panel.render(Refresher.cachedFace(this), null)
-        showDialog(dialog)
+        try {
+            showDialog(dialog)
+        } catch (e: WindowManager.BadTokenException) {
+            // Unlocking first (onClick) can outlast the panel's window token:
+            // Quick Settings closes for the bouncer and takes it back. The
+            // app, then, rather than nothing.
+            shown = null
+            return open(Intent(this, SettingsActivity::class.java), APP)
+        }
         read()
     }
 

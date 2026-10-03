@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import java.io.File
+import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -37,12 +38,7 @@ class Store(context: Context) {
         null
     }
 
-    /** Written whole and renamed into place, so a reader never sees half of one. */
-    fun save(reading: Reading) {
-        val tmp = File(cache.path + ".tmp")
-        tmp.writeText(reading.toJson().toString())
-        tmp.renameTo(cache)
-    }
+    fun save(reading: Reading) = replace(cache, reading.toJson().toString())
 
     /** The data session as last read, or null if it never has been. */
     fun session(): Session? = try {
@@ -80,7 +76,12 @@ class Store(context: Context) {
 
     class Named(val name: String, val at: Long)
 
-    private fun replace(file: File, text: String) {
+    /**
+     * Written whole and renamed into place, so a reader never sees half of
+     * one; one writer at a time across every Store, since workers, the
+     * listener's threads and the screen each make their own.
+     */
+    private fun replace(file: File, text: String) = synchronized(FILES) {
         val tmp = File(file.path + ".tmp")
         tmp.writeText(text)
         tmp.renameTo(file)
@@ -205,10 +206,17 @@ class Store(context: Context) {
         .map { (k, v) -> k.removePrefix("note.") to v.toString() }
         .toMap(sortedMapOf())
 
-    @Synchronized
-    fun log(text: String) {
-        val lines = (if (journal.exists()) journal.readLines() else emptyList()) + "${stamp()} $text"
-        journal.writeText(lines.takeLast(JOURNAL_LINES).joinToString("\n", postfix = "\n"))
+    /**
+     * Add a line to the journal. Never throws: it is called from bare
+     * threads and catch blocks, and a line lost to a full disk is the right
+     * failure, where a crash would take the listener down with it.
+     */
+    fun log(text: String) = synchronized(FILES) {
+        try {
+            val lines = (if (journal.exists()) journal.readLines() else emptyList()) + "${stamp()} $text"
+            journal.writeText(lines.takeLast(JOURNAL_LINES).joinToString("\n", postfix = "\n"))
+        } catch (_: IOException) {
+        }
     }
 
     fun journal(): String = if (journal.exists()) journal.readText() else ""
@@ -218,6 +226,9 @@ class Store(context: Context) {
     companion object {
         /** Held while the watch's asks are read and changed ([asks]), across every Store. */
         private val ASKS = Any()
+
+        /** Held while a file is written ([replace], [log]), across every Store. */
+        private val FILES = Any()
         private const val JOURNAL_LINES = 300
         private val STAMP = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
     }

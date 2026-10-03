@@ -23,11 +23,13 @@ class QuotaApp extends Application.AppBase {
     // phone so (Ask.hello). The registration outlives the app; opening it
     // again is harmless.
     function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
+        // The app's first: registering may hand over a waiting message at
+        // once, and it is to be held as the app holds one.
+        Quota.remember = true;
+        app = true;
         Background.registerForPhoneAppMessageEvent();
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
         Ask.hello();
-        Quota.remember = true;
-        app = true;
         fixture();
         return Pages.view(0, false);
     }

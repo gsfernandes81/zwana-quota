@@ -44,7 +44,6 @@ object Garmin {
     }
 
     private val main = Handler(Looper.getMainLooper())
-    private var instance: ConnectIQ? = null
 
     /** The SDK's state, in words: `ready`, or why not. */
     @Volatile
@@ -52,16 +51,29 @@ object Garmin {
         private set
 
     /**
-     * The SDK, started once per process and kept. Null, with [state] saying
-     * why, when Garmin Connect is missing, too old, or not answering.
+     * The SDK, started once per process and kept while it works. Null, with
+     * [state] saying why, when Garmin Connect is missing, too old, or not
+     * answering; the next call starts it again.
      */
     @Synchronized
     fun ready(context: Context, timeoutMs: Long = 10_000): ConnectIQ? {
-        if (state == READY) instance?.let { return it }
         val app = context.applicationContext
         val iq = ConnectIQ.getInstance(app, ConnectIQ.IQConnectType.WIRELESS)
+        // Ready, even if it said so only after the last wait ran out.
+        if (state == READY) return iq
         val done = CountDownLatch(1)
         main.post {
+            // Undo the last start first, if there was one: each start
+            // registers a receiver and binds Garmin Connect anew, and only
+            // shutdown gives them back -- in the process the listener keeps
+            // alive for days, they would pile up, and each would hand on the
+            // watch's messages. It throws when nothing was started. The
+            // listeners it drops were dead with the SDK, and WatchListener
+            // registers again every quarter of an hour.
+            try {
+                iq.shutdown(app)
+            } catch (_: Exception) {
+            }
             try {
                 // autoUI false: the SDK would otherwise pop a "get Garmin
                 // Connect" dialog, from a background job, at someone who did
@@ -91,8 +103,7 @@ object Garmin {
             }
         }
         if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) state = "no answer from Garmin Connect in ${timeoutMs / 1000}s"
-        instance = iq.takeIf { state == READY }
-        return instance
+        return iq.takeIf { state == READY }
     }
 
     /**
@@ -172,25 +183,32 @@ object Garmin {
         "unknown (${e.javaClass.simpleName})"
     }
 
+    /**
+     * On the main thread, as [listen] registers: the SDK keeps a send's
+     * listener in maps it reads there, unlocked, as the answer comes in.
+     */
     private fun sendTo(iq: ConnectIQ, device: IQDevice, app: IQApp, payload: HashMap<String, Any>): String {
         val answer = AtomicReference("no answer in ${SEND_SECONDS}s")
         val done = CountDownLatch(1)
-        try {
-            iq.sendMessage(device, app, payload, object : ConnectIQ.IQSendMessageListener {
-                override fun onMessageStatus(device: IQDevice?, app: IQApp?, status: ConnectIQ.IQMessageStatus?) {
-                    answer.set(
-                        when (status) {
-                            ConnectIQ.IQMessageStatus.SUCCESS -> SENT
-                            ConnectIQ.IQMessageStatus.FAILURE_DEVICE_NOT_CONNECTED -> "not sent, watch disconnected"
-                            ConnectIQ.IQMessageStatus.FAILURE_INVALID_DEVICE -> "not sent, watch app missing? (${status.name})"
-                            else -> "not sent: ${status?.name}"
-                        },
-                    )
-                    done.countDown()
-                }
-            })
-        } catch (e: Exception) {
-            return "not sent: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim()
+        main.post {
+            try {
+                iq.sendMessage(device, app, payload, object : ConnectIQ.IQSendMessageListener {
+                    override fun onMessageStatus(device: IQDevice?, app: IQApp?, status: ConnectIQ.IQMessageStatus?) {
+                        answer.set(
+                            when (status) {
+                                ConnectIQ.IQMessageStatus.SUCCESS -> SENT
+                                ConnectIQ.IQMessageStatus.FAILURE_DEVICE_NOT_CONNECTED -> "not sent, watch disconnected"
+                                ConnectIQ.IQMessageStatus.FAILURE_INVALID_DEVICE -> "not sent, watch app missing? (${status.name})"
+                                else -> "not sent: ${status?.name}"
+                            },
+                        )
+                        done.countDown()
+                    }
+                })
+            } catch (e: Exception) {
+                answer.set("not sent: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
+                done.countDown()
+            }
         }
         done.await(SEND_SECONDS, TimeUnit.SECONDS)
         return answer.get()

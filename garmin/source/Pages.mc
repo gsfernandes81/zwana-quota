@@ -53,12 +53,18 @@ module Pages {
     // in milliseconds from the press: the slide and about a second after,
     // so it does not lie over the page's text for good.
     const INDICATOR_MS = 1300;
+    // How often the page is drawn again with nothing new from the phone: what
+    // it shows ages on its own -- the countdown to the reset, and a reading
+    // becoming "2h ago" or "new day" when the phone has gone quiet.
+    const REDRAW_MS = 60000;
 
     var at as Number = 0;                // the page last turned to
     var top as WatchUi.View? = null;     // its view
     var list as DeviceList? = null;      // that view, when it is the list
     var indicating as Boolean = false;   // the edge indicator is up
-    var timer as Timer.Timer? = null;    // takes it down
+    // One timer for both: it takes the indicator down, then redraws every
+    // REDRAW_MS. A watch app may have only three, and Ask holds another.
+    var timer as Timer.Timer? = null;
 
     // Page [page] and its delegate, with the edge indicator up from now
     // where there is no sub-window. The list opens on its first device, or
@@ -74,12 +80,9 @@ module Pages {
         }
         if (PageDraw.subscreen() == null) {
             indicating = true;
-            if (timer == null) {
-                timer = new Timer.Timer();
-            }
-            var t = timer as Timer.Timer;
-            t.stop();
-            t.start(new Lang.Method(Pages, :hide), INDICATOR_MS, false);
+            every(:hide, INDICATOR_MS, false);
+        } else if (timer == null) {
+            every(:redraw, REDRAW_MS, true);
         }
         var v = new QuotaView(page);
         top = v;
@@ -88,7 +91,23 @@ module Pages {
 
     function hide() as Void {
         indicating = false;
+        every(:redraw, REDRAW_MS, true);
         WatchUi.requestUpdate();
+    }
+
+    function redraw() as Void {
+        WatchUi.requestUpdate();
+    }
+
+    // The timer, from now: [method] after [ms], and again every [ms] if
+    // [repeat].
+    function every(method as Symbol, ms as Number, repeat as Boolean) as Void {
+        if (timer == null) {
+            timer = new Timer.Timer();
+        }
+        var t = timer as Timer.Timer;
+        t.stop();
+        t.start(new Lang.Method(Pages, method), ms, repeat);
     }
 
     // Turn by [step] -- 1 for the next page, -1 for the one before, round

@@ -53,6 +53,11 @@ class DeviceList extends WatchUi.Menu2 {
         for (var i = shown - 1; i >= items.size(); i--) {
             deleteItem(i);
         }
+        // Not left on an item that is gone: the simulator's list moves the
+        // focus back itself, and nothing says a watch's does.
+        if (items.size() < shown) {
+            setFocus(items.size() - 1);
+        }
         shown = items.size();
         WatchUi.requestUpdate();
     }

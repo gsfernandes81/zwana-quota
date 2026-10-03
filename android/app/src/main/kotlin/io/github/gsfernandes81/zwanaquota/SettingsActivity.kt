@@ -266,12 +266,10 @@ class SettingsActivity : AppCompatActivity() {
         val login = vault.credentials()
         val showForm = login == null || editingLogin
         // Signed out, the form needs no caption: the line shows only who is
-        // signed in, or that the form was sent half filled.
-        val missing = getString(R.string.missing_login)
+        // signed in, or what went wrong with the form.
         account.text = when {
             login != null -> getString(R.string.signed_in_as, login.username)
-            account.text.toString() == missing -> missing
-            else -> ""
+            else -> loginProblem.orEmpty()
         }
         account.visibility = if (account.text.isEmpty()) View.GONE else View.VISIBLE
         loginForm.visibility = if (showForm) View.VISIBLE else View.GONE
@@ -312,7 +310,7 @@ class SettingsActivity : AppCompatActivity() {
             R.string.row_background to (readable(notes["worker"]) ?: getString(R.string.nothing_yet)),
             R.string.row_garmin to Garmin.state,
             R.string.row_battery to getString(if (unrestricted) R.string.battery_free else R.string.battery_held),
-            R.string.row_version to (packageManager.getPackageInfo(packageName, 0).versionName ?: "?"),
+            R.string.row_version to version,
         )
         if (rows.childCount != table.size) {
             rows.removeAllViews()
@@ -340,10 +338,20 @@ class SettingsActivity : AppCompatActivity() {
         val user = username.text?.toString()?.trim().orEmpty()
         val pass = password.text?.toString().orEmpty()
         if (user.isEmpty() || pass.isEmpty()) {
-            account.text = getString(R.string.missing_login)
-            return
+            loginProblem = getString(R.string.missing_login)
+            return render()
         }
-        vault.setCredentials(Credentials(user, pass))
+        try {
+            vault.setCredentials(Credentials(user, pass))
+        } catch (e: Exception) {
+            // The Keystore can refuse (a broken key after an OS update): say
+            // so here, the one screen that could do anything about it.
+            val why = "could not save the login: ${e.javaClass.simpleName}"
+            loginProblem = why
+            store.note("account", why)
+            return render()
+        }
+        loginProblem = null
         password.text?.clear()
         editingLogin = false
         store.note("account", "login saved")
@@ -355,7 +363,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun shareLog() {
         val body = buildString {
-            appendLine("zwana quota ${packageManager.getPackageInfo(packageName, 0).versionName}")
+            appendLine("zwana quota $version")
             store.notes().forEach { (subject, line) -> appendLine("$subject: $line") }
             appendLine("garmin: ${Garmin.state}")
             appendLine()
@@ -364,6 +372,11 @@ class SettingsActivity : AppCompatActivity() {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body)
         startActivity(Intent.createChooser(send, getString(R.string.share_title)))
     }
+
+    /** Why the login form's last send did not sign in, until one does. */
+    private var loginProblem: String? = null
+
+    private val version by lazy(LazyThreadSafetyMode.NONE) { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" }
 
     private fun <T : View> view(id: Int) = lazy(LazyThreadSafetyMode.NONE) { findViewById<T>(id) }
 

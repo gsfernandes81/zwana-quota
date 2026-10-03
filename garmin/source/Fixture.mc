@@ -51,6 +51,12 @@ module Fixture {
         };
     }
 
+    // The reset 70 s off: the page, left open, turns to "new day" on its own.
+    function resetSoon(d as Dictionary) as Dictionary {
+        d["reset"] = Time.now().value() + 70;
+        return d;
+    }
+
     function session(d as Dictionary, names as Array<String>, roles as Array<String>,
             kinds as Array<String>, ips as Array<String>, total as Number) as Dictionary {
         d["dat"] = "on";
@@ -109,7 +115,7 @@ module Fixture {
             session(base("540 MiB", 540, "128 MiB", "412 MiB"), three[0], three[1], three[2], three[3], 3),
             session(base("1023 MiB", 763, "611 MiB", "412 MiB"), four[0], four[1], four[2], four[3], 4),
             session(stale, six[0], six[1], six[2], six[3], 6),
-            session(base("3 MiB", 3, "0 MiB", "3 MiB"), eight[0], eight[1], eight[2], eight[3], 11),
+            session(resetSoon(base("3 MiB", 3, "0 MiB", "3 MiB")), eight[0], eight[1], eight[2], eight[3], 11),
             off,
             old,
         ] as Array<Dictionary>;
