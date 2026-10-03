@@ -160,10 +160,4 @@ class DeviceListDelegate extends WatchUi.Menu2InputDelegate {
         }
         return false;
     }
-
-    (:debug)
-    function onMenu() as Boolean {
-        Fixture.next();
-        return true;
-    }
 }

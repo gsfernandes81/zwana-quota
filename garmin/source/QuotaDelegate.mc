@@ -63,7 +63,11 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
 
     (:debug)
     function onMenu() as Boolean {
-        Fixture.next();
+        if (view.page == 1) {
+            Fixture.soon();
+        } else {
+            Fixture.next();
+        }
         return true;
     }
 }

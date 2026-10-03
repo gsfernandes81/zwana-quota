@@ -1,18 +1,29 @@
 import Toybox.Application;
 import Toybox.Lang;
 import Toybox.Time;
+import Toybox.Timer;
 import Toybox.WatchUi;
 
 // Readings to draw in the simulator, where no phone sends any. Debug builds
 // only: (:debug) code is left out of a build made with -r, which is how
 // .github/workflows/garmin-prg.yml builds every .prg it publishes, so none
-// of this reaches a watch. Holding UP (MENU) on a page loads the next one.
+// of this reaches a watch. Holding UP (MENU) on a page loads the next one;
+// on the Connection page, 25 seconds later instead -- time to open the device
+// list, which the hold does not reach, and see it change under the focus.
 //
 // Each is a message as WatchPayload and WatchSession spell it, with the
 // times made from now, so a reading is as fresh or as old as it says.
 (:debug)
 module Fixture {
     var at as Number = -1;
+    var timer as Timer.Timer? = null;
+
+    function soon() as Void {
+        if (timer == null) {
+            timer = new Timer.Timer();
+        }
+        (timer as Timer.Timer).start(new Lang.Method(Fixture, :next), 25000, false);
+    }
 
     function next() as Void {
         var all = scenarios();
