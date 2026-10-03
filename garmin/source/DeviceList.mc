@@ -75,49 +75,39 @@ class DeviceList extends WatchUi.Menu2 {
     }
 }
 
-// A device's icon, drawn from Glyphs a pixel for a pixel. The list draws an
-// item's icon in two places on the Solar, each into a canvas of its own: the
-// sub-window (62 x 62, for the focused item), where it is the sub-window as
-// every page draws it -- white, the glyph in black -- and a cell beside the
-// item's name (24 x 14), where it is the small phone or laptop of the
-// Connection page.
+// A device's icon in the sub-window, for the focused device: the
+// sub-window as every page draws it, white with the glyph in black. The list
+// also hands the icon a small cell beside the name (24 x 14 on the Solar);
+// nothing is drawn there -- an icon that small reads as a smudge.
 class DeviceIcon extends WatchUi.Drawable {
-    var sub as Array<String>;
-    var small as Array<String>;
+    var id as ResourceId;
 
     function initialize(d as Dictionary, i as Number) {
         Drawable.initialize({});
         var g = Quota.item(Quota.arr(d, "dg"), i);
-        var phone = g.equals("phone") || g.equals("mainphone");
-        small = phone ? Glyphs.PHONE_SMALL : Glyphs.LAPTOP_SMALL;
         if (Pages.deviceIp(d, i).length() > 0) {
-            sub = Glyphs.DISCONNECT;
+            id = Rez.Drawables.Disconnect;
         } else if (g.equals("main")) {
-            sub = Glyphs.MAIN;
+            id = Rez.Drawables.Main;
         } else if (g.equals("mainphone")) {
-            sub = Glyphs.MAIN_PHONE;
-        } else if (phone) {
-            sub = Glyphs.PHONE;
+            id = Rez.Drawables.MainPhone;
+        } else if (g.equals("phone")) {
+            id = Rez.Drawables.Phone;
         } else {
-            sub = Glyphs.DEVICE;
+            id = Rez.Drawables.Device;
         }
     }
 
     function draw(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
         var h = dc.getHeight();
-        if (w >= Glyphs.REFRESH.size() && h >= Glyphs.REFRESH.size()) {
-            var s = [w / 2, h / 2, (w < h ? w : h) / 2];
-            PageDraw.sub(dc, s);
-            PageDraw.glyph(dc, s, sub);
+        // The sub-window's canvas, not the cell beside the name.
+        if (w < 40 || h < 40) {
             return;
         }
-        var gw = small[0].length();
-        if (gw > w || small.size() > h) {
-            return;
-        }
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        PageDraw.bits(dc, (w - gw) / 2, (h - small.size()) / 2, small, 1);
+        var s = [w / 2, h / 2, (w < h ? w : h) / 2];
+        PageDraw.sub(dc, s);
+        PageDraw.glyph(dc, s, id);
     }
 }
 

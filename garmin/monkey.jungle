@@ -7,3 +7,8 @@ project.manifest = manifest.xml
 # looked at.
 base.excludeAnnotations = numberWords
 instinct3solar45mm.excludeAnnotations = textWords
+
+# The AMOLEDs' screens are over twice the Solar's 176 pixels: their device
+# icons come at 2:1 (garmin/tools/glyphs.py), from a folder that overrides.
+instinct3amoled45mm.resourcePath = $(instinct3amoled45mm.resourcePath);resources-2x
+instinct3amoled50mm.resourcePath = $(instinct3amoled50mm.resourcePath);resources-2x

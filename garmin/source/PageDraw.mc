@@ -7,8 +7,7 @@ import Toybox.WatchUi;
 // What only the pages draw, kept out of the glance's memory (Draw is what
 // the two share): the round sub-window (top right on the Solar, beside the
 // START button), white with a glyph in black -- what START does on the page,
-// or what is so where it does nothing -- drawn a pixel for a pixel from
-// Glyphs; the page indicator on a screen without one; and fitting text to
+// or what is so where it does nothing -- one bitmap each; the page indicator on a screen without one; and fitting text to
 // the round screen.
 //
 // Every size is worked out from what it is given; nothing assumes a screen.
@@ -36,37 +35,33 @@ module PageDraw {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
     }
 
-    // Glyph [rows] (one of Glyphs' 31 x 31, `#` for ink) centred in
-    // sub-window [s], a pixel for a pixel.
-    function glyph(dc as Graphics.Dc, s as Array<Number>, rows as Array<String>) as Void {
-        var n = rows.size();
-        bits(dc, s[0] - n / 2, s[1] - n / 2, rows, 1);
-    }
+    // The glyphs drawn so far, loaded once each (garmin/tools/glyphs.py
+    // writes them): a page draws two or three, and the slide between pages
+    // draws a page whole.
+    var bitmaps as Dictionary = {};
 
-    // [rows] (`#` for ink) with its top left at ([x], [y]), each pixel [k]
-    // by [k]: each row's runs of ink as one rectangle, in the colour set.
-    function bits(dc as Graphics.Dc, x0 as Number, y0 as Number, rows as Array<String>, k as Number) as Void {
-        for (var y = 0; y < rows.size(); y++) {
-            var row = rows[y].toCharArray();
-            var run = -1;
-            for (var x = 0; x <= row.size(); x++) {
-                var ink = x < row.size() && row[x] == '#';
-                if (ink && run < 0) {
-                    run = x;
-                } else if (!ink && run >= 0) {
-                    dc.fillRectangle(x0 + run * k, y0 + y * k, (x - run) * k, k);
-                    run = -1;
-                }
-            }
+    function bitmap(id as ResourceId) as WatchUi.BitmapResource {
+        var b = bitmaps.get(id);
+        if (b == null) {
+            b = WatchUi.loadResource(id);
+            bitmaps.put(id, b);
         }
+        return b as WatchUi.BitmapResource;
     }
 
-    // A rule from [x0] to [x1] at [y], every other pixel: the screen has no
-    // grey, and a solid line reads heavier than a rule between rows should.
+    // Glyph [id] centred in sub-window [s].
+    function glyph(dc as Graphics.Dc, s as Array<Number>, id as ResourceId) as Void {
+        var b = bitmap(id);
+        dc.drawBitmap(s[0] - b.getWidth() / 2, s[1] - b.getHeight() / 2, b);
+    }
+
+    // A rule from [x0] to [x1] at [y], every other pixel from [x0]: the
+    // screen has no grey, and a solid line reads heavier than a rule between
+    // rows should. One bitmap wider than any screen, clipped to the row.
     function dotted(dc as Graphics.Dc, x0 as Number, x1 as Number, y as Number) as Void {
-        for (var x = x0; x <= x1; x += 2) {
-            dc.drawPoint(x, y);
-        }
+        dc.setClip(x0, y, x1 - x0 + 1, 1);
+        dc.drawBitmap(x0, y, bitmap(Rez.Drawables.Rule));
+        dc.clearClip();
     }
 
     // How tall [font]'s figures and capitals stand above the line: the lit
