@@ -95,10 +95,10 @@ def laptop(d: ImageDraw.ImageDraw, x0: int, y0: int) -> None:
 
 
 def phone(d: ImageDraw.ImageDraw, x0: int, y0: int) -> None:
-    # A phone, its top left at (x0, y0): 13 by 23 in a 2-pixel line, its
+    # A phone, its top left at (x0, y0): 15 by 21 in a 2-pixel line, its
     # corners rounded, a speaker slot at its foot.
-    d.rounded_rectangle([x0, y0, x0 + 12, y0 + 22], radius=3, outline=INK, width=2)
-    d.rectangle([x0 + 5, y0 + 18, x0 + 7, y0 + 19], fill=INK)
+    d.rounded_rectangle([x0, y0, x0 + 14, y0 + 20], radius=3, outline=INK, width=2)
+    d.rectangle([x0 + 6, y0 + 16, x0 + 8, y0 + 17], fill=INK)
 
 
 def badge(d: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
@@ -141,9 +141,9 @@ def main_device() -> Image.Image:
 
 def main_phone() -> Image.Image:
     im, d = canvas()
-    phone(d, 6, 4)
-    badge(d, 21, 20)
-    star(d, 21, 20)
+    phone(d, 4, 5)
+    badge(d, 21, 21)
+    star(d, 21, 21)
     return im
 
 
@@ -155,16 +155,16 @@ def device() -> Image.Image:
 
 def this_phone() -> Image.Image:
     im, d = canvas()
-    phone(d, 9, 4)
+    phone(d, 8, 5)
     return im
 
 
 def not_listening() -> Image.Image:
     # The phone struck through, and a question mark beside it.
     im, d = canvas()
-    phone(d, 3, 4)
-    d.line([(1, 27), (18, 3)], fill=PAPER, width=5)
-    d.line([(1, 27), (18, 3)], fill=INK, width=2)
+    phone(d, 2, 5)
+    d.line([(0, 27), (19, 3)], fill=PAPER, width=5)
+    d.line([(0, 27), (19, 3)], fill=INK, width=2)
     # A question mark 7 wide, drawn: a hook and a dot.
     qx, qy = 21, 9
     d.arc([qx, qy, qx + 8, qy + 8], start=180, end=90, fill=INK, width=2)
