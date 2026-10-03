@@ -57,8 +57,9 @@ module Pages {
     var indicating as Boolean = false; // the indicator is up
     var timer as Timer.Timer? = null;  // takes it down
 
-    // Page [page] and its START delegate, the indicator up from now: after
-    // a turn, and when the pages are first opened.
+    // Page [page] and its delegate (START, and UP and DOWN to turn), the
+    // indicator up from now: after a turn, and when the pages are first
+    // opened.
     function view(page as Number) as [QuotaView, QuotaDelegate] {
         indicating = true;
         if (timer == null) {

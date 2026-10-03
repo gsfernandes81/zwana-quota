@@ -20,7 +20,7 @@ import Toybox.WatchUi;
 // session (`dat`); START does anything only when the phone said it would
 // listen (`ask`, `ctl`).
 //
-// One view per page, made as the pages turn to it (Pages.turn).
+// One view per page, made by Pages.view: on opening, and as the pages turn.
 class QuotaView extends WatchUi.View {
     // The page this view was made for. What it draws and what START does
     // is current(), which is this unless the pages have since shrunk.
@@ -39,7 +39,12 @@ class QuotaView extends WatchUi.View {
     // there are now is the last. Worked out afresh, never stored, so a count
     // that comes back finds the view on its own page again.
     function current() as Number {
-        return Pages.clamp(page, Pages.count(Quota.last()));
+        return at(Pages.count(Quota.last()));
+    }
+
+    // current(), where there are [n] pages: what onUpdate draws.
+    function at(n as Number) as Number {
+        return Pages.clamp(page, n);
     }
 
     // The IP START may ask the phone to take off from device page [i], or ""
@@ -58,7 +63,7 @@ class QuotaView extends WatchUi.View {
         var d = Quota.last();
         var sub = PageDraw.subscreen();
         var n = Pages.count(d);
-        var p = Pages.clamp(page, n);
+        var p = at(n);
         if (p != 0 && !Quota.hasSession(d)) {
             noSession(dc, sub, p == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
         } else if (p == 1) {
