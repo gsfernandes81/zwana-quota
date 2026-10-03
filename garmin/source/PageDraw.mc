@@ -104,14 +104,15 @@ module PageDraw {
     }
 
     // Straight down a flat edge, as the watch's own page loops draw it: a
-    // small box per page at the very edge, page [page]'s filled and the
-    // others outlined, 7 by 13 pixels with 2 between, over black -- shorter
-    // when there are many, so the column keeps to the middle two fifths of
-    // the edge, on its flat part and clear of the title.
+    // small box per page 4 pixels in from the edge, page [page]'s filled
+    // and the others outlined in a 1-pixel line, 7 by 13 pixels with 2
+    // between, over black -- shorter when there are many, so the column
+    // keeps to the middle two fifths of the edge, on its flat part and clear
+    // of the title.
     function barIndicator(dc as Graphics.Dc, cy as Number, half as Number, page as Number, n as Number) as Void {
-        var x = half / 88;
+        var x = half * 4 / 88;
         var w = half * 7 / 88;
-        var line = half * 2 / 88;
+        var line = half / 88;
         var gap = half * 2 / 88;
         var full = half * 13 / 88;
         var box = (half * 4 / 5 - (n - 1) * gap) / n;
