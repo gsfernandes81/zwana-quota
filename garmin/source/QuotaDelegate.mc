@@ -1,8 +1,8 @@
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// START on a page. UP and DOWN are the loop's (Pages.mc) and pass through
-// here untouched. START does the page's one thing, and only what the phone's
+// UP and DOWN turn the pages (Pages.turn), from the page this view stands
+// for now. START does the page's one thing, and only what the phone's
 // last message offered: a fresh reading on the first page, the data switch
 // on the Connection page, and on a device's page, taking that device off
 // (QuotaView.mc lists them). Anything that takes a device off data asks
@@ -13,6 +13,32 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
     function initialize(v as QuotaView) {
         BehaviorDelegate.initialize();
         view = v;
+    }
+
+    // UP and DOWN are taken here as well as through onNextPage and
+    // onPreviousPage: which of the two a watch's firmware delivers for its
+    // buttons varies, and a press handled here does not arrive again there.
+    function onKey(evt as WatchUi.KeyEvent) as Boolean {
+        var key = evt.getKey();
+        if (key == WatchUi.KEY_DOWN) {
+            return onNextPage();
+        }
+        if (key == WatchUi.KEY_UP) {
+            return onPreviousPage();
+        }
+        return BehaviorDelegate.onKey(evt);
+    }
+
+    // DOWN, or a swipe up: the next page.
+    function onNextPage() as Boolean {
+        Pages.turn(view.current(), 1);
+        return true;
+    }
+
+    // UP, or a swipe down: the page before.
+    function onPreviousPage() as Boolean {
+        Pages.turn(view.current(), -1);
+        return true;
     }
 
     function onSelect() as Boolean {

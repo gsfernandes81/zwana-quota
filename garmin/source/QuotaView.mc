@@ -2,8 +2,8 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// Behind the glance, in pages -- UP and DOWN move between them (a ViewLoop,
-// Pages.mc), START does the page's one thing, and the sub-window (top right
+// Behind the glance, in pages -- UP and DOWN move between them (Pages.mc),
+// START does the page's one thing, and the sub-window (top right
 // on the Solar, beside START) shows each page's one number or what START
 // will do:
 //
@@ -20,10 +20,10 @@ import Toybox.WatchUi;
 // session (`dat`); START does anything only when the phone said it would
 // listen (`ask`, `ctl`).
 //
-// One view per page, made by the loop as it turns to it.
+// One view per page, made as the pages turn to it (Pages.turn).
 class QuotaView extends WatchUi.View {
-    // The page the loop made this view for. What it draws and what START
-    // does is current(), which is this unless the pages have since shrunk.
+    // The page this view was made for. What it draws and what START does
+    // is current(), which is this unless the pages have since shrunk.
     var page as Number;
 
     function initialize(p as Number) {
@@ -31,14 +31,9 @@ class QuotaView extends WatchUi.View {
         page = p;
     }
 
-    function onShow() as Void {
-        Pages.shown(page);
-    }
-
-    // The page this view stands for now: a loop built for more pages than
-    // there are, until it is replaced (Pages.refit), has its extra pages
-    // shown as the last. Worked out afresh, never stored, so a count that
-    // comes back finds the view on its own page again.
+    // The page this view stands for now: one made for a page past the pages
+    // there are now is the last. Worked out afresh, never stored, so a count
+    // that comes back finds the view on its own page again.
     function current() as Number {
         return Pages.clamp(page, Pages.count(Quota.last()));
     }
@@ -68,6 +63,7 @@ class QuotaView extends WatchUi.View {
         } else {
             dataLeft(dc, d, sub);
         }
+        Pages.indicate(dc, p, Pages.count(d));
     }
 
     // A session page before the phone has sent the session: say so.

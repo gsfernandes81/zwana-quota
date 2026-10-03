@@ -26,7 +26,7 @@ class QuotaApp extends Application.AppBase {
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
         Quota.remember = true;
         app = true;
-        return Pages.loop(0);
+        return Pages.view(0);
     }
 
     (:glance)
@@ -40,18 +40,18 @@ class QuotaApp extends Application.AppBase {
 
     // What the background service passed on: now if the app is running, or
     // at its next start if not -- and to the glance, when it is the one on
-    // screen. Pages is not in the glance, so only the app refits it. The
-    // glance redraws whether or not it could store the message itself: the
-    // background service stored it too where it could, and the glance reads
-    // from storage, so it draws the newest copy that was kept.
+    // screen. The app redraws for a message it kept; the glance redraws
+    // whether or not it could store the message itself: the background
+    // service stored it too where it could, and the glance reads from
+    // storage, so it draws the newest copy that was kept. A page drawn for a
+    // count of pages the message changed works out its page again
+    // (QuotaView.current).
     function onBackgroundData(data as Application.PersistableType) as Void {
         var kept = Quota.store(data);
-        if (!app) {
+        if (kept || !app) {
             WatchUi.requestUpdate();
-        } else {
-            if (kept) {
-                Pages.refit();
-            }
+        }
+        if (app) {
             Ask.heard();
         }
     }
@@ -59,7 +59,7 @@ class QuotaApp extends Application.AppBase {
     // A message that arrived while the app itself was open.
     function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {
         if (Quota.store(msg.data)) {
-            Pages.refit();
+            WatchUi.requestUpdate();
         }
         Ask.heard();
     }
