@@ -71,6 +71,11 @@ class WatchListener : Service() {
             // and again every so often, for a watch paired later or a Garmin
             // Connect that restarted and forgot this app.
             main.postDelayed(relisten, 0)
+            // The watch learns that the phone is listening from the next
+            // message it is sent (`ask`): send it one now, not at the next
+            // period -- after the process was killed, the last it was told
+            // was that nothing listens.
+            Work.pushNow(this)
         }
         return START_STICKY
     }

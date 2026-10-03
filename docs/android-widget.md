@@ -122,9 +122,12 @@ The Tasker tile on this phone is kept fresh every 15 minutes while the screen
 is on, and the widget does the same: one WorkManager job every 15 minutes
 (its shortest period), which reads the portal when the screen is on and
 does nothing when it is off, since nobody is looking. The exception is the
-watch: switched on, it is still sent a reading at least every 30 minutes,
-screen on or off, and it calls a reading stale at twice that. The job
-exists only while there is a widget on a home screen or the watch is on.
+watch: in use (Garmin Connect installed), it is still sent a reading at
+least every 30 minutes, screen on or off, and it calls a reading stale at
+twice that. The job exists only while there is a widget on a home screen
+or Garmin Connect is installed; each run asks again, so a Garmin Connect
+installed later is picked up at the next tap, the next opening of the app,
+or the next boot.
 Android's own widget update (`updatePeriodMillis`, 30 minutes at the
 shortest) stays as a backstop, and every tap reads at once.
 

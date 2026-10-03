@@ -33,13 +33,12 @@ object Garmin {
     private const val CONNECT = "com.garmin.android.apps.connectmobile"
 
     /**
-     * Whether Garmin Connect is installed, which is all it takes for the
-     * watch to be used: cheap enough to ask every time, and nothing about
+     * Whether Garmin Connect is installed and not disabled, which is all it
+     * takes for the watch to be used: cheap enough to ask every time, and nothing about
      * the SDK, which starts only when there is something to send or hear.
      */
     fun present(context: Context): Boolean = try {
-        context.packageManager.getPackageInfo(CONNECT, 0)
-        true
+        context.packageManager.getApplicationInfo(CONNECT, 0).enabled
     } catch (e: PackageManager.NameNotFoundException) {
         false
     }

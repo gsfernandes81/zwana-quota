@@ -486,8 +486,11 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 )
             }
             store.note("worker", "ran ($trigger)")
-            // The listener, if it should be running and the system stopped it.
+            // The listener, if it should be running and the system stopped it;
+            // and the periodic job, if what it keeps fresh came or went (a
+            // widget, or Garmin Connect installed or removed).
             WatchListener.sync(applicationContext, "worker")
+            Work.schedule(applicationContext)
         } catch (e: Exception) {
             // A failure here is drawn and noted, never retried in a loop: the
             // next tap or the next period is the retry.
@@ -616,13 +619,19 @@ object Work {
         return manager.getWorkInfosForUniqueWork(name).get().any { it.id == request.id }
     }
 
-    /** Send the watch the stored reading now: a watch setting changed, and the watch learns it from the next message. */
+    /**
+     * Send the watch the stored reading now: what it may offer changed (the
+     * watch setting, or the listener coming up), and it learns that from
+     * the next message.
+     */
     fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "setting", ExistingWorkPolicy.REPLACE)
 
     /**
      * The one periodic job, every [Refresher.KEEP_FRESH_MINUTES] (WorkManager's
      * shortest), while there is anything to keep fresh: a widget on the home
-     * screen or the watch switched on. What each run does is the worker's
+     * screen or the watch in use (Garmin Connect installed, Store.watchOn).
+     * Each run asks again (QuotaWorker), so the job ends when neither is so.
+     * What each run does is the worker's
      * call ([QuotaWorker]): a read while the screen is on, as the Tasker tile
      * does, and with it off nothing, unless the watch is due a send.
      */

@@ -9,9 +9,9 @@ One APK, three jobs:
 - **a Quick Settings tile**: the same figure one swipe down from anywhere,
   and a tap opens the device list, where each device can be taken off data
   on its own. It replaced the Tasker tile, which was removed on 2026-10-03.
-- **a Connect IQ companion**: when switched on, it sends the same reading to
-  the zwana quota app on a Garmin Instinct 3 (`../garmin/`), which shows it
-  as a glance.
+- **a Connect IQ companion**: with Garmin Connect installed, it sends the
+  same reading to the zwana quota app on a Garmin Instinct 3 (`../garmin/`),
+  which shows it as a glance.
 
 The decisions behind it are in `../docs/android-widget.md`. This file covers
 getting it onto the phone and the watch.

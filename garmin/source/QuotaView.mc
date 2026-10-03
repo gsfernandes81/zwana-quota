@@ -38,11 +38,11 @@ class QuotaView extends WatchUi.View {
     // there are now is the last. Worked out afresh, never stored, so a count
     // that comes back finds the view on its own page again.
     function current() as Number {
-        return at(Pages.count(Quota.last()));
+        return pageIn(Pages.count(Quota.last()));
     }
 
     // current(), where there are [n] pages: what onUpdate draws.
-    function at(n as Number) as Number {
+    function pageIn(n as Number) as Number {
         return Pages.clamp(page, n);
     }
 
@@ -62,7 +62,7 @@ class QuotaView extends WatchUi.View {
         var d = Quota.last();
         var sub = PageDraw.subscreen();
         var n = Pages.count(d);
-        var p = at(n);
+        var p = pageIn(n);
         if (p != 0 && !Quota.hasSession(d)) {
             noSession(dc, sub, p == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
         } else if (p == 1) {
@@ -89,7 +89,10 @@ class QuotaView extends WatchUi.View {
         if (p != 0 && !Quota.hasSession(d)) {
             PageDraw.wordGlyph(dc, s, "?");
         } else if (p == 0) {
-            if (Quota.canAsk(d)) {
+            if (d == null) {
+                // Nothing heard from the phone yet: nothing known about it.
+                PageDraw.wordGlyph(dc, s, "?");
+            } else if (Quota.canAsk(d)) {
                 PageDraw.refreshGlyph(dc, s);
             } else {
                 PageDraw.notListeningGlyph(dc, s);
@@ -129,7 +132,7 @@ class QuotaView extends WatchUi.View {
         var fh = dc.getFontHeight(font);
         var y = dc.getHeight() / 2 - fh;
         var w = dc.getWidth();
-        var lines = ["not sent yet:", "open zwana quota", "on the phone"];
+        var lines = ["not sent yet:", "Read now in the", "phone app"];
         for (var i = 0; i < lines.size(); i++) {
             var text = PageDraw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh));
             dc.drawText(w / 2, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);
@@ -312,12 +315,13 @@ class QuotaView extends WatchUi.View {
         if (total < count) {
             total = count;
         }
-        // Which of how many: the sub-window's dots say it where there is
-        // one, else the title.
+        // Which of how many, in the title where it fits: the sub-window's
+        // dots show the place, not the total.
+        var which = (i + 1).toString() + "/" + total.toString();
         if (sub != null) {
-            title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE"], sub);
+            title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE " + which, which, "DEVICE"], sub);
         } else {
-            title(dc, count == 0 ? ["DEVICES"] : ["DEVICE " + (i + 1).toString() + "/" + total.toString()], sub);
+            title(dc, count == 0 ? ["DEVICES"] : ["DEVICE " + which], sub);
         }
 
         var small = Graphics.FONT_XTINY;
