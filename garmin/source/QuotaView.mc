@@ -32,7 +32,7 @@ class QuotaView extends WatchUi.View {
     }
 
     function onHide() as Void {
-        Pages.covered(page);
+        Pages.covered(self);
     }
 
     // The page this view stands for now: one made for a page past the pages
@@ -57,7 +57,8 @@ class QuotaView extends WatchUi.View {
         dc.clear();
         var d = Quota.last();
         var sub = PageDraw.subscreen();
-        var p = current();
+        var n = Pages.count(d);
+        var p = Pages.clamp(page, n);
         if (p != 0 && !Quota.hasSession(d)) {
             noSession(dc, sub, p == 1 ? ["CONNECTION", "INTERNET"] : ["DEVICES", "DEVICE"]);
         } else if (p == 1) {
@@ -68,7 +69,7 @@ class QuotaView extends WatchUi.View {
             dataLeft(dc, d, sub);
         }
         if (Pages.indicating) {
-            PageDraw.indicator(dc, p, Pages.count(d));
+            PageDraw.indicator(dc, p, n);
         }
     }
 

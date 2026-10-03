@@ -53,14 +53,13 @@ module Pages {
     // it and it never goes during the turn.
     const INDICATOR_MS = 1300;
 
-    var at as Number = 0;              // the page last turned to
+    var top as QuotaView? = null;      // the page last turned to
     var indicating as Boolean = false; // the indicator is up
     var timer as Timer.Timer? = null;  // takes it down
 
     // Page [page] and its START delegate, the indicator up from now: after
     // a turn, and when the pages are first opened.
     function view(page as Number) as [QuotaView, QuotaDelegate] {
-        at = page;
         indicating = true;
         if (timer == null) {
             timer = new Timer.Timer();
@@ -69,6 +68,7 @@ module Pages {
         t.stop();
         t.start(new Lang.Method(Pages, :hide), INDICATOR_MS, false);
         var v = new QuotaView(page);
+        top = v;
         return [v, new QuotaDelegate(v)];
     }
 
@@ -77,14 +77,17 @@ module Pages {
         WatchUi.requestUpdate();
     }
 
-    // Page [page] has been covered -- by the confirmation START asks, not
-    // by a turn, which has already made another page the one turned to:
-    // the indicator does not come up underneath, to be found on return.
-    function covered(page as Number) as Void {
-        if (page == at && timer != null) {
-            (timer as Timer.Timer).stop();
-            indicating = false;
+    // View [v] has been covered -- by the confirmation START asks, not by a
+    // turn, which has already made another view the one turned to: the
+    // indicator is not left underneath, to be found on return.
+    function covered(v as QuotaView) as Void {
+        if (v != top) {
+            return;
         }
+        if (timer != null) {
+            (timer as Timer.Timer).stop();
+        }
+        indicating = false;
     }
 
     // Turn by [step] -- 1 for the next page, -1 for the one before, round
@@ -92,7 +95,8 @@ module Pages {
     // press reached, which during a slide may still be the one leaving.
     function turn(step as Number) as Void {
         var n = count(Quota.last());
-        var pair = view((clamp(at, n) + step + n) % n);
+        var from = top != null ? (top as QuotaView).page : 0;
+        var pair = view((clamp(from, n) + step + n) % n);
         WatchUi.switchToView(pair[0], pair[1], step > 0 ? WatchUi.SLIDE_UP : WatchUi.SLIDE_DOWN);
     }
 }

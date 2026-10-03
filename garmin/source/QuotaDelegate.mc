@@ -28,7 +28,7 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
 
     function onSelect() as Boolean {
         // A press that reaches a page while it slides away is not for it.
-        if (view.page != Pages.at) {
+        if (view != Pages.top) {
             return true;
         }
         var d = Quota.last();

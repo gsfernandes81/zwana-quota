@@ -84,7 +84,8 @@ module PageDraw {
     // there are many (6 degrees at the most there are: ten, Pages.count),
     // so the arc keeps to 90 degrees of the left edge, clear of the title.
     function arcIndicator(dc as Graphics.Dc, cx as Number, cy as Number, half as Number, page as Number, n as Number) as Void {
-        var r = half - half * 6 / 88;
+        // From the centre across: the left edge, on a semi-round screen too.
+        var r = cx - half * 6 / 88;
         var gap = 3;
         var seg = (90 - (n - 1) * gap) / n;
         seg = seg > 9 ? 9 : seg;
@@ -115,6 +116,11 @@ module PageDraw {
         var full = half * 13 / 88;
         var box = (half * 4 / 5 - (n - 1) * gap) / n;
         box = box > full ? full : box;
+        // A border thin enough that an outlined box still shows its hole
+        // when there are many and the boxes are short.
+        if (line * 3 > box) {
+            line = box / 3 > 0 ? box / 3 : 1;
+        }
         var span = n * box + (n - 1) * gap;
         var top = cy - span / 2;
         // Black behind the column, so nothing the page drew shows between.
