@@ -38,6 +38,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- A long press on the Quick Settings tile opens the app. -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
         </activity>
 
         <!-- The widget's "turn data off?" question. Its own empty task, gone
@@ -63,6 +67,22 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- The Quick Settings tile. Not a toggle: a tap opens its panel
+             (QuotaTile), so TalkBack does not call it a switch. -->
+        <service
+            android:name=".QuotaTile"
+            android:exported="true"
+            android:icon="@drawable/ic_unknown"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
 
         <receiver
             android:name=".QuotaWidget"

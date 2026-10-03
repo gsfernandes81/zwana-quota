@@ -1,6 +1,6 @@
 """The two command lines, end to end — with the portal replaced at the seam.
 
-``main`` is what the widget shortcut, the Tasker tile and the status line all
+``main`` is what the widget shortcut and the status line all
 call, so what is pinned here is the exit code, which stream the answer lands
 on, and that calibration never costs a request.
 """
@@ -78,15 +78,6 @@ def test_every_glyph_page_numbers_its_rows_past_the_tile(capsys, page):
     assert len(lines) >= 24
 
 
-def test_the_quick_settings_probe_never_goes_to_the_portal(capsys, monkeypatch):
-    monkeypatch.setattr(
-        qw, "gather", lambda previous=None: pytest.fail("calibration must be free")
-    )
-    code, out, _ = run(["--qs-probe", "--qs-size", "large"], capsys)
-    assert code == 0
-    assert len(out.splitlines()) == 4
-
-
 # --------------------------------------------------------------------------- #
 # The four faces
 # --------------------------------------------------------------------------- #
@@ -100,21 +91,6 @@ def test_the_default_is_the_tile_face_placed_in_the_tile(capsys, clock, portal):
     face = [line for line in lines[qw.TILE_TOP:] if line]
     assert face
     assert all(len(line) <= qw.TILE for line in face)
-
-
-def test_the_quick_settings_answer_is_exactly_four_lines(capsys, clock, portal):
-    code, out, _ = run(["--qs"], capsys)
-    assert code == 0
-    assert out.count("\n") == 4
-    assert out.splitlines() == list(qw.compose_qs(
-        qw.derive(portal.answer, 0.0, True), *qw.QS_SIZES["medium"]
-    ))
-
-
-def test_a_measured_width_beats_a_named_size(capsys, clock, portal):
-    _, wide, _ = run(["--qs", "--qs-size", "small", "--qs-width", "12", "34"], capsys)
-    _, named, _ = run(["--qs", "--qs-size", "large"], capsys)
-    assert wide == named
 
 
 def test_json_is_the_derivation_verbatim(capsys, clock, portal):
@@ -197,14 +173,6 @@ def test_a_cached_reading_is_drawn_when_the_portal_is_down(capsys, clock, portal
     assert err == ""
 
 
-def test_with_no_reading_at_all_the_tile_says_so_and_fails(capsys, clock, portal):
-    portal.error = zq.PortalError("no route")
-    code, out, err = run(["--qs"], capsys)
-    assert code == 1
-    assert out.splitlines() == list(qw.QS_UNKNOWN)
-    assert "no route" in err
-
-
 def test_the_failure_goes_to_stderr_so_the_face_stays_readable(capsys, clock, portal):
     portal.error = zq.PortalError("no route")
     code, out, err = run([], capsys)
@@ -254,14 +222,12 @@ def test_a_background_refresh_hands_the_old_reading_forward(capsys, clock, porta
 def test_the_defaults_are_the_documented_ones():
     args = qw.parse_args([])
     assert args.max_age == qw.DEFAULT_MAX_AGE
-    assert args.qs_size == "medium"
-    assert args.qs_width is None
     assert args.frame == "corners"
     assert (args.width, args.margin, args.top) == (None, None, None)
 
 
-@pytest.mark.parametrize("argv", [["--qs-size", "enormous"], ["--frame", "double"],
-                                  ["--probe", "emoji"], ["--qs-width", "1"]])
+@pytest.mark.parametrize("argv", [["--frame", "double"], ["--probe", "emoji"],
+                                  ["--width", "wide"], ["--qs"]])
 def test_an_unknown_option_is_refused_rather_than_guessed(argv):
     with pytest.raises(SystemExit):
         qw.parse_args(argv)
@@ -424,6 +390,6 @@ def test_the_ruler_pages_are_ten_characters_of_one_glyph_each(capsys):
 
 
 def test_the_command_line_reads_the_real_argv_when_it_is_given_none(monkeypatch):
-    monkeypatch.setattr(qw.sys, "argv", ["quota_widget.py", "--qs", "--plain"])
+    monkeypatch.setattr(qw.sys, "argv", ["quota_widget.py", "--json", "--plain"])
     args = qw.parse_args()
-    assert (args.qs, args.plain) == (True, True)
+    assert (args.json, args.plain) == (True, True)

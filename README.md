@@ -4,12 +4,10 @@ How much of the day's data allowance is left, read from the crew portal at
 `ic.zwana.io` and drawn three ways on the phone, and on the wrist:
 
 - **`quota_widget.py`** — the home-screen widget face (via Termux:Widget
-  shortcuts in `~/.shortcuts/`), and the library the other two build on.
-- **`tasker/zwana-tile`** — the same reading on an Android Quick Settings
-  tile, through the Termux:Tasker plugin. `tasker/install.sh` links it in;
-  `docs/quota-tile.md` is the guide.
-- **`android/`** — an Android home-screen widget that reads the portal itself
-  and needs nothing else installed, and, in the same APK, the Connect IQ
+  shortcuts in `~/.shortcuts/`), and the library the `dlq` runner builds on.
+- **`android/`** — an Android home-screen widget and Quick Settings tile that
+  read the portal themselves and need nothing else installed, and, in the
+  same APK, the Connect IQ
   companion that sends the reading to **`garmin/`**, a glance for a Garmin
   Instinct 3. `android/README.md` is the install guide;
   `docs/android-widget.md` the reasoning.
@@ -25,8 +23,10 @@ the one the others reach down into.
 
 Split out of the `or3` monorepo's `termux/` on 2026-08-28. If migrating: move
 the old credentials with `mv ~/or3/.env ~/zwana-quota/.env`, and re-point the
-`~/.shortcuts/quota*` scripts and the `~/.termux/tasker/` symlink
-(`tasker/install.sh` redoes the latter).
+`~/.shortcuts/quota*` scripts. The Tasker tile that used to live in `tasker/`
+was retired on 2026-10-03 for the app's own (`android/README.md`); a
+`~/.termux/tasker/zwana-tile` symlink left behind points at nothing and can
+be deleted.
 
 ## Checks
 
@@ -38,8 +38,7 @@ never reached, and nothing outside a temporary directory is written.
 
 `quota_widget.py --self-test` was removed on 2026-09-02; `tests/` replaced it
 on 2026-09-03 and carries the same things — the face fitting 35 x 5 at every
-magnitude, the string budgets at every tile size, and the four-line contract
-the Tasker tile depends on — as behaviour and invariants rather than as
+magnitude and the `--full` box's budgets — as behaviour and invariants rather than as
 expected output, so the wording and the layouts can still change. The
 properties are `hypothesis`; the portal is stubbed at the seams the modules
 already have, and no seam was added for the tests.
