@@ -22,8 +22,9 @@ import Toybox.WatchUi;
 // what was asked needs none: the page it changes is redrawn.
 //
 // Offered only when the phone's last message said it is listening (`ask`,
-// and `ctl` for switching): the phone runs its listener only while its
-// settings allow, and a watch should not offer what nobody will answer. The
+// and `ctl` for switching): the phone runs its listener whenever Garmin
+// Connect is installed, `ask` says whether it actually is, and a watch
+// should not offer what nobody will answer. The
 // phone checks every request against the portal again before acting on it.
 // Nothing here runs in the glance or the background.
 module Ask {

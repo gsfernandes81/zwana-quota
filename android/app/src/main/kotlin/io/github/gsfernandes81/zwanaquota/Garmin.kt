@@ -1,6 +1,7 @@
 package io.github.gsfernandes81.zwanaquota
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import com.garmin.android.connectiq.ConnectIQ
@@ -15,9 +16,8 @@ import java.util.concurrent.atomic.AtomicReference
  * plainly what happened when it could not be sent.
  *
  * Everything here is optional to the app. The widget never touches this
- * object, and nothing calls it unless "send to watch" is switched on or a
- * button on the settings screen is pressed -- so without Garmin Connect, a
- * paired watch or the watch app, this is a widget and nothing else.
+ * object, and nothing calls it unless Garmin Connect is installed
+ * ([present]) -- so without it this is a widget and nothing else.
  *
  * Every call blocks, with a timeout, and must be made off the main thread:
  * the SDK answers on the main looper, which is what the waits are for.
@@ -28,6 +28,20 @@ object Garmin {
      * same string or the phone is sending to an app that does not exist.
      */
     const val APP_ID = "8bc64f99960b479b9613957aee9bf73c"
+
+    /** Garmin Connect's package: the SDK's own manifest lets this app see it. */
+    private const val CONNECT = "com.garmin.android.apps.connectmobile"
+
+    /**
+     * Whether Garmin Connect is installed and not disabled, which is all it
+     * takes for the watch to be used: cheap enough to ask every time, and nothing about
+     * the SDK, which starts only when there is something to send or hear.
+     */
+    fun present(context: Context): Boolean = try {
+        context.packageManager.getApplicationInfo(CONNECT, 0).enabled
+    } catch (e: PackageManager.NameNotFoundException) {
+        false
+    }
 
     private val main = Handler(Looper.getMainLooper())
     private var instance: ConnectIQ? = null
@@ -82,41 +96,34 @@ object Garmin {
     }
 
     /**
-     * Send [payload] to the watch app on every connected watch. Returns one
-     * line per watch saying what happened, or one line saying why nothing
-     * could be tried.
+     * What a [send] did: a line per watch (or one saying why nothing could be
+     * tried); whether any watch app got it; and whether Garmin Connect has
+     * no watch paired at all, which it knows only once it answers.
      */
-    fun send(context: Context, payload: Map<String, Any>): List<String> {
-        val iq = ready(context) ?: return listOf(state)
+    class Sent(val lines: List<String>, val delivered: Boolean, val unpaired: Boolean)
+
+    /** Send [payload] to the watch app on every connected watch. */
+    fun send(context: Context, payload: Map<String, Any>): Sent {
+        val iq = ready(context) ?: return Sent(listOf(state), delivered = false, unpaired = false)
         val devices = try {
             iq.knownDevices.orEmpty()
         } catch (e: Exception) {
-            return listOf("cannot list watches: ${e.javaClass.simpleName}")
+            return Sent(listOf("cannot list watches: ${e.javaClass.simpleName}"), delivered = false, unpaired = false)
         }
-        if (devices.isEmpty()) return listOf("no watch is paired with Garmin Connect")
+        if (devices.isEmpty()) return Sent(listOf("no watch is paired with Garmin Connect"), delivered = false, unpaired = true)
         val app = IQApp(APP_ID)
-        return devices.map { device ->
+        var delivered = false
+        val lines = devices.map { device ->
             val status = statusOf(iq, device)
             if (status != "CONNECTED") {
                 "${device.friendlyName}: not sent, watch is $status"
             } else {
-                "${device.friendlyName}: ${sendTo(iq, device, app, HashMap(payload))}"
+                val outcome = sendTo(iq, device, app, HashMap(payload))
+                if (outcome == SENT) delivered = true
+                "${device.friendlyName}: $outcome"
             }
         }
-    }
-
-    /** For the settings screen: every watch, whether it is connected, and whether the watch app is on it. */
-    fun check(context: Context): List<String> {
-        val iq = ready(context) ?: return listOf("SDK: $state")
-        val devices = try {
-            iq.knownDevices.orEmpty()
-        } catch (e: Exception) {
-            return listOf("SDK: $state", "cannot list watches: ${e.javaClass.simpleName}")
-        }
-        if (devices.isEmpty()) return listOf("SDK: $state", "no watch is paired with Garmin Connect")
-        return listOf("SDK: $state") + devices.map { device ->
-            "${device.friendlyName}: ${statusOf(iq, device)}, watch app ${appOn(iq, device)}"
-        }
+        return Sent(lines, delivered, unpaired = false)
     }
 
     /**
@@ -165,28 +172,6 @@ object Garmin {
         "unknown (${e.javaClass.simpleName})"
     }
 
-    private fun appOn(iq: ConnectIQ, device: IQDevice): String {
-        val answer = AtomicReference("did not answer")
-        val done = CountDownLatch(1)
-        try {
-            iq.getApplicationInfo(APP_ID, device, object : ConnectIQ.IQApplicationInfoListener {
-                override fun onApplicationInfoReceived(app: IQApp?) {
-                    answer.set("${app?.status?.name ?: "found"}, version ${app?.version()}")
-                    done.countDown()
-                }
-
-                override fun onApplicationNotInstalled(applicationId: String?) {
-                    answer.set("NOT installed (id $applicationId)")
-                    done.countDown()
-                }
-            })
-        } catch (e: Exception) {
-            return "unknown (${e.javaClass.simpleName})"
-        }
-        done.await(15, TimeUnit.SECONDS)
-        return answer.get()
-    }
-
     private fun sendTo(iq: ConnectIQ, device: IQDevice, app: IQApp, payload: HashMap<String, Any>): String {
         val answer = AtomicReference("no answer in ${SEND_SECONDS}s")
         val done = CountDownLatch(1)
@@ -195,7 +180,7 @@ object Garmin {
                 override fun onMessageStatus(device: IQDevice?, app: IQApp?, status: ConnectIQ.IQMessageStatus?) {
                     answer.set(
                         when (status) {
-                            ConnectIQ.IQMessageStatus.SUCCESS -> "sent"
+                            ConnectIQ.IQMessageStatus.SUCCESS -> SENT
                             ConnectIQ.IQMessageStatus.FAILURE_DEVICE_NOT_CONNECTED -> "not sent, watch disconnected"
                             ConnectIQ.IQMessageStatus.FAILURE_INVALID_DEVICE -> "not sent, watch app missing? (${status.name})"
                             else -> "not sent: ${status?.name}"
@@ -212,6 +197,7 @@ object Garmin {
     }
 
     private const val READY = "ready"
+    private const val SENT = "sent"
 
     /**
      * How long a send waits for Garmin Connect to say it was delivered. A

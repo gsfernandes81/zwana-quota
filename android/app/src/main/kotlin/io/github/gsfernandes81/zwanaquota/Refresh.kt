@@ -270,9 +270,9 @@ class Refresher(context: Context) {
             val doc = Pipeline.derive(newest, Pipeline.epochSeconds(now) - newest.ts, false, now)
             val face = Face.of(doc, ZoneId.systemDefault(), hour24(app))
             // Offered only while the listener is actually up, not merely
-            // switched on: Android can refuse to restart it, and a watch
-            // should not offer what nobody will hear.
-            val canAsk = store.watchEnabled && store.watchCanAsk && WatchListener.running
+            // wanted: Android can refuse to restart it, and a watch should
+            // not offer what nobody will hear.
+            val canAsk = WatchListener.running
             val names = store.names().filterValues { it.name.isNotEmpty() }.mapValues { it.value.name }
             val known = store.session()?.takeIf { vault.signedIn }
             val canControl = canAsk && store.watchCanControl
@@ -293,7 +293,12 @@ class Refresher(context: Context) {
             // A message that only answers an ask is not the periodic send's
             // reading (QuotaWorker's screen-off check).
             if (reading != null) store.lastPush = now.epochSecond
-            store.note("watch", Garmin.send(app, payload).joinToString("; "))
+            val sent = Garmin.send(app, payload)
+            store.note("watch", sent.lines.joinToString("; "))
+            // A watch reached makes the screen-off send worth its read; one
+            // no longer paired ends it.
+            if (sent.delivered && !store.watchReached) store.watchReached = true
+            if (sent.unpaired && store.watchReached) store.watchReached = false
         }
     }
 
@@ -460,34 +465,35 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 Faces.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
                 if (askId != null) {
                     store.answer(askId, "too late")
-                    if (store.watchEnabled) refresher.sendStored()
+                    if (store.watchOn) refresher.sendStored()
                 }
                 return Result.success()
             }
             when {
-                action != null -> refresher.switch(action, store.watchEnabled, trigger, askId, deadline)
-                remove != null -> refresher.removeDevice(remove, inputData.getString(MAC), store.watchEnabled, trigger, askId, deadline)
+                action != null -> refresher.switch(action, store.watchOn, trigger, askId, deadline)
+                remove != null -> refresher.removeDevice(remove, inputData.getString(MAC), store.watchOn, trigger, askId, deadline)
                 inputData.getBoolean(PERIODIC, false) -> {
                     // Screen on: read, as the Tasker tile's profile does, and
                     // send the watch a reading too. Screen off: nobody is
                     // looking at the widget, so nothing -- unless the watch has
                     // gone its send interval without one.
                     val screenOn = applicationContext.getSystemService(PowerManager::class.java)?.isInteractive != false
-                    val watchDue = store.watchEnabled &&
+                    // Only for a watch this phone has reached: Garmin Connect
+                    // installed for some other device is no reason to read
+                    // the portal all night.
+                    val watchDue = store.watchOn && store.watchReached &&
                         Instant.now().epochSecond - store.lastPush >= Refresher.EVERY_SECONDS - 5 * 60
                     if (!screenOn && !watchDue) return Result.success()
-                    refresher.run(force = false, pushWanted = store.watchEnabled, trigger = trigger)
+                    refresher.run(force = false, pushWanted = store.watchOn, trigger = trigger)
                 }
                 else -> refresher.run(
                     force = inputData.getBoolean(FORCE, false),
-                    pushWanted = inputData.getBoolean(PUSH, false) || store.watchEnabled,
+                    pushWanted = inputData.getBoolean(PUSH, false) || store.watchOn,
                     trigger = trigger,
                     asked = inputData.getBoolean(ASKED, false),
                 )
             }
             store.note("worker", "ran ($trigger)")
-            // The listener, if it should be running and the system stopped it.
-            WatchListener.sync(applicationContext, "worker")
         } catch (e: Exception) {
             // A failure here is drawn and noted, never retried in a loop: the
             // next tap or the next period is the retry.
@@ -496,6 +502,21 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             try {
                 Faces.draw(applicationContext, Refresher.cachedFace(applicationContext))
             } catch (_: Exception) {
+            }
+        } finally {
+            // Whichever way the run went, early returns included: the
+            // listener, if it should be running and the system stopped it;
+            // and the periodic job, if what it keeps fresh came or went (a
+            // widget, or Garmin Connect installed or removed).
+            try {
+                WatchListener.sync(applicationContext, "worker")
+            } catch (e: Exception) {
+                store.note("listener", "not synced: ${e.javaClass.simpleName}")
+            }
+            try {
+                Work.schedule(applicationContext)
+            } catch (e: Exception) {
+                store.note("worker", "not rescheduled: ${e.javaClass.simpleName}")
             }
         }
         return Result.success()
@@ -616,20 +637,22 @@ object Work {
         return manager.getWorkInfosForUniqueWork(name).get().any { it.id == request.id }
     }
 
-    /** Send to the watch now, whether or not the periodic send is on: the test button. */
-    fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "button", ExistingWorkPolicy.REPLACE)
+    /** Send the watch a reading now: the watch setting changed, and the watch learns it from the next message. */
+    fun pushNow(context: Context) = enqueue(context, PUSH, false, true, "setting", ExistingWorkPolicy.REPLACE)
 
     /**
      * The one periodic job, every [Refresher.KEEP_FRESH_MINUTES] (WorkManager's
      * shortest), while there is anything to keep fresh: a widget on the home
-     * screen or the watch switched on. What each run does is the worker's
+     * screen or the watch in use (Garmin Connect installed, Store.watchOn).
+     * Each run asks again (QuotaWorker), so the job ends when neither is so.
+     * What each run does is the worker's
      * call ([QuotaWorker]): a read while the screen is on, as the Tasker tile
      * does, and with it off nothing, unless the watch is due a send.
      */
     fun schedule(context: Context) {
         val manager = WorkManager.getInstance(context)
         manager.cancelUniqueWork(OLD_WATCH)
-        if (Store(context).watchEnabled || QuotaWidget.placed(context)) {
+        if (Store(context).watchOn || QuotaWidget.placed(context)) {
             val request = PeriodicWorkRequestBuilder<QuotaWorker>(
                 Refresher.KEEP_FRESH_MINUTES, TimeUnit.MINUTES,
                 5, TimeUnit.MINUTES,

@@ -203,8 +203,8 @@ module Quota {
     }
 
     // How much of today's pool is left, 0 to 1, or -1 for no reading: the
-    // bar's length on the glance and the Data page, and the page's ring;
-    // full at the reset and emptying as data is used. Drawing,
+    // bar's length on the glance and the Data page; full at the reset and
+    // emptying as data is used. Drawing,
     // not a rule -- the share the phone spelled, as a length -- and read from
     // the whole-KiB figures, so no string is parsed.
     function left(d as Dictionary?) as Float {

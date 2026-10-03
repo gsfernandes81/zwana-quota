@@ -26,21 +26,16 @@
     <string name="missing_login">Enter both the username and the password.</string>
     <string name="login_privacy">Kept on this phone only, encrypted by the Android Keystore. Never backed up.</string>
 
-    <string name="send_to_watch">Send to my watch</string>
-    <string name="send_to_watch_detail">Every 15 minutes while the screen is on, at least every 30 minutes otherwise, and whenever you tap the widget.</string>
-    <string name="watch_can_ask">Let the watch ask for a reading</string>
-    <string name="watch_can_ask_detail">Press START on the watch app to get a fresh reading. Keeps a small listener running; Android may show it as a silent notification.</string>
+    <string name="watch_title">Your watch</string>
+    <string name="watch_detail">Sent a reading whenever Garmin Connect is installed and signed in with a watch connected: every 15 minutes while the screen is on, at least every 30 minutes otherwise, and whenever you tap the widget. Press START on the watch app for a fresh one. Keeps a small listener running; Android may show it as a silent notification.</string>
     <string name="watch_can_control">Let the watch switch data and disconnect devices</string>
     <string name="watch_can_control_detail">The watch app gets a data on/off page and can take other devices off, asking first. The phone checks each request against the portal before sending it.</string>
     <string name="listener_channel">Watch listener</string>
     <string name="listener_title">Listening for your watch</string>
     <string name="listener_text">So the watch can ask for a fresh reading.</string>
     <string name="row_listener">Watch asks</string>
-    <string name="send_now">Send now</string>
-    <string name="check_watch">Check watch</string>
-    <string name="checking">Checking…</string>
     <string name="watch_never">Nothing sent yet</string>
-    <string name="watch_off">Sending is off</string>
+    <string name="watch_no_garmin">Garmin Connect is not installed, or is turned off</string>
     <string name="watch_needs">Needs Garmin Connect signed in, and the zwana quota app installed on the watch and opened once. The widget works without any of it.</string>
 
     <string name="diagnostics">Diagnostics</string>

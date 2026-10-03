@@ -15,8 +15,8 @@
         entry="QuotaApp"
         launcherIcon="@Drawables.LauncherIcon"
         minApiLevel="3.4.0">
-        <!-- 3.4.0: the newest API this app calls, WatchUi.ViewLoop and
-             getCurrentView (Pages.mc) and WatchUi.showToast (Ask.mc).
+        <!-- 3.4.0: the newest API this app calls, WatchUi.showToast
+             (Ask.mc).
              Nothing is guarded with `has`: every product here is past it. -->
         <iq:products>
             <iq:product id="instinct3amoled45mm"/>

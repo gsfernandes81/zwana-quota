@@ -9,9 +9,9 @@ One APK, three jobs:
 - **a Quick Settings tile**: the same figure one swipe down from anywhere,
   and a tap opens the device list, where each device can be taken off data
   on its own. It replaced the Tasker tile, which was removed on 2026-10-03.
-- **a Connect IQ companion**: when switched on, it sends the same reading to
-  the zwana quota app on a Garmin Instinct 3 (`../garmin/`), which shows it
-  as a glance.
+- **a Connect IQ companion**: with Garmin Connect installed, it sends the
+  same reading to the zwana quota app on a Garmin Instinct 3 (`../garmin/`),
+  which shows it as a glance.
 
 The decisions behind it are in `../docs/android-widget.md`. This file covers
 getting it onto the phone and the watch.
@@ -174,12 +174,12 @@ once, and every build after installs in place.
 ### What it shows
 
 The glance is laid out as Garmin's Body Battery glance is: a title and,
-after a reset icon, when tonight's grant lands; a bar whose thick part is what
+after a small clock, when tonight's grant lands; a bar whose thick part is what
 is left and thin part what has gone (full at the reset); and under it what is
 left and, beside it, how much of it is paid:
 
 ```
-DATA LEFT       ↻@00:00
+DATA LEFT      ◷ @00:00
 ████████━━━━━━━━━━━━━━
 301 MiB      0 MiB paid
 ```
@@ -203,15 +203,20 @@ The watch works out its staleness from the reading's own timestamp: only it
 knows what time it is now.
 
 Opening the glance shows the app, in pages: UP and DOWN (or a swipe) slide
-between them in the watch's own page loop, with its own page indicator;
-START does the page's one thing, and the round sub-window (top right on the
-Solar, beside START) shows each page's one number or what START does.
+between them, round from the last page to the first; START does the page's
+one thing. On the Solar the round sub-window (top right, beside START) says
+where you are and what START does: UP's and DOWN's arrows at its top and
+bottom, a dot per page round its left side (this page's, the biggest, at 9
+o'clock; the pages before it above and after it below), and in the middle
+what START does on this page, or what is so where it does nothing. The
+AMOLEDs, without a sub-window, show an arc of a segment per page at the
+left edge.
 
-| page | shows | sub-window | START |
+| page | shows | sub-window's middle | START |
 |---|---|---|---|
-| **Data left** | the figure large, the bar, the reset time, how much of it is paid (`412 MiB paid`) | the share left, as a ring | a fresh reading (with **Let the watch ask**) |
-| **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch | switch data (with **switch data** on) |
-| **Device**, one per device | its name, as large as it fits, and whether it switched data on or joined | which of how many (`2/3`) | take that device off, when it is one that can be |
+| **Data left** | the figure large, the bar, the reset time and the share left, how much of it is paid (`412 MiB paid`) | the refresh arrow; the phone struck through, with a `?`, when it is not listening | a fresh reading |
+| **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch, else `ON` or `OFF` | switch data (with **switch data** on) |
+| **Device**, one per device | its name, as large as it fits, and whether it switched data on or joined | a device with a cross when START can take it off; else with a star for the one that switched data on, a phone for this phone, or the device alone | take that device off, when it is one that can be |
 
 The session pages read `not sent yet` until the phone has sent the session;
 then the Connection page and one page per device, this phone first, up to
@@ -289,24 +294,27 @@ whose simulator also runs the glance without a watch.
 
 ### Connecting the two
 
-In the app, switch on **Send the reading to the watch**. It sends one
-straight away, then every 15 minutes while the phone's screen is on and at
-least every 30 minutes while it is off, and on every tap of the widget.
-Switched off, the SDK is never touched.
+Nothing to switch on. With Garmin Connect installed, signed in and a watch
+connected, the app sends the watch a reading every 15 minutes while the
+phone's screen is on and at least every 30 minutes while it is off, and on
+every tap of the widget. Without Garmin Connect the SDK is never touched.
 
-**Asking from the watch.** Switch on **Let the watch ask for a reading** as
-well, and START on the watch's first page asks the phone for a fresh
-reading, usually within ten seconds (`START: refresh` at the bottom says
-so). The watch says `asking phone` when it sends, and `no answer from phone`
-after a minute; when the phone could not read the portal it says why
-(`portal read failed`, `sign in on phone`) and sends the reading it has, and
-while it is still reading for an earlier ask it says `phone busy`.
-With the setting off the watch shows none of this.
+**Asking from the watch.** START on the watch's first page asks the phone
+for a fresh reading, usually within ten seconds (`START: refresh` at the
+bottom says so). The watch says `asking phone` when it sends, and `no answer
+from phone` after a minute; when the phone could not read the portal it says
+why (`portal read failed`, `sign in on phone`) and sends the reading it has,
+and while it is still reading for an earlier ask it says `phone busy`. For
+this the app keeps a small listener running (Garmin Connect only delivers a
+watch's message to an app that is running), so set its battery use to
+Unrestricted or One UI may stop it; the diagnostics' "Watch asks" row says
+whether it is listening, and the watch's sub-window shows the phone struck
+through when it is not.
 
-**Switching from the watch.** Beneath it, **Let the watch switch data and
-disconnect devices** (off by default) lets START on the Connection page
-switch data -- off for every device when this phone switched it on, only
-this phone when it joined, as the widget does -- and START on another
+**Switching from the watch.** The one watch setting, **Let the watch switch
+data and disconnect devices** (off by default), lets START on the Connection
+page switch data -- off for every device when this phone switched it on,
+only this phone when it joined, as the widget does -- and START on another
 joined device's own page take it off. The watch asks first; the phone then
 checks the request against the portal before sending anything, and does
 nothing if the session changed (`changed elsewhere`), if another switch is
@@ -314,11 +322,8 @@ still on its way (`phone busy`), or if it heard the request more than 45
 seconds ago (`too late`): the watch waits a minute and a half for the
 answer, so a switch is not made after it has said `no answer from phone`,
 unless the request itself took more than half of it to reach the phone.
-This phone and the device that switched data
-on are never offered for removal. It keeps a small listener running on the phone (Garmin Connect only
-delivers a watch's message to an app that is running), so set the app's
-battery use to Unrestricted or One UI may stop it; the diagnostics' "Watch
-asks" row says whether it is listening.
+This phone and the device that switched data on are never offered for
+removal.
 
 ## First install: what to check, in order
 
@@ -330,23 +335,22 @@ text. Work down this list:
    saved, then the figure. `read` on the diagnostics screen says which
    network it went over. It should be Wi-Fi, since the portal is on the
    vessel's Wi-Fi.
-2. **Check watch.** Each line isolates a different failure:
+2. **The watch.** Tap the widget, which sends the watch a reading, then read
+   the `Garmin Connect` and `Watch` rows on the diagnostics screen:
 
    | what it says | what is wrong |
    |---|---|
    | `Garmin Connect is not installed` / `needs updating` | exactly that |
    | `did not answer (SERVICE_ERROR)` | Garmin Connect is installed but not signed in, force-stopped, or battery-restricted |
-   | `no watch is paired` / `NOT_CONNECTED` | pairing or Bluetooth, nothing to do with this app |
-   | `CONNECTED, watch app NOT installed` | the `.prg` is not on the watch, or its manifest `id` differs from `Garmin.APP_ID` |
-   | `CONNECTED, watch app INSTALLED` | the link is good |
+   | `no watch is paired` / `not sent, watch is NOT_CONNECTED` | pairing or Bluetooth, nothing to do with this app |
+   | `not sent, watch app missing?` | the `.prg` is not on the watch, or its manifest `id` differs from `Garmin.APP_ID` |
+   | `<watch>: sent` | the link is good |
 
-3. **Send now**, then read `watch` on the diagnostics screen:
-   `<watch>: sent`. The watch's glance should then show the reading. If it
-   says `sent` but the glance stays on `quota ?`, the watch app was not
-   opened once after installing (step 5 above).
-4. **Leave it.** After an hour, `worker` should have advanced by itself. If it
+   If it says `sent` but the glance stays on `quota ?`, the watch app was
+   not opened once after installing (step 5 above).
+3. **Leave it.** After an hour, `worker` should have advanced by itself. If it
    has not, the phone is holding the app back: the `battery` line says so, and
    **Battery: let it run in the background** is the way out. On Samsung phones,
    also take it out of *Sleeping apps*.
 
-The widget depends on none of steps 2 to 4.
+The widget depends on neither step 2 nor step 3.

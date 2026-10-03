@@ -5,10 +5,14 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.Reading
 import io.github.gsfernandes81.zwanaquota.core.Session
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -41,6 +45,17 @@ class ScreensTest {
         const val LAPTOP = "10.1.0.125"
         const val TABLET = "10.1.0.31"
         val MACS = mapOf(LAPTOP to "aa:bb:cc:00:00:01", TABLET to "aa:bb:cc:00:00:02", "10.1.0.40" to "aa:bb:cc:00:00:03")
+    }
+
+    // The settings screen schedules the periodic job when it opens, and
+    // Robolectric runs no startup initializer: a test WorkManager, running
+    // nothing, for each test's own application.
+    @Before
+    fun workManager() {
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            context,
+            Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
+        )
     }
 
     @Test

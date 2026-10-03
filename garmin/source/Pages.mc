@@ -2,34 +2,25 @@ import Toybox.Lang;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-// The pages behind the glance, as a WatchUi.ViewLoop: Garmin's own page
-// loop, which slides each page in as the watch's own carousels do ("Use
-// Transitions to Suggest Page Loops"), turns on UP and DOWN or a swipe, and
-// shows the watch's own page indicator after each turn.
+// The pages behind the glance, turned as the watch's own page loops turn
+// theirs: a view each, UP and DOWN (or a swipe) sliding the next page in
+// from the side it lies on, round from the last page to the first. Where a
+// page is among them, and what START does on it, is the sub-window's to
+// say (PageDraw.sub), or on a screen without one an indicator at the edge.
+// Not a WatchUi.ViewLoop: on an Instinct the loop has the watch draw its own
+// battery over the sub-window (Garmin's bug report "ViewLoop is completely
+// broken on Instinct 2", acknowledged and not fixed; the simulator does not
+// show it, and neither a layer over the page nor drawing it again after
+// the turn covers it).
 //
 // How many pages there are is the phone's to say -- one per device on the
-// session -- and a new message can change it while the loop is on screen.
-// A loop is built for a count and never asked to change it: when a message
-// brings a different count, the loop is replaced by one built for the new
-// count, on the same page where that page still exists. That holds whether
-// or not the firmware reads getSize() again on its own.
-//
-// The replacing waits while something else is on top of the loop (the
-// watch's confirmation before a device is taken off, or before a switch the
-// phone sent a question for, `cq`): replacing the top view then would
-// replace the confirmation, not the loop.
-// Whether the loop is on top is asked of the view stack itself
-// (getCurrentView), not inferred from onShow and onHide. It is caught up
-// when a page is shown again, or at the next message.
+// session -- and a new message can change it at any time. Nothing holds a
+// count: a view works out its page against the count there is now
+// (QuotaView.current), and a turn goes on from there.
 module Pages {
     // The most devices given a page each: what the phone sends at most
     // (WatchSession.MAX_DEVICES), and a bound on the pages whatever arrives.
     const MAX_DEVICES = 8;
-
-    var built as Number = 0;      // the count the loop on screen was built for
-    var at as Number = 0;         // the page last shown
-    var stale as Boolean = false; // the count changed while the loop was covered
-    var timer as Timer.Timer? = null;
 
     // How many devices have a page of their own.
     function devices(d as Dictionary) as Number {
@@ -49,77 +40,49 @@ module Pages {
     }
 
     // [page] where there are [n] pages: the last for one past it. The one
-    // rule for a page that is no longer there, for the loop and the views.
+    // rule for a page that is no longer there.
     function clamp(page as Number, n as Number) as Number {
         return page < 0 ? 0 : (page >= n ? n - 1 : page);
     }
 
-    // A loop for the pages there are now, opening on [page], or on the last
-    // page if there are no longer that many.
-    function loop(page as Number) as [WatchUi.ViewLoop, WatchUi.ViewLoopDelegate] {
-        var n = count(Quota.last());
-        built = n;
-        stale = false;
-        var l = new WatchUi.ViewLoop(new QuotaPages(n), {:page => clamp(page, n), :wrap => true});
-        return [l, new WatchUi.ViewLoopDelegate(l)];
-    }
+    // On a screen without a sub-window, how long the edge indicator stays,
+    // in milliseconds from the press: the slide and about a second after,
+    // so it does not lie over the page's text for good.
+    const INDICATOR_MS = 1300;
 
-    // Whether the loop is the top of the view stack -- the loop itself or one
-    // of its pages, however the firmware reports it -- and so the view that
-    // switchToView would replace.
-    function onTop() as Boolean {
-        var top = WatchUi.getCurrentView()[0];
-        return top instanceof WatchUi.ViewLoop || top instanceof QuotaView;
-    }
+    var top as QuotaView? = null;      // the page last turned to
+    var indicating as Boolean = false; // the edge indicator is up
+    var timer as Timer.Timer? = null;  // takes it down
 
-    // A message arrived: redraw, and replace the loop if its count is no
-    // longer the count of pages there are.
-    function refit() as Void {
-        if (count(Quota.last()) == built) {
-            stale = false;
-            WatchUi.requestUpdate();
-            return;
-        }
-        if (!onTop()) {
-            stale = true;
-            return;
-        }
-        var pair = loop(at);
-        WatchUi.switchToView(pair[0], pair[1], WatchUi.SLIDE_IMMEDIATE);
-    }
-
-    // Page [page] is on screen. A count that changed while the loop was
-    // covered is caught up now -- just after, not inside the view's onShow,
-    // which is no place to replace the view being shown. One timer, kept.
-    function shown(page as Number) as Void {
-        at = page;
-        if (stale) {
+    // Page [page] and its delegate (START, and UP and DOWN to turn), with
+    // the edge indicator up from now where there is no sub-window.
+    function view(page as Number) as [QuotaView, QuotaDelegate] {
+        if (PageDraw.subscreen() == null) {
+            indicating = true;
             if (timer == null) {
                 timer = new Timer.Timer();
             }
             var t = timer as Timer.Timer;
             t.stop();
-            t.start(new Lang.Method(Pages, :refit), 50, false);
+            t.start(new Lang.Method(Pages, :hide), INDICATOR_MS, false);
         }
-    }
-}
-
-// The loop's pages: a view and its START delegate for each, for the count
-// the loop was built with.
-class QuotaPages extends WatchUi.ViewLoopFactory {
-    var size as Number;
-
-    function initialize(n as Number) {
-        ViewLoopFactory.initialize();
-        size = n;
+        var v = new QuotaView(page);
+        top = v;
+        return [v, new QuotaDelegate(v)];
     }
 
-    function getSize() as Number {
-        return size;
+    function hide() as Void {
+        indicating = false;
+        WatchUi.requestUpdate();
     }
 
-    function getView(page as Number) as [WatchUi.ViewLoopFactory.Views] or [WatchUi.ViewLoopFactory.Views, WatchUi.ViewLoopFactory.Delegates] {
-        var view = new QuotaView(page);
-        return [view, new QuotaDelegate(view)];
+    // Turn by [step] -- 1 for the next page, -1 for the one before, round
+    // at either end -- from the page last turned to: not from the view the
+    // press reached, which during a slide may still be the one leaving.
+    function turn(step as Number) as Void {
+        var n = count(Quota.last());
+        var from = top != null ? (top as QuotaView).page : 0;
+        var pair = view((clamp(from, n) + step + n) % n);
+        WatchUi.switchToView(pair[0], pair[1], step > 0 ? WatchUi.SLIDE_UP : WatchUi.SLIDE_DOWN);
     }
 }
