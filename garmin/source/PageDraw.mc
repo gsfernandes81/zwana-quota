@@ -58,16 +58,23 @@ module PageDraw {
         }
     }
 
+    var roundEdge as Boolean? = null;  // the screen's left edge is curved
+
     // The page indicator, as a ViewLoop draws one: a segment per page down
     // the middle of the left edge, top to bottom, page [page]'s bold, over a
     // black edge of its own so it reads over the page -- round the edge on a
-    // round screen, straight down it where the edge is flat (the Instinct 3
-    // Solar's). Its sizes follow the screen, as they are on a 176-pixel one.
+    // round or semi-round screen, straight down it where the edge is flat
+    // (the Instinct 3 Solar's). Its sizes follow the screen, as they are on
+    // a 176-pixel one.
     function indicator(dc as Graphics.Dc, page as Number, n as Number) as Void {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
         var half = cx < cy ? cx : cy;
-        if (System.getDeviceSettings().screenShape == System.SCREEN_SHAPE_ROUND) {
+        if (roundEdge == null) {
+            var shape = System.getDeviceSettings().screenShape;
+            roundEdge = shape == System.SCREEN_SHAPE_ROUND || shape == System.SCREEN_SHAPE_SEMI_ROUND;
+        }
+        if (roundEdge == true) {
             arcIndicator(dc, cx, cy, half, page, n);
         } else {
             barIndicator(dc, cy, half, page, n);
@@ -109,7 +116,7 @@ module PageDraw {
         var top = cy - span / 2;
         var x = half * 6 / 88;           // the segments' centre line
         var bold = half * 5 / 88;
-        var thin = half * 2 / 88;
+        var thin = half * 3 / 88;        // odd, as bold is, to share x
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(0, top - gap, x + bold, span + 2 * gap);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
