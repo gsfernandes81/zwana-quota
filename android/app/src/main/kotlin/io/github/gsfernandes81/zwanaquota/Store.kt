@@ -96,6 +96,15 @@ class Store(context: Context) {
         get() = Garmin.present(app)
 
     /**
+     * Whether the watch app has ever been heard from: its hello on opening,
+     * or any ask. Until it has, the app's screen says to open it on the
+     * watch, since a watch app never opened receives nothing.
+     */
+    var watchHeard: Boolean
+        get() = prefs.getBoolean("watchHeard", false)
+        set(value) = prefs.edit().putBoolean("watchHeard", value).apply()
+
+    /**
      * Whether the watch may also switch data and take devices off: the one
      * watch setting, off until switched on.
      */

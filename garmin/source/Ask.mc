@@ -56,6 +56,18 @@ module Ask {
         return !a.failed && !a.answered() && Time.now().value() - a.at < a.wait;
     }
 
+    // Tell the phone the app has been opened: until it has heard this (or
+    // any ask), the phone's screen says to open the app on the watch, and on
+    // hearing it the phone sends the reading this opening can now receive.
+    // Nothing waits on an answer, and a hello that does not arrive is sent
+    // again the next time the app is opened.
+    function hello() as Void {
+        try {
+            Communications.transmit({"hi" => 1} as Dictionary, null, new HelloListener());
+        } catch (e instanceof Lang.Exception) {
+        }
+    }
+
     function refresh() as Void {
         send({"ask" => "refresh"});
     }
@@ -253,5 +265,18 @@ class AskListener extends Communications.ConnectionListener {
 
     function onError() as Void {
         Ask.unreached(ask);
+    }
+}
+
+// A hello's delivery needs no handling either way (Ask.hello).
+class HelloListener extends Communications.ConnectionListener {
+    function initialize() {
+        ConnectionListener.initialize();
+    }
+
+    function onComplete() as Void {
+    }
+
+    function onError() as Void {
     }
 }
