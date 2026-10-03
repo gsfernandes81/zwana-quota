@@ -24,14 +24,14 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Garmin Connect hands a watch's message only to a companion that is running
  * and listening: Garmin's way of waking one that is not ("binder service")
- * needs Garmin's approval. So while "Let the watch ask for a reading" is on,
- * this keeps the app running as a foreground service -- which Android shows
- * as a notification, silent and at the lowest importance, and on Android 13
- * and later not at all unless the app is allowed to post notifications.
+ * needs Garmin's approval. So whenever the watch is in use (Garmin Connect
+ * installed, Store.watchOn), this keeps the app running as a foreground
+ * service -- which Android shows as a notification, silent and at the
+ * lowest importance, and on Android 13 and later not at all unless the app
+ * is allowed to post notifications.
  *
- * It runs only while both watch switches are on, and says so on the watch:
- * the payload's `ask` is what makes the watch offer to ask, so a watch never
- * offers something nobody is listening for.
+ * Whether it is running is what the watch is told (the payload's `ask`), so
+ * a watch never offers something nobody is listening for.
  */
 class WatchListener : Service() {
     private val main = Handler(Looper.getMainLooper())
@@ -175,7 +175,7 @@ class WatchListener : Service() {
         /** The id of the last ask heard, so a repeat of one message is not taken as a second ask. */
         private val lastId = AtomicInteger(-1)
 
-        private fun wanted(store: Store) = store.watchEnabled && store.watchCanAsk
+        private fun wanted(store: Store) = store.watchOn
 
         /**
          * Start the listener if it should be running, stop it if not. Android

@@ -35,7 +35,6 @@ import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.TileWidth
 import java.time.Instant
 import java.time.ZoneId
-import java.util.concurrent.Executors
 
 /**
  * The app's one screen: today's reading, the portal login, the watch, and
@@ -52,7 +51,6 @@ import java.util.concurrent.Executors
 class SettingsActivity : AppCompatActivity() {
     private val store by lazy { Store(this) }
     private val vault by lazy { Vault(this) }
-    private val background = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
     private val figure by view<TextView>(R.id.figure)
@@ -68,13 +66,8 @@ class SettingsActivity : AppCompatActivity() {
     private val signedInActions by view<View>(R.id.signed_in_actions)
     private val username by view<TextInputEditText>(R.id.username)
     private val password by view<TextInputEditText>(R.id.password)
-    private val watchSwitch by view<MaterialSwitch>(R.id.watch_switch)
     private val watchStatus by view<TextView>(R.id.watch_status)
-    private val watchAskSwitch by view<MaterialSwitch>(R.id.watch_ask_switch)
-    private val watchAskDetail by view<TextView>(R.id.watch_ask_detail)
     private val watchControlSwitch by view<MaterialSwitch>(R.id.watch_control_switch)
-    private val watchControlDetail by view<TextView>(R.id.watch_control_detail)
-    private val watchCheck by view<TextView>(R.id.watch_check)
     private val diagnosticsBody by view<View>(R.id.diagnostics_body)
     private val diagnosticsSummary by view<TextView>(R.id.diagnostics_summary)
     private val chevron by view<ImageView>(R.id.diagnostics_chevron)
@@ -88,8 +81,6 @@ class SettingsActivity : AppCompatActivity() {
     /** The portal note when "Read now" was pressed; the read is over when it changes. */
     private var readingSince: String? = null
     private var readingStarted = 0L
-
-    private var garminLines: List<String> = emptyList()
 
     private val tick = object : Runnable {
         override fun run() {
@@ -138,34 +129,18 @@ class SettingsActivity : AppCompatActivity() {
             render()
         }
 
-        watchSwitch.isChecked = store.watchEnabled
-        watchSwitch.setOnCheckedChangeListener { _, on ->
-            store.watchEnabled = on
-            Work.schedule(this)
-            store.note("watch", if (on) "switched on" else "switched off")
-            // Switched off with asking on, one last send tells the watch to
-            // stop offering to ask: nothing will be listening.
-            if (on || store.watchCanAsk) Work.pushNow(this)
-            WatchListener.sync(this, "settings")
-            render()
-        }
-        watchAskSwitch.isChecked = store.watchCanAsk
-        watchAskSwitch.setOnCheckedChangeListener { _, on ->
-            store.watchCanAsk = on
-            store.note("listener", if (on) "switched on" else "switched off")
-            WatchListener.sync(this, "settings")
-            // The watch learns whether to offer asking from the next reading
-            // it is sent, so send one now.
-            if (store.watchEnabled) Work.pushNow(this)
-            render()
-        }
+        // The watch needs no switching on: it is used whenever Garmin Connect
+        // is installed (Store.watchOn). Opening the screen is a moment
+        // Android lets the listener start.
+        Work.schedule(this)
+        WatchListener.sync(this, "settings")
         watchControlSwitch.isChecked = store.watchCanControl
         watchControlSwitch.setOnCheckedChangeListener { _, on ->
             store.watchCanControl = on
             store.note("listener", if (on) "watch may switch data" else "watch may not switch data")
-            // As with asking: the watch shows the controls only once a
-            // reading says it may.
-            if (store.watchEnabled) Work.pushNow(this)
+            // The watch shows the controls only once a reading says it may,
+            // so send one now.
+            if (store.watchOn) Work.pushNow(this)
             render()
         }
         val tileWide = findViewById<MaterialSwitch>(R.id.tile_wide_switch)
@@ -174,8 +149,6 @@ class SettingsActivity : AppCompatActivity() {
             // The tile takes it up the next time the panel shows it.
             store.tileWidth = if (on) TileWidth.WIDE else TileWidth.STANDARD
         }
-        findViewById<MaterialButton>(R.id.send_now).setOnClickListener { Work.pushNow(this) }
-        findViewById<MaterialButton>(R.id.check_watch).setOnClickListener { checkWatch() }
 
         findViewById<View>(R.id.diagnostics_header).setOnClickListener {
             val open = diagnosticsBody.visibility != View.VISIBLE
@@ -197,11 +170,6 @@ class SettingsActivity : AppCompatActivity() {
     override fun onPause() {
         main.removeCallbacks(tick)
         super.onPause()
-    }
-
-    override fun onDestroy() {
-        background.shutdown()
-        super.onDestroy()
     }
 
     /** Everything on the screen, from what is stored. Cheap, so it runs every two seconds. */
@@ -302,19 +270,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderWatch() {
-        // Asking needs sending: with sending off, the second switch is greyed.
-        watchAskSwitch.isEnabled = store.watchEnabled
-        watchAskDetail.isEnabled = store.watchEnabled
-        watchControlSwitch.isEnabled = store.watchEnabled && store.watchCanAsk
-        watchControlDetail.isEnabled = store.watchEnabled && store.watchCanAsk
         val last = readable(store.notes()["watch"])
         watchStatus.text = when {
+            !store.watchOn -> getString(R.string.watch_no_garmin)
             last != null -> last
-            store.watchEnabled -> getString(R.string.watch_never)
-            else -> getString(R.string.watch_off)
+            else -> getString(R.string.watch_never)
         }
-        watchCheck.visibility = if (garminLines.isEmpty()) View.GONE else View.VISIBLE
-        watchCheck.text = garminLines.joinToString("\n")
     }
 
     private fun renderDiagnostics() {
@@ -372,30 +333,11 @@ class SettingsActivity : AppCompatActivity() {
         render()
     }
 
-    /** Straight from this screen rather than through the worker, so the two paths can be told apart. */
-    private fun checkWatch() {
-        garminLines = listOf(getString(R.string.checking))
-        render()
-        background.execute {
-            val lines = try {
-                Garmin.check(applicationContext)
-            } catch (e: Exception) {
-                listOf("check failed: ${e.javaClass.simpleName} ${e.message.orEmpty()}")
-            }
-            store.log("check: ${lines.joinToString("; ")}")
-            main.post {
-                garminLines = lines
-                render()
-            }
-        }
-    }
-
     private fun shareLog() {
         val body = buildString {
             appendLine("zwana quota ${packageManager.getPackageInfo(packageName, 0).versionName}")
             store.notes().forEach { (subject, line) -> appendLine("$subject: $line") }
             appendLine("garmin: ${Garmin.state}")
-            garminLines.forEach { appendLine("  $it") }
             appendLine()
             append(store.journal())
         }

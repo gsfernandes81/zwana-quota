@@ -129,7 +129,7 @@ class QuotaView extends WatchUi.View {
         var fh = dc.getFontHeight(font);
         var y = dc.getHeight() / 2 - fh;
         var w = dc.getWidth();
-        var lines = ["not sent yet:", "check the phone app,", "then Send now"];
+        var lines = ["not sent yet:", "open zwana quota", "on the phone"];
         for (var i = 0; i < lines.size(); i++) {
             var text = PageDraw.clip(dc, font, lines[i], PageDraw.chord(dc, y, fh));
             dc.drawText(w / 2, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);

@@ -23,8 +23,8 @@ is running and listening. The SDK has a binder service that would let Garmin
 Connect wake the companion instead, and its javadoc marks it "DO NOT USE
 without prior approval from Garmin".
 
-So asking is a setting, off by default: **Let the watch ask for a reading**.
-While it (and sending) is on, `WatchListener` runs as a foreground service
+So whenever Garmin Connect is installed, with no setting to switch it on,
+`WatchListener` runs as a foreground service
 of type `connectedDevice` holding the SDK's app-event listener, re-registered
 every 15 minutes in case Garmin Connect restarted, and started again at boot
 and after an update. The app does not ask for permission to post
@@ -54,9 +54,10 @@ for a reading its own read never answered is called too late after two
 minutes, a backstop longer than the watch's one-minute wait for it.
 
 The watch offers to ask only when the phone's last reading says it is
-listening (the payload's `ask`), so the setting is also what shows the offer:
-with it off, nothing on the watch mentions asking. Switching data and taking
-devices off have a setting of their own beneath it (`ctl`); the phone sends
+listening (the payload's `ask`): the listener actually running, not merely
+wanted, since Android can refuse to start it. When it is not, the watch's
+sub-window shows the phone struck through. Switching data and taking
+devices off are the one watch setting, off by default (`ctl`); the phone sends
 the session as words and lists it has decided (`WatchSession`: the state,
 the device names, how each is on the session, what START does, the question
 to ask first, and per device the address the watch may ask to take off, or
@@ -64,16 +65,15 @@ none), and the watch offers exactly those, a page per device. A command from the
 as the widget's switch (`apply`, `remove`): read the session again, and do
 nothing unless the request is still the one the session calls for. The
 watch confirms before anything that takes a device off; the phone does not
-ask again, since the question was answered on the wrist. Turning sending off with
-asking on sends one last reading, which withdraws the offer.
+ask again, since the question was answered on the wrist.
 
 ## Decisions
 
 ### One APK; the widget never touches Garmin
 
 The widget works on a phone with no Garmin Connect, no watch and no Termux.
-Nothing on its path references the SDK, and the periodic send is only ever
-scheduled while "send to watch" is switched on, so with it off this is a
+Nothing on its path references the SDK, and the watch is used only while
+Garmin Connect is installed (`Garmin.present`), so without it this is a
 widget and nothing else.
 
 ### The port reads the portal itself, and is held to the Python by vectors
@@ -251,9 +251,7 @@ body, which is the Python's rule, pinned by `PortalTest`.
 Nobody using this has logcat. The settings screen shows the latest word on
 the portal read (and over which network), the watch send per watch, the
 worker, Garmin Connect's state, and whether the phone is holding the app
-back, with the journal behind them and a **Share log** button. **Check
-watch** runs from the screen itself, and **Send now** through the worker, so
-a failure only in the background can be told from one everywhere.
+back, with the journal behind them and a **Share log** button.
 `android/README.md` has the order to read them in.
 
 ### Builds
@@ -291,8 +289,8 @@ fetches the SDK and the device files.
 Written without a phone or a watch to hand. What only a device can confirm,
 and what the diagnostics screen will show if it is wrong:
 
-- that `sendMessage` reaches a **sideloaded** watch app (Check watch, then
-  Send now);
+- that `sendMessage` reaches a **sideloaded** watch app (the `Watch`
+  diagnostics row after a tap of the widget);
 - whether the Solar 50 mm has a product ID of its own (the three in
   `garmin/manifest.xml` all compiled with SDK 9.2.0 on 2026-09-26);
 - that the watch's background service may write `Application.Storage` (it

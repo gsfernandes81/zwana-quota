@@ -86,21 +86,18 @@ class Store(context: Context) {
         tmp.renameTo(file)
     }
 
-    var watchEnabled: Boolean
-        get() = prefs.getBoolean("watch", false)
-        set(value) = prefs.edit().putBoolean("watch", value).apply()
-
     /**
-     * Whether the watch may ask for a reading. Only means anything with
-     * [watchEnabled] on; [WatchListener] runs only while both are.
+     * Whether the watch is in use: whenever Garmin Connect is installed
+     * ([Garmin.present]). It is sent readings and listened to, with no
+     * setting; whether Garmin Connect is signed in and a watch connected is
+     * found out by trying, and a send that cannot go says why.
      */
-    var watchCanAsk: Boolean
-        get() = prefs.getBoolean("watchCanAsk", false)
-        set(value) = prefs.edit().putBoolean("watchCanAsk", value).apply()
+    val watchOn: Boolean
+        get() = Garmin.present(app)
 
     /**
-     * Whether the watch may also switch data and take devices off. Only
-     * means anything with [watchCanAsk] on: the listener is how it asks.
+     * Whether the watch may also switch data and take devices off: the one
+     * watch setting, off until switched on.
      */
     var watchCanControl: Boolean
         get() = prefs.getBoolean("watchCanControl", false)

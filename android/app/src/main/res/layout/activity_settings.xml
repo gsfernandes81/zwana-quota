@@ -282,29 +282,15 @@
                     android:orientation="vertical"
                     android:padding="20dp">
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/watch_switch"
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/send_to_watch"
+                        android:text="@string/watch_title"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                     <TextView
                         style="@style/Zwana.Support"
-                        android:text="@string/send_to_watch_detail" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/watch_ask_switch"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/watch_can_ask"
-                        android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-                    <TextView
-                        android:id="@+id/watch_ask_detail"
-                        style="@style/Zwana.Support"
-                        android:text="@string/watch_can_ask_detail" />
+                        android:text="@string/watch_detail" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/watch_control_switch"
@@ -315,7 +301,6 @@
                         android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                     <TextView
-                        android:id="@+id/watch_control_detail"
                         style="@style/Zwana.Support"
                         android:text="@string/watch_can_control_detail" />
 
@@ -327,36 +312,6 @@
                         android:gravity="center_vertical"
                         android:textColor="?attr/colorOnSurface"
                         app:drawableStartCompat="@drawable/ic_watch" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/send_now"
-                            style="@style/Widget.Material3.Button.OutlinedButton.Icon"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/send_now"
-                            app:icon="@drawable/ic_send" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/check_watch"
-                            style="@style/Widget.Material3.Button.TextButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="@string/check_watch" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/watch_check"
-                        style="@style/Zwana.Support"
-                        android:layout_marginTop="8dp"
-                        android:textIsSelectable="true"
-                        android:visibility="gone" />
 
                     <TextView
                         style="@style/Zwana.Support"
