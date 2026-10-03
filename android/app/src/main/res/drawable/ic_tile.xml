@@ -8,22 +8,31 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- The body long across the panels' axis and thin along it, the panels
-         long along the diagonal, and the antenna and its dish toward the arcs. -->
+    <!-- Fitted to the system icon grid: the ink's centroid on the centre, the
+         whole of it inside the 20 x 20 live area (2 of padding each side), and
+         the arcs' stroke 2 units after this scale (1.625 x 1.2307). -->
     <group
-        android:rotation="45"
-        android:scaleX="0.85"
-        android:scaleY="0.85"
-        android:translateX="14.8"
-        android:translateY="9.2">
+        android:scaleX="1.2307"
+        android:scaleY="1.2307"
+        android:translateX="-3.452"
+        android:translateY="-2.085">
+        <!-- The body long across the panels' axis and thin along it, the panels
+             long along the diagonal, and the antenna and its dish toward the arcs. -->
+        <group
+            android:rotation="45"
+            android:scaleX="0.85"
+            android:scaleY="0.85"
+            android:translateX="14.8"
+            android:translateY="9.2">
+            <path
+                android:fillColor="@android:color/white"
+                android:pathData="M-2,-3h4v6h-4z M2,-0.5h0.8v1h-0.8z M-2.8,-0.5h0.8v1h-0.8z M2.8,-1.6h5.4v3.2h-5.4z M-8.2,-1.6h5.4v3.2h-5.4z M-0.6,3h1.2v0.6h-1.2z M-1.6,3.6h3.2v0.9h-3.2z" />
+        </group>
+        <!-- Two arcs centred on the satellite itself. -->
         <path
-            android:fillColor="@android:color/white"
-            android:pathData="M-2,-3h4v6h-4z M2,-0.5h0.8v1h-0.8z M-2.8,-0.5h0.8v1h-0.8z M2.8,-1.6h5.4v3.2h-5.4z M-8.2,-1.6h5.4v3.2h-5.4z M-0.6,3h1.2v0.6h-1.2z M-1.6,3.6h3.2v0.9h-3.2z" />
+            android:pathData="M13.27,14.90A5.9,5.9 0 0 1 9.10,10.73 M13.20,18.26A9.2,9.2 0 0 1 5.74,10.80"
+            android:strokeWidth="1.625"
+            android:strokeColor="@android:color/white"
+            android:strokeLineCap="round" />
     </group>
-    <!-- Two arcs centred on the satellite itself. -->
-    <path
-        android:pathData="M13.27,14.90A5.9,5.9 0 0 1 9.10,10.73 M13.20,18.26A9.2,9.2 0 0 1 5.74,10.80"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round" />
 </vector>
