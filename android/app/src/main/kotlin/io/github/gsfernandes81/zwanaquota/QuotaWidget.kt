@@ -50,7 +50,7 @@ class QuotaWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         when (intent.action) {
             ACTION_TAP -> {
-                draw(context, Refresher.cachedFace(context), context.getString(R.string.busy_read))
+                Faces.draw(context, Refresher.cachedFace(context), context.getString(R.string.busy_read))
                 Work.refresh(context, force = true, trigger = "tap")
             }
             ACTION_SWITCH -> actionOf(intent)?.let { switch(context, it) }
@@ -87,9 +87,9 @@ class QuotaWidget : AppWidgetProvider() {
             intent.getStringExtra(EXTRA_ACTION)?.let { name -> SessionAction.entries.firstOrNull { it.name == name } }
 
         /** Throw the switch, the confirmation already given if it needed one. */
-        fun switch(context: Context, action: SessionAction) {
-            draw(context, Refresher.cachedFace(context), context.getString(busy(action)))
-            Work.switch(context, action)
+        fun switch(context: Context, action: SessionAction, trigger: String = "widget switch") {
+            Faces.draw(context, Refresher.cachedFace(context), context.getString(busy(action)))
+            Work.switch(context, action, trigger)
         }
 
         /**

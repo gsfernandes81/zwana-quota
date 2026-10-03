@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.gsfernandes81.zwanaquota.core.Answers
 import io.github.gsfernandes81.zwanaquota.core.Reading
 import io.github.gsfernandes81.zwanaquota.core.Session
+import io.github.gsfernandes81.zwanaquota.core.TileWidth
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -104,6 +105,14 @@ class Store(context: Context) {
     var watchCanControl: Boolean
         get() = prefs.getBoolean("watchCanControl", false)
         set(value) = prefs.edit().putBoolean("watchCanControl", value).apply()
+
+    /**
+     * How wide the Quick Settings tile was dragged: Android never says, so
+     * it is asked (TileWidth). Standard unless set.
+     */
+    var tileWidth: TileWidth
+        get() = TileWidth.entries.firstOrNull { it.name == prefs.getString("tileWidth", null) } ?: TileWidth.STANDARD
+        set(value) = prefs.edit().putString("tileWidth", value.name).apply()
 
     /** The MAC of each device the watch was last offered to take off, by IP. */
     var offeredMacs: Map<String, String>

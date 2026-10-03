@@ -177,6 +177,45 @@ names itself (`core/.../Names.kt`: reverse DNS, mDNS, NetBIOS), after the
 figure is drawn, so a slow or silent network holds up nothing. A name is kept
 six hours and a silence one hour, because addresses are handed out again.
 
+### The Quick Settings tile replaced the Tasker one
+
+The Tasker tile needed Tasker, AutoNotification, Termux:Tasker and a property
+in `termux.properties`, and a tap could only refresh it. The app's own tile
+(`QuotaTile`) needs none of them and reads the same cache as the widget, so
+the two never disagree: every drawing goes through `Faces.draw`. The Tasker
+tile, its script and its `--qs*` flags were removed on 2026-10-03.
+
+Its text is the Tasker tile's ladder carried over (`TileFace` in
+`core/.../Tile.kt`, held by `TileTest` to the rules `test_qs_tile.py` held it
+to): the reset time survives every rung of a current reading, an old or
+offline reading says so in place of the share, and a wider tile is never told
+less. The budgets are the Tasker tile's `medium` and `large`. There is no
+`small`: a one-cell tile draws no text at all.
+
+**Brightness is the session; the icon is fixed.** The tile is lit while this
+phone is on data (`TileFace.lit`: it switched data on or joined, as the
+widget's switch would say "Data on") and dim otherwise. The Tasker tile lit
+itself on free data left; that mixed two questions into one signal, and
+what is left is already the tile's text. The icon is one satellite in every
+state, so the tile is recognised by its mark, not hunted for by whichever
+glyph it shows today.
+
+**A tap opens a dialog, not the app.** `TileService.showDialog()` is the one
+way Android gives a tile to open up in place, and the panel in it
+(`TilePanel`) is drawn again whenever anything is, so a read or a removal
+finishing shows while it is open. Removing a device goes through the same
+worker, the same one-at-a-time and the same check against the portal
+(`PortalClient.remove`) as the watch's, carrying the MAC the panel showed so
+an address handed out again cannot be taken off by mistake. The panel asks
+before taking anything off, as the widget does, inline rather than in a
+second dialog, since a tile can show only one.
+
+**Not an active tile.** An active tile can be redrawn while the panel is
+closed, but then Android stops telling it when the panel opens, and a read
+on opening is what keeps it fresh without a periodic job. So the tile reads
+(if the cache is older than 45 seconds) when it is shown, and is redrawn
+while it is showing; nothing is scheduled for it.
+
 ### What the watch is sent
 
 One `HashMap`, built in one place (`WatchPayload` in `core/.../Face.kt`) and

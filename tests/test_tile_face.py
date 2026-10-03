@@ -153,7 +153,7 @@ def test_the_face_is_five_rows_and_never_wider_than_the_tile(value):
 def test_the_calibrated_measurements_are_the_ones_the_docs_were_written_to():
     """These are measured with ``--probe`` against the real launcher, not
     chosen — so they are meant to be re-measured, and a change to one is a
-    change to what ``docs/quota-tile.md`` and the module header describe."""
+    change to what the module header describes."""
     assert qw.TILE == 35
     assert qw.TILE_LINES == 6
     assert qw.GLYPH_ROWS == 5

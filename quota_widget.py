@@ -688,207 +688,6 @@ def render_tile(doc: dict, paint: Paint, width: int = TILE, margin: int = 0) -> 
     return "\n".join(f"{lead}{styled}" if plain else "" for plain, styled in rows)
 
 
-# --------------------------------------------------------------------------- #
-# The Quick Settings tile: two strings, a state and a level
-# --------------------------------------------------------------------------- #
-#
-# A Quick Settings tile is not a small widget, and the face above does not
-# shrink into one. Android gives it a label, a subtitle, an icon and a state
-# (ACTIVE draws it lit, INACTIVE dim), and nothing else — no rows to lay out, no
-# monospace to align, and no way to redraw it except by running something. So
-# this composition answers a different question: of everything the box says,
-# which two phrases survive being the only two?
-#
-# The label is the figure, because that is what the tile is for. The subtitle is
-# a ladder, and what it keeps at each rung is the rule worth pinning: the reset
-# time, which is the one fact on the face that cannot be worked out from the
-# rest of it — except when the reading is stale or the portal is offline, which
-# means the figure overstates what is left, and then saying so outranks
-# everything, exactly as it does on the tile face.
-#
-# The widths are character budgets against a *proportional* font, so they are
-# approximations rather than the measured cell counts :data:`TILE` is. That is
-# why they are conservative, why every ladder ends in something very short, and
-# why ``--qs-width`` exists: set the tile to a ruler once (``--qs-width 99 99``
-# with a known string) and read off where the launcher clips it.
-
-#: Characters the tile's label and subtitle get. One UI clips both without a
-#: word, and a clipped subtitle is usually the reset time that got clipped.
-QS_LABEL = 10
-QS_STATUS = 16
-
-#: Budgets for a tile whose size is the *user's* choice rather than the
-#: system's. One UI 8.5 lets a tile be dragged to a different size in the
-#: panel, and nothing tells the app which size was picked — there is no
-#: callback, no configuration change, nothing to read. So the size is a setting
-#: here too: pick the preset matching the tile you dragged out, or measure your
-#: own with ``--qs-probe`` and set ``--qs-width``.
-#:
-#: ``small`` has a status of zero, which means *this tile has no subtitle*
-#: rather than "fit the subtitle into nothing". It is the one size that cannot
-#: carry the reset time, and that is a real loss rather than a tidier layout:
-#: what survives is the figure and the level the icon draws. Choosing it is
-#: choosing that, which is why it is named and documented rather than reached
-#: by setting the width to something small and seeing what happens.
-QS_SIZES = {
-    "small": (5, 0),
-    "medium": (QS_LABEL, QS_STATUS),
-    "large": (12, 34),
-}
-
-#: What the fourth line can say: a word for the icon to follow, since an icon is
-#: the one part of the tile that no amount of text budget buys back.
-QS_LEVELS = {"1;32": "ok", "1;33": "low", "1;31": "critical"}
-
-#: The tile with no reading behind it at all. Four lines like any other answer,
-#: because the caller splits on newlines and a short answer would leave the
-#: label of a *previous* run standing beside this run's subtitle.
-#:
-#: The state is still one of the two ordinary ones, deliberately. Android has a
-#: third, ``UNAVAILABLE``, which greys the tile out and stops it being tapped —
-#: and a tap is how this one recovers, so a portal that was down when the tile
-#: last ran would leave no way to ask it again. The level says ``unknown``
-#: instead, where it costs an icon rather than the way out.
-QS_UNKNOWN = ("quota ?", "no reading", "inactive", "unknown")
-
-
-def qs_size(value: int, room: int) -> str:
-    """The remainder, in as much precision as *room* characters allow.
-
-    The first spelling is :func:`size`'s, so an unclipped tile reads exactly
-    like the widget and the status line do; the rungs below it give up decimals
-    and then the space before the unit, which is the last thing that can go
-    before the figure itself is wrong.
-
-    Every branch's last rung also drops the thousands separator, because that
-    rung is the one the smallest tile lands on and a comma is a whole character
-    That was found the honest way: at 1,023 bytes there was no rung under
-    seven characters at all.
-    """
-    gib = value / 1024**3
-    if gib >= 1:
-        options = [
-            f"{gib:,.2f} GiB",
-            f"{gib:,.1f} GiB",
-            f"{gib:,.0f} GiB",
-            f"{gib:.0f}G",
-        ]
-    elif value >= 1024**2:
-        mib = value / 1024**2
-        options = [f"{mib:,.0f} MiB", f"{mib:.0f}M"]
-    elif value >= 1024:
-        options = [f"{value / 1024:,.0f} KiB", f"{value / 1024:.0f}K"]
-    else:
-        options = [f"{value:,.0f} B", f"{value:.0f}B"]
-    for text in options:
-        if len(text) <= room:
-            return text
-    return options[-1]
-
-
-def compose_qs(
-    doc: dict, label_width: int = QS_LABEL, status_width: int = QS_STATUS
-) -> tuple[str, str, str, str]:
-    """Build the tile as ``(label, subtitle, state, level)``.
-
-    *state* is what Android does with the tile itself: ``active`` while there is
-    free data left to spend, ``inactive`` once the figure is only paid data, so
-    the tile answers "is it free right now" without being read at all.
-    """
-    remainder = doc["today"]["remainder_bytes"]
-    pool = max(1, doc["today"]["pool_bytes"])
-    reading = doc["reading"]
-
-    label = qs_size(remainder, label_width)
-    share = f"{remainder / pool * 100:.0f}%"
-    stamp = dt.datetime.fromisoformat(doc["reset"]["local"]).strftime("%H:%M")
-    grant = qs_size(doc["free"]["grant_bytes"], 8)
-
-    # Same rule as the face, and the same reason: a reading that overstates what
-    # is left has to say so. Here it costs the share rather than a spare row.
-    mark = (
-        since(reading["age_seconds"])
-        if not reading["live"] and reading["age_seconds"] >= 90
-        else ""
-        if reading["online"]
-        else "offline"
-    )
-
-    # Separators are ASCII on purpose. Nothing here is aligned, so the reason is
-    # not the widget's font drift but the pipe: this text crosses a shell, a
-    # plugin and Tasker's own variable handling before anything draws it.
-    #
-    # The ladder is climbed as well as descended: a tile dragged wider gets the
-    # top rung, which spells the pool out rather than leaving the extra room
-    # blank. A wide tile saying as little as a narrow one is the same waste as a
-    # narrow one clipped, just quieter about it.
-    if mark:
-        ladder = (
-            f"{mark}, {share} of {size(pool)}, {stamp}",
-            f"{mark}, {share}, {stamp}",
-            f"{mark}, {stamp}",
-            mark,
-        )
-    else:
-        ladder = (
-            f"{share} of {size(pool)}, +{grant} {stamp}",
-            f"{share}, +{grant} at {stamp}",
-            f"{share}, +{grant} {stamp}",
-            f"{share}, reset {stamp}",
-            f"{share}, {stamp}",
-            stamp,
-        )
-    # Zero is "this tile has no subtitle", not "fit one into nothing": the small
-    # size genuinely has nowhere to put it, and half a phrase would be worse
-    # than none. Every other width falls back to the shortest rung.
-    if status_width <= 0:
-        status = ""
-    else:
-        status = next(
-            (text for text in ladder if len(text) <= status_width), ladder[-1]
-        )
-
-    state = "active" if doc["free"]["left_bytes"] > 0 else "inactive"
-    return label, status, state, QS_LEVELS[grade(remainder / pool)]
-
-
-def render_qs(
-    doc: dict, label_width: int = QS_LABEL, status_width: int = QS_STATUS
-) -> str:
-    """The four lines Tasker reads, in the order it splits them into.
-
-    Order is the interface: Tasker addresses these as ``%stdout1``..``%stdout4``
-    after a Variable Split, so reordering them silently relabels the tile rather
-    than failing. A test must pin it.
-    """
-    return "\n".join(compose_qs(doc, label_width, status_width))
-
-
-def qs_probe(label_width: int, status_width: int) -> str:
-    """A tile made of rulers, for reading the real widths off the real panel.
-
-    The same ruler the widget's :func:`probe` uses, because the same question is
-    being asked: not "does this fit" but "how much fits". Put it on the tile,
-    drag the tile to the size you want, and read the last mark still visible —
-    that is the budget, and it is the number ``--qs-width`` wants. Guessing it
-    from the tile's apparent size cannot work: the font is proportional, so the
-    answer differs between a label of digits and a label of letters, which is
-    why the ruler is made of both.
-
-    Deliberately longer than any tile can show. A ruler that fits tells you
-    nothing except that it fits.
-    """
-    rule = "----+----1----+----2----+----3----+----4----+----5"
-    return "\n".join(
-        (
-            rule[: max(label_width * 2, 20)],
-            rule[: max(status_width * 2, 30)],
-            "active",
-            "ok",
-        )
-    )
-
-
 def compose(doc: dict, paint: Paint, width: int) -> list[tuple[str, str]]:
     """Build the interior as ``(plain, styled)`` rows, ASCII only."""
     reset_local = dt.datetime.fromisoformat(doc["reset"]["local"])
@@ -1179,35 +978,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "instead of drawing anything",
     )
     parser.add_argument(
-        "--qs",
-        action="store_true",
-        help="four lines for an Android Quick Settings tile: label, "
-        "subtitle, state, level (see docs/quota-tile.md)",
-    )
-    parser.add_argument(
-        "--qs-size",
-        choices=sorted(QS_SIZES),
-        default="medium",
-        help="which tile you dragged out of the panel, since nothing "
-        "tells us (default: %(default)s). small has no subtitle",
-    )
-    parser.add_argument(
-        "--qs-width",
-        type=int,
-        nargs=2,
-        default=None,
-        metavar=("LABEL", "STATUS"),
-        help="characters the tile's two strings get, overriding "
-        f"--qs-size (default: {QS_LABEL} {QS_STATUS}). "
-        "A status of 0 means the tile has no subtitle",
-    )
-    parser.add_argument(
-        "--qs-probe",
-        action="store_true",
-        help="a tile made of rulers instead of the quota, to read the "
-        "real widths off the real panel; no network",
-    )
-    parser.add_argument(
         "--frame",
         choices=("corners", "box", "none"),
         default="corners",
@@ -1261,9 +1031,6 @@ def main(argv: list[str] | None = None) -> int:
         # Deliberately before any network work: calibration must cost nothing.
         print(probe(args.probe))
         return 0
-    if args.qs_probe:
-        print(qs_probe(*(args.qs_width or QS_SIZES[args.qs_size])))
-        return 0
 
     if args.refresh_only:
         try:
@@ -1281,21 +1048,11 @@ def main(argv: list[str] | None = None) -> int:
     except z.PortalError as exc:
         data, live = stale(), False
         if data is None:
-            # The tile is drawn from whatever comes back on stdout, so it gets a
-            # tile that says it knows nothing rather than an empty one holding
-            # last week's number. Still a failure exit for anything checking.
-            if args.qs:
-                print("\n".join(QS_UNKNOWN))
             print(paint(f"  quota unavailable\n  {exc}", "31"), file=sys.stderr)
             return 1
 
     doc = derive(data, time.time() - data["ts"], live)
-    # An explicit width wins over the preset, so a measured tile beats a named
-    # one — the presets are a starting point, not the answer.
-    label_width, status_width = args.qs_width or QS_SIZES[args.qs_size]
-    if args.qs:
-        print(render_qs(doc, label_width, status_width))
-    elif args.json:
+    if args.json:
         print(json.dumps(doc, indent=2))
     elif args.line:
         print(render_line(doc, paint))

@@ -235,11 +235,6 @@ def test_the_colour_changes_where_the_thresholds_are(share, code):
     assert qw.grade(share) == code
 
 
-@given(share=st.floats(0, 1))
-def test_every_grade_has_a_word_for_the_icon(share):
-    assert qw.grade(share) in qw.QS_LEVELS
-
-
 @given(a=st.floats(0, 1), b=st.floats(0, 1))
 def test_more_data_left_is_never_a_worse_grade(a, b):
     order = ["1;31", "1;33", "1;32"]

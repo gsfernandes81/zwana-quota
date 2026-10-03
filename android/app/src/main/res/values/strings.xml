@@ -80,4 +80,37 @@
     <string name="confirm_leave_body">Only this phone disconnects. Data stays on for %s.</string>
     <string name="confirm_leave_yes">Disconnect</string>
     <string name="confirm_cancel">Cancel</string>
+    <!-- The Quick Settings tile, and the panel a tap on it opens. -->
+    <string name="tile_label">Data left</string>
+    <string name="tile_no_reading">tap to read</string>
+    <string name="tile_spoken_on">Data on. %s</string>
+    <string name="tile_spoken_off">Data off for this phone. %s</string>
+    <string name="tile_sign_in">tap to sign in</string>
+    <string name="panel_app">App</string>
+    <string name="panel_portal">Portal</string>
+    <string name="panel_done">Done</string>
+    <string name="panel_disconnect">Disconnect</string>
+    <string name="panel_disconnect_named">Disconnect %s</string>
+    <string name="panel_data_on">Data on</string>
+    <string name="panel_data_off">Data off</string>
+    <string name="panel_session_unknown">Data switch</string>
+    <string name="panel_session_unread">Shown once the portal has been read</string>
+    <string name="panel_role_off">No device is on data</string>
+    <string name="panel_role_primary">This phone switched it on</string>
+    <string name="panel_role_joined">This phone joined</string>
+    <string name="panel_role_outside">On for other devices, not this phone</string>
+    <string name="panel_role_unknown">The portal did not say which device this is</string>
+    <string name="panel_turn_on">Turn on</string>
+    <string name="panel_turn_off">Turn off</string>
+    <string name="panel_leave">Leave</string>
+    <string name="panel_join">Join</string>
+    <string name="panel_device_primary">switched data on</string>
+    <string name="panel_device_joined">joined</string>
+    <string name="panel_device_detail">%1$s · %2$s</string>
+    <string name="panel_confirm_remove_title">Take %s off data?</string>
+    <string name="panel_confirm_remove_body">Only that device disconnects; the rest stay on. It can join again from the portal.</string>
+    <string name="busy_remove">taking %s off...</string>
+    <string name="tile_settings">Quick Settings tile</string>
+    <string name="tile_wide">Wide tile</string>
+    <string name="tile_wide_detail">Android does not tell an app how wide its tile is. Switch this on if you dragged the tile wider than two cells: it then says the pool and tonight\'s top-up too. A one-cell tile shows only its icon, lit while this phone is on data.</string>
 </resources>
