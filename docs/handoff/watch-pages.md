@@ -1,11 +1,43 @@
-# Handoff: fuller watch pages (approved design, not yet built)
+# Handoff: fuller watch pages (built; the design as approved, and where the build departs)
 
-Written 2026-10-03 at the end of the session that designed it. The designs below were
-approved by the owner from mockups; **nothing here is built yet**. Build on
-`claude/nice-turing-uwez0g`, which carries the approved sub-window work (white
-sub-window, bitmap glyphs from `garmin/tools/glyphs.py`, phone glyph 15 x 21) and has
-`main` merged in up to `e15d56b` (#9). That branch is ahead of `main` and unmerged;
-merging to `main` publishes release `build-N`, so it waits for the owner's go-ahead.
+Designed 2026-10-03 and approved by the owner from mockups; **built the same day** on
+`claude/relaxed-turing-uvp7cg` (from `claude/nice-turing-uwez0g`) and checked page by page
+in the simulator (`garmin/tools/sim/README.md`), Solar and AMOLED 45 mm. Not yet on a watch.
+Merging to `main` publishes release `build-N`, so it waits for the owner's go-ahead.
+
+## Where the build departs from the design below, and why
+
+Every departure comes from the real screen and fonts, which the mockups stood in for:
+
+- **Rows 6 px higher, their column from the screen.** The Solar's corners are cut 37 px
+  along each edge (measured), which takes the ends off a row centred at y = 152: the R of
+  `RESET` lost pixels. The figure now stands on 78, the bar spans 85..93, the rows sit at
+  106/126/146, and every row and rule shares one column, the width the lowest row's ink is
+  seen at (`PageDraw.edges`). `garmin/tools/sim/clipcheck.py` fails any shot with a lit
+  pixel at the screen's edge or under the lens.
+- **The bar takes the rows' column** (2 px further left), so it lines up with them.
+- **The countdown has a third spelling, whole hours (`21:36 · 3h`).** The real fonts are
+  wider than the mockup's: `21:36` is 41 px and `3h12m` 49, against 75 of room. The clock
+  time beside it carries the minutes.
+- **Titles: `DATA` and `ONLINE` on the Solar.** The existing lens margin (a title drawn up
+  to the reported circle lost a letter on the watch) leaves 68 px; `DATA LEFT` is 83 and
+  `CONNECTION` 99, `INTERNET` 75. The AMOLEDs draw the long ones. By these widths the old
+  Connection page drew no title on the Solar at all.
+- **ON/OFF in `FONT_NUMBER_HOT` on the Solar only.** Its number fonts hold O, N and F; the
+  AMOLEDs' draw boxes. `monkey.jungle` says which watch is which (`numberWords`).
+- **The list's icons are drawn, not bitmaps.** A `BitmapResource` as an `IconMenuItem`
+  icon ends the app; a `WatchUi.Bitmap` works but lands at the sub-window's top-left
+  without its white disc. A `Drawable` (`DeviceIcon`) is handed a 62 x 62 canvas for the
+  sub-window and a 24 x 14 one beside the name, and draws the sub-window as every page
+  does, and the small phone or laptop beside the name.
+- **`share` is no longer sent**: nothing on the watch draws the percentage now, and the
+  contract test holds the phone to sending only what the watch reads. `free` is new.
+- **Found on the way:** `WatchUi.getSubscreen` does not exist on the AMOLEDs, and calling it
+  unguarded ended the app as it opened there, before this change too. Now guarded with
+  `has`.
+
+Still for a watch to settle: whether `onWrap` fires the same on the watch as in the
+simulator (it does there, both ends), and how the native list looks on the AMOLEDs' touch.
 
 Mockups (Instinct 3 Solar, 176 x 176, drawn 1 px = 1 px, shown at 3x):
 
@@ -129,39 +161,10 @@ Design as found in the API docs (not yet tried on a device):
 - The AMOLEDs have no sub-window. They keep `PageDraw.indicator`, and the list shows
   without a subscreen icon.
 
-## Running the simulator in a cloud session (worked out, not finished)
+## Running the simulator in a cloud session
 
-Network access is fine, and the public SDK downloads and the simulator start headless.
-**The missing piece is the device definitions**, which `connect-iq-sdk-manager-cli` only
-fetches after a Garmin account login. CI has the credentials in GitHub's `garmin`
-environment; a cloud session needs `GARMIN_USERNAME` / `GARMIN_PASSWORD` set as environment
-variables in the cloud environment's settings. Never paste them into a chat.
-
-1. `dockerd &` (the daemon is installed but not running), then build an `ubuntu:22.04`
-   image. The simulator links `libwebkit2gtk-4.0`, which 24.04 (the host) no longer ships:
-
-   ```
-   FROM ubuntu:22.04
-   ENV DEBIAN_FRONTEND=noninteractive
-   RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
-       libwebkit2gtk-4.0-37 libsoup2.4-1 libsecret-1-0 libusb-1.0-0 libsm6 libxxf86vm1 \
-       xvfb xdotool x11-apps imagemagick openjdk-17-jre-headless ca-certificates unzip
-   ```
-2. SDK: `https://developer.garmin.com/downloads/connect-iq/sdks/sdks.json` lists the zips
-   (9.2.0 was current); the Linux one downloads without a login. Under Xvfb in that
-   image, `bin/simulator` starts (verified).
-3. Devices: `go install github.com/lindell/connect-iq-sdk-manager-cli@v0.8.4` (Go is on
-   the host), then `agreement accept`, `login`, `sdk set`, and
-   `device download --manifest garmin/manifest.xml`, as `.github/workflows/garmin-prg.yml`
-   does. Mount `~/.Garmin` into the container.
-4. Build with a throwaway key (the simulator does not need the real one):
-   `openssl genrsa -out k.pem 4096 && openssl pkcs8 -topk8 -inform PEM -outform DER -in k.pem -out k.der -nocrypt`,
-   then `monkeyc -f garmin/monkey.jungle -d instinct3solar45mm -y k.der -o out.prg`.
-5. Run `monkeydo out.prg instinct3solar45mm`, screenshot with `import -window root`, and
-   press keys with `xdotool`. Still unworked: the simulator's key mapping, and **feeding
-   it a payload**, since the app's data arrives as phone messages. A debug-only fixture
-   excluded from release builds (an annotation plus `excludeAnnotations` in the jungle)
-   would do it. Keep it out of anything the release ships.
+Done: `garmin/tools/sim/README.md`. The readings come from `garmin/source/Fixture.mc`, a
+`(:debug)` module that no `-r` build carries; hold UP (MENU) for the next.
 
 ## Checks before pushing
 

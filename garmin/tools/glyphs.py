@@ -1,4 +1,4 @@
-"""Draw the sub-window's glyphs pixel by pixel and write garmin/source/Glyphs.mc.
+"""Draw the watch's glyphs pixel by pixel and write garmin/source/Glyphs.mc.
 
 The watch draws each glyph from the rows written here, a pixel for a pixel,
 so it looks the same on every build rather than being scaled from shapes at
@@ -8,7 +8,14 @@ run time. Run from the repo root after changing a glyph:
     python3 garmin/tools/glyphs.py --preview  # also writes glyphs.png beside it
 
 Each glyph is drawn black on white at 1:1 with PIL (which draws without
-anti-aliasing), then read back as rows of `#` and `.`.
+anti-aliasing), then read back as rows of `#` and `.`. Two kinds:
+
+- the sub-window's, 31 x 31, centred in it (PageDraw.glyph), on the pages and
+  for the device list's focused item (DeviceIcon);
+- the device icons, cropped to their ink (PageDraw.bits): the sub-window's
+  phone and laptop at full size for the Connection page's row, and a small
+  pair for when more devices than four share that row, and beside a name in
+  the device list.
 """
 
 from __future__ import annotations
@@ -173,6 +180,38 @@ def not_listening() -> Image.Image:
     return im
 
 
+def small_laptop() -> Image.Image:
+    # 15 by 10: a screen 11 by 7 in a 2-pixel line over a base the full
+    # width, a pixel's gap between them.
+    im = Image.new("L", (15, 10), PAPER)
+    d = ImageDraw.Draw(im)
+    d.rectangle([2, 0, 12, 6], outline=INK, width=2)
+    d.rectangle([0, 8, 14, 9], fill=INK)
+    return im
+
+
+def small_phone() -> Image.Image:
+    # 9 by 12 in a 2-pixel line, its outer corners cut, a speaker dot at its
+    # foot.
+    im = Image.new("L", (9, 12), PAPER)
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, 8, 11], outline=INK, width=2)
+    for x, y in ((0, 0), (8, 0), (0, 11), (8, 11)):
+        d.point((x, y), fill=PAPER)
+    d.point((4, 9), fill=INK)
+    return im
+
+
+def ink(draw):
+    # [draw]'s glyph cropped to its ink, for icons that stand on a baseline.
+    def cropped() -> Image.Image:
+        im = draw()
+        box = Image.eval(im, lambda v: 255 - v).getbbox()
+        return im.crop(box)
+
+    return cropped
+
+
 GLYPHS = {
     "REFRESH": refresh,
     "POWER": power,
@@ -182,24 +221,29 @@ GLYPHS = {
     "DEVICE": device,
     "PHONE": this_phone,
     "NOT_LISTENING": not_listening,
+    # The Connection page's row of devices: full size up to four, small past.
+    "PHONE_ICON": ink(this_phone),
+    "LAPTOP_ICON": ink(device),
+    "PHONE_SMALL": small_phone,
+    "LAPTOP_SMALL": small_laptop,
 }
-
 
 def rows(im: Image.Image) -> list[str]:
     px = im.load()
-    return [
-        "".join("#" if px[x, y] < 128 else "." for x in range(SIZE)) for y in range(SIZE)
-    ]
+    w, h = im.size
+    return ["".join("#" if px[x, y] < 128 else "." for x in range(w)) for y in range(h)]
 
 
 def monkey_c(glyphs: dict[str, list[str]]) -> str:
     out = [
         "import Toybox.Lang;",
         "",
-        "// The sub-window's glyphs, a pixel for a pixel: written by",
+        "// The watch's glyphs, a pixel for a pixel: written by",
         "// garmin/tools/glyphs.py, which draws them -- change them there, not here.",
-        f"// Each is {SIZE} rows of {SIZE}, `#` for ink; PageDraw.glyph draws one",
-        "// centred in the sub-window, the same pixels on every build.",
+        "// Rows of `#` for ink, the same pixels on every build. The sub-window's",
+        f"// are {SIZE} x {SIZE}, which PageDraw.glyph centres in it; the *_ICON and",
+        "// *_SMALL ones are cropped to their ink, for PageDraw.bits to stand on a",
+        "// baseline.",
         "module Glyphs {",
     ]
     for name, lines in glyphs.items():
@@ -222,7 +266,8 @@ def main() -> None:
             (200, 200, 200),
         )
         for i, draw in enumerate(GLYPHS.values()):
-            im = draw().convert("RGB").resize((SIZE * scale, SIZE * scale), Image.NEAREST)
+            im = draw().convert("RGB")
+            im = im.resize((im.width * scale, im.height * scale), Image.NEAREST)
             sheet.paste(im, (pad + i * (SIZE * scale + pad), pad))
         sheet.save(Path(__file__).with_name("glyphs.png"))
 

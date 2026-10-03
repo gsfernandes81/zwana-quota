@@ -3,8 +3,8 @@ import Toybox.WatchUi;
 
 // UP and DOWN turn the pages (Pages.turn). START does the page's one
 // thing, and only what the phone's last message offered: a fresh reading on
-// the first page, the data switch on the Connection page, and on a device's
-// page, taking that device off (QuotaView.mc lists them). Anything that
+// the first page, the data switch on the Connection page (QuotaView.mc lists
+// them); the device list has its own delegate (DeviceList.mc). Anything that
 // takes a device off data asks first, in the watch's own confirmation.
 class QuotaDelegate extends WatchUi.BehaviorDelegate {
     var view as QuotaView;
@@ -32,7 +32,7 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         var d = Quota.last();
-        var page = view.current();
+        var page = view.page;
         if (page == 0) {
             if (!Quota.canAsk(d)) {
                 return false;
@@ -44,36 +44,26 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
             return false;
         }
         var dd = d as Dictionary;
-        if (page == 1) {
-            var act = Quota.str(dd, "act");
-            if (act.length() == 0) {
-                return false;
-            }
-            var message = {"do" => act};
-            var question = Quota.str(dd, "cq");
-            if (!Ask.free(message)) {
-                return true;
-            }
-            if (question.length() > 0) {
-                WatchUi.pushView(new WatchUi.Confirmation(question), new SendConfirm(message), WatchUi.SLIDE_IMMEDIATE);
-            } else {
-                Ask.send(message);
-            }
-            return true;
-        }
-        // A device's page: that device, if the phone offered to take it off.
-        var i = page - 2;
-        var ip = view.deviceIp(dd, i);
-        if (ip.length() == 0) {
+        var act = Quota.str(dd, "act");
+        if (page != 1 || act.length() == 0) {
             return false;
         }
-        var off = {"rm" => ip};
-        if (!Ask.free(off)) {
+        var message = {"do" => act};
+        var question = Quota.str(dd, "cq");
+        if (!Ask.free(message)) {
             return true;
         }
-        var name = Quota.item(Quota.arr(dd, "dn"), i);
-        WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + (name.length() > 0 ? name : ip) + "?"),
-            new SendConfirm(off), WatchUi.SLIDE_IMMEDIATE);
+        if (question.length() > 0) {
+            WatchUi.pushView(new WatchUi.Confirmation(question), new SendConfirm(message), WatchUi.SLIDE_IMMEDIATE);
+        } else {
+            Ask.send(message);
+        }
+        return true;
+    }
+
+    (:debug)
+    function onMenu() as Boolean {
+        Fixture.next();
         return true;
     }
 }

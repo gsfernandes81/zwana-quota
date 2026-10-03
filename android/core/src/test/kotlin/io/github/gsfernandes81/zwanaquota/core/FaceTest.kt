@@ -92,6 +92,21 @@ class FaceTest {
     }
 
     @Test
+    fun `the watch is sent what is left as free and paid, each spelled, together the remainder`() {
+        val carried = 2L shl 30
+        val mib = 1048576.0
+        for ((remainder, pool) in listOf(grant to grant, grant / 2 + carried to grant + carried, carried to grant + carried, 0L to grant)) {
+            val d = doc(remainder, pool = pool)
+            val sent = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1800)
+            assertEquals(Format.mib(d.freeLeftBytes), sent["free"])
+            // Each is rounded to the MiB, so the two together are the
+            // remainder to within one.
+            val (free, paid) = listOf(sent["free"], sent["paid"]).map { (it as String).removeSuffix(" MiB").replace(",", "").toDouble() }
+            assertTrue(Math.abs((free + paid) * mib - d.remainderBytes) <= mib, "$free + $paid for $d")
+        }
+    }
+
+    @Test
     fun `an age is true to its unit`() {
         for (s in listOf(0.0, 1.0, 89.4, 90.0, 600.0, 5399.0, 5400.0, 86_400.0 * 3)) {
             val text = Format.since(s)
@@ -226,7 +241,7 @@ class FaceTest {
         val d = doc()
         val keys = WatchPayload.build(d, Face.of(d, ZoneId.of("UTC")), now, 1800).keys
         // garmin/source reads these; renaming one silently blanks the glance.
-        assertTrue(keys.containsAll(listOf("v", "ts", "sent", "every", "reset", "rem", "pool", "online", "fig", "share", "paid", "ask", "re", "rw")))
+        assertTrue(keys.containsAll(listOf("v", "ts", "sent", "every", "reset", "rem", "pool", "online", "fig", "free", "paid", "ask", "re", "rw")))
     }
 
     @Test

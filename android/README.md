@@ -202,24 +202,31 @@ does: `old` where the figure is out of date (`new day`, `2h ago`),
 The watch works out its staleness from the reading's own timestamp: only it
 knows what time it is now.
 
-Opening the glance shows the app, in pages: UP and DOWN (or a swipe) slide
-between them, round from the last page to the first; START does the page's
-one thing. On the Solar the round sub-window (top right, beside START)
+Opening the glance shows the app, in three pages: UP and DOWN (or a swipe)
+slide between them, round from the last page to the first; START does the
+page's one thing. On the Solar the round sub-window (top right, beside START)
 shows, black on white, what START does on this page, or what is so where it
 does nothing. The AMOLEDs, without a sub-window, show an arc of a segment
-per page at the left edge for a moment after each turn.
+per page at the left edge for a moment after each turn, and say what START
+does in a line at the foot of the page where it fits.
 
 | page | shows | sub-window | START |
 |---|---|---|---|
-| **Data left** | the figure large, the bar, the reset time and the share left, how much of it is paid (`412 MiB paid`) | the refresh arrow; the phone struck through, with a `?`, when it is not listening | a fresh reading |
-| **Connection** | ON or OFF, how this phone stands, how many devices | the power symbol when START can switch, else `ON` or `OFF` | switch data (with **switch data** on) |
-| **Device**, one per device | its name, as large as it fits, and whether it switched data on or joined | a device with a cross when START can take it off; else with a star for the one that switched data on, a phone for this phone, or the device alone | take that device off, when it is one that can be |
+| **Data left** | the figure large, a bar of ten segments for the share of today's pool left, then `FREE`, `PAID` and `RESET` (the clock time and how long until it, `21:36 · 3h 12m`, shortened to `3h` where it does not fit). An old reading puts its warning (`2h ago`) in place of the title, inverted | the refresh arrow; the phone struck through, with a `?`, when it is not listening | a fresh reading |
+| **Connection** | ON or OFF large, how this phone stands, and a row of the devices on it, this phone first: a phone or a laptop each, smaller past four, `+N` for any that do not fit | the power symbol when START can switch, else `ON` or `OFF` | switch data (with **switch data** on) |
+| **Devices** | the watch's own list of the devices, each its name over whether it switched data on or joined | for the focused device: a device with a cross when START can take it off; else with a star for the one that switched data on, a phone for this phone, or the device alone | take that device off, when it is one that can be |
 
-The session pages read `not sent yet` until the phone has sent the session;
-then the Connection page and one page per device, this phone first, up to
-eight (the last says how many more), or one saying why there are none (`none
-listed`, or `data is off`). Anything that takes a device off data asks first,
-in the watch's own confirmation.
+The list takes UP and DOWN for itself, as the watch's own lists do, and hands
+them back at either end: UP on the first device goes to Connection, DOWN on
+the last to Data left. Arriving from Data left (UP), it opens on the last
+device. The session pages read `not sent yet` until the phone has sent the
+session; the Devices page is a plain one saying why when there are none to list
+(`none listed`, or `data is off`). Anything that takes a device off data asks
+first, in the watch's own confirmation.
+
+On the Solar, beside the sub-window, only the short titles fit: `DATA`,
+`ONLINE`. The longer ones (`DATA LEFT`, `CONNECTION`) are drawn where there is
+room, as on the AMOLEDs.
 
 ### Building the watch app
 

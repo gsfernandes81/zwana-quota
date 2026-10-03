@@ -17,7 +17,9 @@
         minApiLevel="3.4.0">
         <!-- 3.4.0: the newest API this app calls, WatchUi.showToast
              (Ask.mc).
-             Nothing is guarded with `has`: every product here is past it. -->
+             Every product here is past it. One call is guarded with `has`,
+             and not for its API level: WatchUi.getSubscreen, which the
+             AMOLEDs do not have at all (PageDraw.subscreen). -->
         <iq:products>
             <iq:product id="instinct3amoled45mm"/>
             <iq:product id="instinct3amoled50mm"/>

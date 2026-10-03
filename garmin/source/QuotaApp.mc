@@ -28,7 +28,18 @@ class QuotaApp extends Application.AppBase {
         Ask.hello();
         Quota.remember = true;
         app = true;
-        return Pages.view(0);
+        fixture();
+        return Pages.view(0, false);
+    }
+
+    // In the simulator, a reading to draw (Fixture.mc); nothing in a release.
+    (:debug)
+    function fixture() as Void {
+        Fixture.next();
+    }
+
+    (:release)
+    function fixture() as Void {
     }
 
     (:glance)
@@ -45,15 +56,17 @@ class QuotaApp extends Application.AppBase {
     // screen. The app redraws for a message it kept; the glance redraws
     // whether or not it could store the message itself: the background
     // service stored it too where it could, and the glance reads from
-    // storage, so it draws the newest copy that was kept. A page drawn for a
-    // count of pages the message changed works out its page again
-    // (QuotaView.current).
+    // storage, so it draws the newest copy that was kept. The device list
+    // follows the message (Pages.heard).
     function onBackgroundData(data as Application.PersistableType) as Void {
         var kept = Quota.store(data);
         if (kept || !app) {
             WatchUi.requestUpdate();
         }
         if (app) {
+            if (kept) {
+                Pages.heard();
+            }
             Ask.heard();
         }
     }
@@ -61,6 +74,7 @@ class QuotaApp extends Application.AppBase {
     // A message that arrived while the app itself was open.
     function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {
         if (Quota.store(msg.data)) {
+            Pages.heard();
             WatchUi.requestUpdate();
         }
         Ask.heard();

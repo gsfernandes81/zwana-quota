@@ -1,6 +1,7 @@
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.System;
 import Toybox.WatchUi;
 
 // What only the pages draw, kept out of the glance's memory (Draw is what
@@ -12,8 +13,13 @@ import Toybox.WatchUi;
 //
 // Every size is worked out from what it is given; nothing assumes a screen.
 module PageDraw {
-    // The sub-window's circle, or null on a watch without one.
+    // The sub-window's circle, or null on a watch without one. The AMOLED
+    // Instinct 3s lack getSubscreen itself, not merely a sub-window: called
+    // there unguarded it ends the app as it opens (seen in the simulator).
     function subscreen() as Array<Number>? {
+        if (!(WatchUi has :getSubscreen)) {
+            return null;
+        }
         var box = WatchUi.getSubscreen();
         if (box == null) {
             return null;
@@ -30,13 +36,17 @@ module PageDraw {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
     }
 
-    // Glyph [rows] (one of Glyphs', `#` for ink) centred in sub-window
-    // [s], a pixel for a pixel: each row's runs of ink as one rectangle.
+    // Glyph [rows] (one of Glyphs' 31 x 31, `#` for ink) centred in
+    // sub-window [s], a pixel for a pixel.
     function glyph(dc as Graphics.Dc, s as Array<Number>, rows as Array<String>) as Void {
         var n = rows.size();
-        var x0 = s[0] - n / 2;
-        var y0 = s[1] - n / 2;
-        for (var y = 0; y < n; y++) {
+        bits(dc, s[0] - n / 2, s[1] - n / 2, rows, 1);
+    }
+
+    // [rows] (`#` for ink) with its top left at ([x], [y]), each pixel [k]
+    // by [k]: each row's runs of ink as one rectangle, in the colour set.
+    function bits(dc as Graphics.Dc, x0 as Number, y0 as Number, rows as Array<String>, k as Number) as Void {
+        for (var y = 0; y < rows.size(); y++) {
             var row = rows[y].toCharArray();
             var run = -1;
             for (var x = 0; x <= row.size(); x++) {
@@ -44,11 +54,39 @@ module PageDraw {
                 if (ink && run < 0) {
                     run = x;
                 } else if (!ink && run >= 0) {
-                    dc.fillRectangle(x0 + run, y0 + y, x - run, 1);
+                    dc.fillRectangle(x0 + run * k, y0 + y * k, (x - run) * k, k);
                     run = -1;
                 }
             }
         }
+    }
+
+    // A rule from [x0] to [x1] at [y], every other pixel: the screen has no
+    // grey, and a solid line reads heavier than a rule between rows should.
+    function dotted(dc as Graphics.Dc, x0 as Number, x1 as Number, y as Number) as Void {
+        for (var x = x0; x <= x1; x += 2) {
+            dc.drawPoint(x, y);
+        }
+    }
+
+    // How tall [font]'s figures and capitals stand above the line: the lit
+    // pixels, not the font's box, whose ascent includes room above them.
+    function inkHeight(dc as Graphics.Dc, font as Graphics.FontType) as Number {
+        return Graphics.getFontAscent(font) - Graphics.getFontDescent(font);
+    }
+
+    // Whether the box from ([x0], [y0]) to ([x1], [y1]) keeps [margin] clear
+    // of sub-window [sub] (always, where there is none): the lens's rim
+    // covers a little outside the circle reported.
+    function clear(sub as Array<Number>?, x0 as Number, y0 as Number, x1 as Number, y1 as Number, margin as Number) as Boolean {
+        if (sub == null) {
+            return true;
+        }
+        var s = sub as Array<Number>;
+        var dx = s[0] < x0 ? x0 - s[0] : (s[0] > x1 ? s[0] - x1 : 0);
+        var dy = s[1] < y0 ? y0 - s[1] : (s[1] > y1 ? s[1] - y1 : 0);
+        var r = s[2] + margin;
+        return dx * dx + dy * dy > r * r;
     }
 
     // A word in the middle, where START does nothing: the session's ON or OFF.
@@ -61,7 +99,7 @@ module PageDraw {
     // round the middle of the left edge, top to bottom,
     // page [page]'s bold, over a black edge of its own so it reads over the
     // page. Segments of 9 degrees with 3 between, narrower when there are
-    // many (6 degrees at the most there are: ten, Pages.count), so the arc
+    // many, so the arc
     // keeps to 90 degrees of the edge, clear of the title. Its sizes follow
     // the screen, as they are on a 176-pixel one.
     function indicator(dc as Graphics.Dc, page as Number, n as Number) as Void {
@@ -87,43 +125,51 @@ module PageDraw {
         dc.setPenWidth(1);
     }
 
-    // How wide the round screen is across a text row from [y] to
-    // [y] + [height], less a margin: the narrower of the row's two edges.
-    function chord(dc as Graphics.Dc, y as Number, height as Number) as Number {
-        var r = dc.getWidth() / 2;
-        var cy = dc.getHeight() / 2;
-        var dy = (y - cy).abs();
-        var dy2 = (y + height - cy).abs();
-        if (dy2 > dy) {
-            dy = dy2;
+    // The Solar's semi-octagon cuts each corner off along a 45-degree line,
+    // 37 pixels along either edge (measured in the simulator, against the
+    // device list's white, and held to by its screenshots).
+    const CUT = 37;
+
+    // How far across the screen pixels from row [top] to row [bottom] are
+    // seen, [margin] in from the edge at the narrower of the two: [left,
+    // right], both seen. Round screens by their circle; the semi-octagon by
+    // its cut corners. A pixel past either is not drawn, so text must lie
+    // within it -- by its ink, not merely its box.
+    function edges(dc as Graphics.Dc, top as Number, bottom as Number, margin as Number) as Array<Number> {
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var inset = 0;
+        if (System.getDeviceSettings().screenShape == System.SCREEN_SHAPE_SEMI_OCTAGON) {
+            var cut = CUT * w / 176;
+            var a = cut - top;
+            var b = bottom - (h - 1 - cut);
+            inset = a > b ? a : b;
+        } else {
+            var r = w / 2;
+            var cy = h / 2;
+            var dy = (top - cy).abs();
+            var dy2 = (bottom - cy).abs();
+            dy = dy2 > dy ? dy2 : dy;
+            inset = dy >= r ? r : r - Math.sqrt(r * r - dy * dy).toNumber();
         }
-        if (dy >= r) {
-            return 0;
-        }
-        return 2 * Math.sqrt(r * r - dy * dy).toNumber() - 8;
+        inset = (inset > 0 ? inset : 0) + margin;
+        return [inset, w - 1 - inset];
     }
 
-    // Where to split [text] in two: just after the '-', '.', '_' or space
-    // nearest its middle, else at the middle. Always inside it, so both
-    // halves have something; bounded by the text's length.
-    function breakAt(text as String) as Number {
-        var chars = text.toCharArray();
-        var n = chars.size();
-        if (n < 2) {
-            return n;
-        }
-        var best = n / 2;
-        var off = n;
-        for (var i = 1; i < n; i++) {
-            if ("-._ ".find(chars[i - 1].toString()) != null) {
-                var d = (i - n / 2).abs();
-                if (d < off) {
-                    best = i;
-                    off = d;
-                }
-            }
-        }
-        return best;
+    // How wide the screen is across a text row from [y] to [y] + [height],
+    // less a margin, centred: what edges() leaves 4 in from either side.
+    function chord(dc as Graphics.Dc, y as Number, height as Number) as Number {
+        var e = edges(dc, y, y + height, 4);
+        var w = e[1] - e[0] + 1;
+        return w > 0 ? w : 0;
+    }
+
+    // The rows [font]'s figures and capitals light, drawn centred on [y]
+    // (TEXT_JUSTIFY_VCENTER): [top, bottom]. From the baseline up by
+    // inkHeight; nothing on the pages hangs below the line.
+    function ink(dc as Graphics.Dc, font as Graphics.FontType, y as Number) as Array<Number> {
+        var base = y - dc.getFontHeight(font) / 2 + Graphics.getFontAscent(font);
+        return [base - inkHeight(dc, font), base];
     }
 
     // Digits, and the point and separator a figure can hold, and nothing else:

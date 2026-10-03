@@ -1,1 +1,9 @@
 project.manifest = manifest.xml
+
+# Whether a watch's number fonts hold the letters of ON and OFF, so the
+# Connection page can draw them that large (QuotaView.wordFonts). The Solar's
+# do; the AMOLEDs' draw a box for each letter. Seen in the simulator, whose
+# fonts are the watches' own. A new product takes the text fonts until it is
+# looked at.
+base.excludeAnnotations = numberWords
+instinct3solar45mm.excludeAnnotations = textWords
