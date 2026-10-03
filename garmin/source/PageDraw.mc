@@ -7,7 +7,7 @@ import Toybox.WatchUi;
 // the two share): the round sub-window (top right on the Solar, beside the
 // START button), used for one thing at a time -- a gauge, a count, or what
 // START does -- white with black inside, as the watch's own sub-window is;
-// and fitting text to the round screen.
+// the page indicator; and fitting text to the round screen.
 //
 // Every size is worked out from what it is given; nothing assumes a screen.
 module PageDraw {
@@ -55,6 +55,31 @@ module PageDraw {
         if (sweep + 2 * gap < 360) {
             dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, norm(end - gap), norm(90 + gap));
         }
+    }
+
+    // The page indicator, as a ViewLoop draws one: a segment per page in
+    // an arc round the left edge, top to bottom, page [page]'s bold, over a
+    // black edge of its own so it reads over the page. Its sizes follow the
+    // screen, as they are on a 176-pixel one.
+    function indicator(dc as Graphics.Dc, page as Number, n as Number) as Void {
+        var cx = dc.getWidth() / 2;
+        var cy = dc.getHeight() / 2;
+        var half = cx < cy ? cx : cy;
+        var r = half - half * 6 / 88;
+        var seg = 9;    // degrees per segment
+        var gap = 4;    // degrees between them
+        var span = n * seg + (n - 1) * gap;
+        var start = 180 - span / 2;
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth(half * 10 / 88);
+        dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, start - 2, start + span + 2);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        for (var i = 0; i < n; i++) {
+            var a = start + i * (seg + gap);
+            dc.setPenWidth(half * (i == page ? 6 : 2) / 88);
+            dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, a, a + seg);
+        }
+        dc.setPenWidth(1);
     }
 
     // [degrees] as 0 to 359.

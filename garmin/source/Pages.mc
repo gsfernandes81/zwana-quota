@@ -1,6 +1,4 @@
-import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
@@ -48,62 +46,43 @@ module Pages {
         return page < 0 ? 0 : (page >= n ? n - 1 : page);
     }
 
-    // How long the indicator stays after a turn, in milliseconds.
-    const INDICATOR_MS = 1500;
+    // How long the indicator stays after a turn, in milliseconds: the
+    // slide, and a moment after it.
+    const INDICATOR_MS = 1800;
 
-    var turned as Number = 0;          // System.getTimer() at the last turn
-    var timer as Timer.Timer? = null;  // takes the indicator down again
+    var at as Number = 0;              // the page last turned to
+    var indicating as Boolean = false; // the indicator is up
+    var timer as Timer.Timer? = null;  // takes it down again
+    var hider as Lang.Method? = null;
 
-    // Page [page] and its START delegate, the indicator shown from now:
-    // after a turn, and when the pages are first opened.
+    // Page [page] and its START delegate, the indicator up from now: after
+    // a turn, and when the pages are first opened.
     function view(page as Number) as [QuotaView, QuotaDelegate] {
-        turned = System.getTimer();
+        at = page;
+        indicating = true;
         if (timer == null) {
             timer = new Timer.Timer();
+            hider = new Lang.Method(Pages, :hide);
         }
         var t = timer as Timer.Timer;
         t.stop();
-        t.start(new Lang.Method(Pages, :hide), INDICATOR_MS + 50, false);
+        t.start(hider as Lang.Method, INDICATOR_MS, false);
         var v = new QuotaView(page);
         return [v, new QuotaDelegate(v)];
     }
 
     // The indicator's time is up: draw the page without it.
     function hide() as Void {
+        indicating = false;
         WatchUi.requestUpdate();
     }
 
-    // The indicator for page [page] of [n], while it is up: a segment per
-    // page round the left edge, top to bottom, this page's bold. Drawn
-    // last, over a black edge of its own, so it reads over the page.
-    function indicate(dc as Graphics.Dc, page as Number, n as Number) as Void {
-        if (System.getTimer() - turned > INDICATOR_MS) {
-            return;
-        }
-        var cx = dc.getWidth() / 2;
-        var cy = dc.getHeight() / 2;
-        var r = (cx < cy ? cx : cy) - 6;
-        var seg = 9;    // degrees per segment
-        var gap = 4;    // degrees between them
-        var span = n * seg + (n - 1) * gap;
-        var start = 180 - span / 2;
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(10);
-        dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, start - 2, start + span + 2);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        for (var i = 0; i < n; i++) {
-            var a = start + i * (seg + gap);
-            dc.setPenWidth(i == page ? 6 : 2);
-            dc.drawArc(cx, cy, r, Graphics.ARC_COUNTER_CLOCKWISE, a, a + seg);
-        }
-        dc.setPenWidth(1);
-    }
-
-    // Turn from page [from] by [step]: 1 for the next page, -1 for the one
-    // before, round at either end.
-    function turn(from as Number, step as Number) as Void {
+    // Turn by [step] -- 1 for the next page, -1 for the one before, round
+    // at either end -- from the page last turned to: not from the view the
+    // press reached, which during a slide may still be the one leaving.
+    function turn(step as Number) as Void {
         var n = count(Quota.last());
-        var pair = view((from + step + n) % n);
+        var pair = view((clamp(at, n) + step + n) % n);
         WatchUi.switchToView(pair[0], pair[1], step > 0 ? WatchUi.SLIDE_UP : WatchUi.SLIDE_DOWN);
     }
 }

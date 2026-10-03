@@ -63,7 +63,9 @@ class QuotaView extends WatchUi.View {
         } else {
             dataLeft(dc, d, sub);
         }
-        Pages.indicate(dc, p, Pages.count(d));
+        if (Pages.indicating) {
+            PageDraw.indicator(dc, p, Pages.count(d));
+        }
     }
 
     // A session page before the phone has sent the session: say so.
