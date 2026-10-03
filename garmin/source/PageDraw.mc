@@ -58,7 +58,7 @@ module PageDraw {
     }
 
     // The page indicator, as a ViewLoop draws one: a segment per page in
-    // an arc round the left edge, top to bottom, page [page]'s bold, over a
+    // an arc round the middle of the left edge, top to bottom, page [page]'s bold, over a
     // black edge of its own so it reads over the page. Its sizes follow the
     // screen, as they are on a 176-pixel one.
     function indicator(dc as Graphics.Dc, page as Number, n as Number) as Void {
@@ -66,8 +66,12 @@ module PageDraw {
         var cy = dc.getHeight() / 2;
         var half = cx < cy ? cx : cy;
         var r = half - half * 6 / 88;
-        var seg = 9;    // degrees per segment
-        var gap = 4;    // degrees between them
+        // Segments of 9 degrees with 3 between, narrower when there are
+        // many, so the arc keeps to 90 degrees of the left edge, clear of
+        // the title above it.
+        var gap = 3;
+        var seg = (90 - (n - 1) * gap) / n;
+        seg = seg > 9 ? 9 : (seg < 3 ? 3 : seg);
         var span = n * seg + (n - 1) * gap;
         var start = 180 - span / 2;
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);

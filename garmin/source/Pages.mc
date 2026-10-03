@@ -46,32 +46,42 @@ module Pages {
         return page < 0 ? 0 : (page >= n ? n - 1 : page);
     }
 
-    // How long the indicator stays after a turn, in milliseconds: the
-    // slide, and a moment after it.
-    const INDICATOR_MS = 1800;
+    // The slide a turn makes, and how long the indicator stays after it,
+    // in milliseconds. As a ViewLoop shows its indicator after the turn, it
+    // comes up once the slide is over, and never slides with a page.
+    const SLIDE_MS = 400;
+    const INDICATOR_MS = 1500;
 
     var at as Number = 0;              // the page last turned to
     var indicating as Boolean = false; // the indicator is up
-    var timer as Timer.Timer? = null;  // takes it down again
-    var hider as Lang.Method? = null;
+    var timer as Timer.Timer? = null;  // puts it up, then takes it down
 
-    // Page [page] and its START delegate, the indicator up from now: after
-    // a turn, and when the pages are first opened.
+    // Page [page] and its START delegate, the indicator to come up once the
+    // slide is over: after a turn, and when the pages are first opened.
     function view(page as Number) as [QuotaView, QuotaDelegate] {
         at = page;
-        indicating = true;
-        if (timer == null) {
-            timer = new Timer.Timer();
-            hider = new Lang.Method(Pages, :hide);
-        }
-        var t = timer as Timer.Timer;
-        t.stop();
-        t.start(hider as Lang.Method, INDICATOR_MS, false);
+        indicating = false;
+        later(:show, SLIDE_MS);
         var v = new QuotaView(page);
         return [v, new QuotaDelegate(v)];
     }
 
-    // The indicator's time is up: draw the page without it.
+    // Pages.[what] in [ms], instead of anything waiting. One timer, kept.
+    function later(what as Symbol, ms as Number) as Void {
+        if (timer == null) {
+            timer = new Timer.Timer();
+        }
+        var t = timer as Timer.Timer;
+        t.stop();
+        t.start(new Lang.Method(Pages, what), ms, false);
+    }
+
+    function show() as Void {
+        indicating = true;
+        WatchUi.requestUpdate();
+        later(:hide, INDICATOR_MS);
+    }
+
     function hide() as Void {
         indicating = false;
         WatchUi.requestUpdate();

@@ -4,8 +4,8 @@ import Toybox.WatchUi;
 // UP and DOWN turn the pages (Pages.turn). START does the page's one
 // thing, and only what the phone's last message offered: a fresh reading on
 // the first page, the data switch on the Connection page, and on a device's
-// page, taking that device off (QuotaView.mc lists them). Anything that takes a device off data asks
-// first, in the watch's own confirmation.
+// page, taking that device off (QuotaView.mc lists them). Anything that
+// takes a device off data asks first, in the watch's own confirmation.
 class QuotaDelegate extends WatchUi.BehaviorDelegate {
     var view as QuotaView;
 
@@ -27,6 +27,10 @@ class QuotaDelegate extends WatchUi.BehaviorDelegate {
     }
 
     function onSelect() as Boolean {
+        // A press that reaches a page while it slides away is not for it.
+        if (view.page != Pages.at) {
+            return true;
+        }
         var d = Quota.last();
         var page = view.current();
         if (page == 0) {

@@ -161,9 +161,9 @@ knows what time it is now.
 
 Opening the glance shows the app, in pages: UP and DOWN (or a swipe) slide
 between them, round from the last page to the first, with a page indicator
-on the left edge for a moment after each turn; START does the page's one
-thing, and the round sub-window (top right on the Solar, beside START)
-shows each page's one number or what START does.
+on the left edge for a moment after each turn and on opening; START does
+the page's one thing, and the round sub-window (top right on the Solar,
+beside START) shows each page's one number or what START does.
 
 | page | shows | sub-window | START |
 |---|---|---|---|
