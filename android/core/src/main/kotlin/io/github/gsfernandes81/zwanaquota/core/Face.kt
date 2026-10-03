@@ -179,8 +179,9 @@ data class Face(
  * `reset` is the reset after the reading, not after the send, so it may
  * already have passed when the message arrives: that is the watch's "new day".
  *
- * `paid` is how much of what is left is paid data, in whole MiB whatever
- * its size, spelled here like every other figure.
+ * `free` and `paid` split what is left into the nightly grant and paid
+ * data, each in whole MiB whatever its size, spelled here like every other
+ * figure: the watch draws them as rows and never takes one from the other.
  *
  * `session` is [WatchSession.fields], when the session is known.
  *
@@ -222,7 +223,7 @@ object WatchPayload {
             "pool" to kib(doc.poolBytes),
             "online" to doc.online,
             "fig" to face.figure,
-            "share" to Format.percent(doc.remainderBytes.toDouble() / maxOf(1L, doc.poolBytes)),
+            "free" to Format.mib(doc.freeLeftBytes),
             "paid" to Format.mib(doc.paidLeftBytes),
             "ask" to canAsk,
             "re" to ArrayList(answers.map { it.id }),

@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -37,7 +38,11 @@ import io.github.gsfernandes81.zwanaquota.core.SessionAction
 class QuotaWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         draw(context, Refresher.cachedFace(context))
-        Work.refresh(context, force = false, trigger = "widget update")
+        // The system's half-hourly update comes screen off too: a read then
+        // is the cost QuotaWorker's own screen check exists to avoid.
+        if (context.getSystemService(PowerManager::class.java)?.isInteractive != false) {
+            Work.refresh(context, force = false, trigger = "widget update")
+        }
         Work.schedule(context)
     }
 
