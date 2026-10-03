@@ -1,19 +1,16 @@
 import Toybox.Lang;
-import Toybox.Timer;
 import Toybox.WatchUi;
 
-// The pages behind the glance, turned as a WatchUi.ViewLoop turns them: a
-// view each, UP and DOWN (or a swipe) sliding the next page in from the
-// side it lies on, round from the last page to the first, and the page
-// indicator -- a mark per page down the left edge, beside UP and DOWN,
-// this page's standing out (PageDraw.indicator) -- up from the press until
-// a moment after the turn.
-// Not a ViewLoop itself: on an Instinct the loop has the watch draw its own
+// The pages behind the glance, turned as the watch's own page loops turn
+// theirs: a view each, UP and DOWN (or a swipe) sliding the next page in
+// from the side it lies on, round from the last page to the first. Where a
+// page is among them, and what START does on it, is the sub-window's to
+// say (PageDraw.sub), or on a screen without one an indicator at the edge.
+// Not a WatchUi.ViewLoop: on an Instinct the loop has the watch draw its own
 // battery over the sub-window (Garmin's bug report "ViewLoop is completely
 // broken on Instinct 2", acknowledged and not fixed; the simulator does not
 // show it, and neither a layer over the page nor drawing it again after
-// the turn covers it), and the sub-window is where each page puts its one
-// number.
+// the turn covers it).
 //
 // How many pages there are is the phone's to say -- one per device on the
 // session -- and a new message can change it at any time. Nothing holds a
@@ -47,48 +44,13 @@ module Pages {
         return page < 0 ? 0 : (page >= n ? n - 1 : page);
     }
 
-    // How long the indicator stays, in milliseconds from the press: the
-    // slide, and about a second after it, as the watch's own page loops
-    // keep theirs. It is up from the press, so the page sliding in carries
-    // it and it never goes during the turn.
-    const INDICATOR_MS = 1300;
-
     var top as QuotaView? = null;      // the page last turned to
-    var indicating as Boolean = false; // the indicator is up
-    var timer as Timer.Timer? = null;  // takes it down
 
-    // Page [page] and its delegate (START, and UP and DOWN to turn), the
-    // indicator up from now: after a turn, and when the pages are first
-    // opened.
+    // Page [page] and its delegate (START, and UP and DOWN to turn).
     function view(page as Number) as [QuotaView, QuotaDelegate] {
-        indicating = true;
-        if (timer == null) {
-            timer = new Timer.Timer();
-        }
-        var t = timer as Timer.Timer;
-        t.stop();
-        t.start(new Lang.Method(Pages, :hide), INDICATOR_MS, false);
         var v = new QuotaView(page);
         top = v;
         return [v, new QuotaDelegate(v)];
-    }
-
-    function hide() as Void {
-        indicating = false;
-        WatchUi.requestUpdate();
-    }
-
-    // View [v] has been covered -- by the confirmation START asks, not by a
-    // turn, which has already made another view the one turned to: the
-    // indicator is not left underneath, to be found on return.
-    function covered(v as QuotaView) as Void {
-        if (v != top) {
-            return;
-        }
-        if (timer != null) {
-            (timer as Timer.Timer).stop();
-        }
-        indicating = false;
     }
 
     // Turn by [step] -- 1 for the next page, -1 for the one before, round

@@ -3,18 +3,21 @@ import Toybox.Lang;
 import Toybox.WatchUi;
 
 // Behind the glance, in pages -- UP and DOWN move between them (Pages.mc),
-// START does the page's one thing, and the sub-window (top right
-// on the Solar, beside START) shows each page's one number or what START
-// will do:
+// START does the page's one thing, and the sub-window (top right on the
+// Solar, beside START) shows UP's and DOWN's arrows, the page's place in
+// the dots, and in its middle what START will do (PageDraw.sub, glyph):
 //
-//   0 Data left    the figure large, the bar, the reset, how much of it is
-//                  paid; sub-window: the share left as a ring. START asks
-//                  for a fresh reading.
+//   0 Data left    the figure large, the bar, the reset and the share left,
+//                  how much of it is paid; sub-window: the refresh arrow,
+//                  or the phone struck through when it is not listening.
+//                  START asks for a fresh reading.
 //   1 Connection   ON or OFF, and how this phone stands; sub-window: the
-//                  power symbol when START can switch it.
+//                  power symbol when START can switch it, else ON or OFF.
 //   2.. Device     one page per device on the session, this phone first:
-//                  its name and how it is on; sub-window: which of how
-//                  many. START takes it off, when the phone says it may.
+//                  its name and how it is on; sub-window: the device with a
+//                  cross when START can take it off, else with a star for
+//                  the one that switched data on, or this phone. START
+//                  takes it off, when the phone says it may.
 //
 // The session pages read `not sent yet` until the phone has sent the
 // session (`dat`); START does anything only when the phone said it would
@@ -29,10 +32,6 @@ class QuotaView extends WatchUi.View {
     function initialize(p as Number) {
         View.initialize();
         page = p;
-    }
-
-    function onHide() as Void {
-        Pages.covered(self);
     }
 
     // The page this view stands for now: one made for a page past the pages
@@ -73,20 +72,59 @@ class QuotaView extends WatchUi.View {
         } else {
             dataLeft(dc, d, sub);
         }
-        if (Pages.indicating) {
+        // Where the page is among the pages, and what START does: the
+        // sub-window, or the indicator where there is none.
+        if (sub != null) {
+            var s = sub as Array<Number>;
+            PageDraw.sub(dc, s, p, n);
+            glyph(dc, s, d, p);
+        } else {
             PageDraw.indicator(dc, p, n);
+        }
+    }
+
+    // The sub-window's middle for page [p]: what START does there, or, where
+    // it does nothing, what is so instead.
+    function glyph(dc as Graphics.Dc, s as Array<Number>, d as Dictionary?, p as Number) as Void {
+        if (p != 0 && !Quota.hasSession(d)) {
+            PageDraw.wordGlyph(dc, s, "?");
+        } else if (p == 0) {
+            if (Quota.canAsk(d)) {
+                PageDraw.refreshGlyph(dc, s);
+            } else {
+                PageDraw.notListeningGlyph(dc, s);
+            }
+        } else if (p == 1) {
+            var dd = d as Dictionary;
+            if (Quota.canControl(dd) && Quota.str(dd, "act").length() > 0) {
+                PageDraw.powerGlyph(dc, s);
+            } else {
+                PageDraw.wordGlyph(dc, s, Quota.str(dd, "dat").equals("on") ? "ON" : "OFF");
+            }
+        } else {
+            var dd = d as Dictionary;
+            var i = p - 2;
+            if (Pages.devices(dd) == 0) {
+                PageDraw.wordGlyph(dc, s, "0");
+            } else if (deviceIp(dd, i).length() > 0) {
+                PageDraw.disconnectGlyph(dc, s);
+            } else {
+                // Which device START cannot take off, as the phone names it.
+                var g = Quota.item(Quota.arr(dd, "dg"), i);
+                if (g.equals("main")) {
+                    PageDraw.mainGlyph(dc, s);
+                } else if (g.equals("phone")) {
+                    PageDraw.phoneGlyph(dc, s);
+                } else {
+                    PageDraw.deviceGlyph(dc, s);
+                }
+            }
         }
     }
 
     // A session page before the phone has sent the session: say so.
     function noSession(dc as Graphics.Dc, sub as Array<Number>?, titles as Array<String>) as Void {
         title(dc, titles, sub);
-        if (sub != null) {
-            var s = sub as Array<Number>;
-            PageDraw.subBackground(dc, s);
-            dc.drawText(s[0], s[1], Graphics.FONT_MEDIUM, "?", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        }
         var font = Graphics.FONT_XTINY;
         var fh = dc.getFontHeight(font);
         var y = dc.getHeight() / 2 - fh;
@@ -167,17 +205,6 @@ class QuotaView extends WatchUi.View {
         var share = Quota.left(d);
         title(dc, ["DATA LEFT", "DATA"], sub);
 
-        // The sub-window: the share left, as the bar bent into a ring.
-        if (sub != null) {
-            var s = sub as Array<Number>;
-            PageDraw.subBackground(dc, s);
-            PageDraw.ring(dc, s[0], s[1], s[2] - 5, share);
-            var pct = (d == null) ? "--" : Quota.str(d, "share");
-            dc.drawText(s[0], s[1], Graphics.FONT_XTINY, pct,
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        }
-
         // The figure: the number in the number font, the unit after it.
         var figure = Quota.figure(d);
         var space = figure.find(" ");
@@ -209,14 +236,10 @@ class QuotaView extends WatchUi.View {
         Draw.bar(dc, bx, y, w - 2 * bx, barH, share);
         y += barH + 3;
 
-        // When the grant lands, and where there is no sub-window, the share
-        // after it.
+        // When the grant lands, and the share left after it.
         if (d != null) {
             var font = Graphics.FONT_TINY;
-            var at = Quota.clock(Quota.nextReset(d as Dictionary));
-            if (sub == null) {
-                at = at + "  " + Quota.str(d as Dictionary, "share");
-            }
+            var at = Quota.clock(Quota.nextReset(d as Dictionary)) + "  " + Quota.str(d as Dictionary, "share");
             var fh = dc.getFontHeight(font);
             var ir = fh * 3 / 10;
             // The arrowhead reaches past the ring by about half its radius.
@@ -257,23 +280,6 @@ class QuotaView extends WatchUi.View {
         var act = Quota.canControl(d) ? Quota.str(d, "act") : "";
         title(dc, ["CONNECTION", "INTERNET"], sub);
 
-        // The sub-window: the power symbol when START switches, else a
-        // filled dot for on and a ring for off.
-        if (sub != null) {
-            var s = sub as Array<Number>;
-            PageDraw.subBackground(dc, s);
-            if (act.length() > 0) {
-                PageDraw.powerIcon(dc, s[0], s[1] + 2, s[2] * 2 / 5);
-            } else if (on) {
-                dc.fillCircle(s[0], s[1], s[2] / 3);
-            } else {
-                dc.setPenWidth(3);
-                dc.drawCircle(s[0], s[1], s[2] / 3);
-                dc.setPenWidth(1);
-            }
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        }
-
         var y = top(dc, sub);
         var big = Graphics.FONT_LARGE;
         dc.drawText(w / 2, y, big, on ? "ON" : "OFF", Graphics.TEXT_JUSTIFY_CENTER);
@@ -309,17 +315,10 @@ class QuotaView extends WatchUi.View {
         }
         var which = (count == 0) ? "0" : (i + 1).toString() + "/" + total.toString();
 
-        // The sub-window: which of how many. Without one, the title says it.
+        // Which of how many: the sub-window's dots say it where there is
+        // one, else the title.
         if (sub != null) {
             title(dc, count == 0 ? ["DEVICES", "DEVICE"] : ["DEVICE"], sub);
-            var s = sub as Array<Number>;
-            PageDraw.subBackground(dc, s);
-            var sf = Graphics.FONT_SMALL;
-            if (dc.getTextWidthInPixels(which, sf) > 2 * s[2] - 10) {
-                sf = Graphics.FONT_XTINY;
-            }
-            dc.drawText(s[0], s[1], sf, which, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         } else {
             title(dc, count == 0 ? ["DEVICES"] : ["DEVICE " + which], sub);
         }

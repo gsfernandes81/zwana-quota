@@ -99,6 +99,22 @@ class WatchTest {
     }
 
     @Test
+    fun `each device's glyph: main for the one that switched data on, phone for this phone, else none`() {
+        // This phone switched data on: it is the main device.
+        var s = session(me, listOf(laptop, tablet))
+        var glyphs = WatchSession.fields(s, emptyMap(), canControl = false)["dg"] as List<*>
+        assertEquals(s.devices(emptyMap()).map { if (it.ip == me) "main" else "" }, glyphs)
+        // This phone only joined: it is the phone, and the laptop the main device.
+        s = session(laptop, listOf(me, tablet))
+        glyphs = WatchSession.fields(s, emptyMap(), canControl = true)["dg"] as List<*>
+        assertEquals(
+            s.devices(emptyMap()).map { when (it.ip) { me -> "phone"; laptop -> "main"; else -> "" } },
+            glyphs,
+        )
+        assertEquals((WatchSession.fields(s, emptyMap(), canControl = true)["dn"] as List<*>).size, glyphs.size)
+    }
+
+    @Test
     fun `only the types the Connect IQ SDK carries, and at most eight devices`() {
         val many = (1..20).map { "10.1.0.${it + 1}" }
         val fields = WatchSession.fields(session(me, many), emptyMap(), canControl = true)
