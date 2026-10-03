@@ -121,6 +121,16 @@ class WatchListener : Service() {
     private fun asked(watch: String, message: List<Any?>) {
         val store = Store(this)
         if (!wanted(store)) return
+        // Anything from the watch app means it has been opened at least once.
+        if (!store.watchHeard) store.watchHeard = true
+        if (WatchCommand.hello(message)) {
+            // Just opened, so now registered for the phone's messages: send it
+            // the reading it may have missed. From the stored reading, not a
+            // portal read, as when the listener starts.
+            store.note("listener", "$watch: watch app opened")
+            Refresher(this).sendStored()
+            return
+        }
         val command = WatchCommand.parse(message) ?: return store.note("listener", "$watch sent something unrecognised; ignored")
         val id = WatchCommand.idOf(message)
         // The same message delivered twice must not refuse itself as busy,

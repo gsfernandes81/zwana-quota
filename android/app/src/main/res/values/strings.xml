@@ -16,27 +16,23 @@
     <string name="last_read">Last read %1$s</string>
 
     <string name="portal_login">Portal login</string>
-    <string name="signed_out">Sign in with the login you use for the crew portal.</string>
     <string name="signed_in_as">Signed in as %1$s</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
-    <string name="sign_in">Sign in and read</string>
+    <string name="sign_in">Sign In</string>
     <string name="change_login">Change login</string>
     <string name="sign_out">Sign out</string>
     <string name="missing_login">Enter both the username and the password.</string>
-    <string name="login_privacy">Kept on this phone only, encrypted by the Android Keystore. Never backed up.</string>
 
     <string name="watch_title">Your watch</string>
-    <string name="watch_detail">Sent a reading whenever Garmin Connect is installed and signed in with a watch connected: every 15 minutes while the screen is on, at least every 30 minutes otherwise, and whenever you tap the widget. Press START on the watch app for a fresh one. Keeps a small listener running; Android may show it as a silent notification.</string>
-    <string name="watch_can_control">Let the watch switch data and disconnect devices</string>
-    <string name="watch_can_control_detail">The watch app gets a data on/off page and can take other devices off, asking first. The phone checks each request against the portal before sending it.</string>
+    <string name="watch_can_control">Let the watch toggle data and manage devices</string>
     <string name="listener_channel">Watch listener</string>
     <string name="listener_title">Listening for your watch</string>
     <string name="listener_text">So the watch can ask for a fresh reading.</string>
     <string name="row_listener">Watch asks</string>
     <string name="watch_never">Nothing sent yet</string>
+    <string name="watch_open_once">Open zwana quota on your watch once</string>
     <string name="watch_no_garmin">Garmin Connect is not installed, or is turned off</string>
-    <string name="watch_needs">Needs Garmin Connect signed in, and the zwana quota app installed on the watch and opened once. The widget works without any of it.</string>
 
     <string name="diagnostics">Diagnostics</string>
     <string name="journal">Journal, newest last</string>
@@ -107,5 +103,5 @@
     <string name="busy_remove">taking %s off...</string>
     <string name="tile_settings">Quick Settings tile</string>
     <string name="tile_wide">Wide tile</string>
-    <string name="tile_wide_detail">Android does not tell an app how wide its tile is. Switch this on if you dragged the tile wider than two cells: it then says the pool and tonight\'s top-up too. A one-cell tile shows only its icon, lit while this phone is on data.</string>
+    <string name="tile_wide_detail">Use this if you\'re making the quick settings tile extra wide to show more information</string>
 </resources>

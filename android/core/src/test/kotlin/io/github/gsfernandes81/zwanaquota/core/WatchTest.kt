@@ -37,6 +37,17 @@ class WatchTest {
     }
 
     @Test
+    fun `the watch app's hello on opening is told apart, and is no command`() {
+        val hello = listOf(mapOf("hi" to 1))
+        assertTrue(WatchCommand.hello(hello))
+        assertNull(WatchCommand.parse(hello))
+        assertNull(WatchCommand.idOf(hello))
+        for (other in listOf(null, emptyList(), listOf("hi"), listOf(mapOf("ask" to "refresh")), listOf(mapOf("rm" to laptop)))) {
+            assertFalse(WatchCommand.hello(other), "$other")
+        }
+    }
+
+    @Test
     fun `an ask's id is read beside its command, and only a whole number is one`() {
         val asked = listOf(mapOf("rm" to laptop, "id" to 1790000001))
         assertEquals(WatchCommand.Remove(laptop), WatchCommand.parse(asked))

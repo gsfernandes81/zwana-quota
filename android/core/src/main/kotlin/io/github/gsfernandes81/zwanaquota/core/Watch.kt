@@ -89,6 +89,13 @@ sealed interface WatchCommand {
         fun idOf(message: List<Any?>?): Int? = (message?.firstOrNull() as? Map<*, *>)?.get("id") as? Int
 
         /**
+         * Whether the message is the watch app saying it has been opened
+         * (`{"hi": 1}`, Ask.hello on the watch). Not a command: nothing is
+         * asked, and nothing is answered.
+         */
+        fun hello(message: List<Any?>?): Boolean = (message?.firstOrNull() as? Map<*, *>)?.containsKey("hi") == true
+
+        /**
          * The watch's message as the Connect IQ SDK hands it over: a list
          * whose first element is the dictionary the watch sent. Null for
          * anything that is not one of the three shapes, including an action

@@ -19,11 +19,13 @@ class QuotaApp extends Application.AppBase {
     }
 
     // Opening the app is what registers for the phone's messages, so it must
-    // be opened once after it is installed (README.md). The registration
-    // outlives the app; opening it again is harmless.
+    // be opened once after it is installed (README.md), and it tells the
+    // phone so (Ask.hello). The registration outlives the app; opening it
+    // again is harmless.
     function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
         Background.registerForPhoneAppMessageEvent();
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
+        Ask.hello();
         Quota.remember = true;
         app = true;
         return Pages.view(0);
