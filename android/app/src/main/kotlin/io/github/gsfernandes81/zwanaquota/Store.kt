@@ -207,14 +207,16 @@ class Store(context: Context) {
         .toMap(sortedMapOf())
 
     /**
-     * Add a line to the journal. Never throws: it is called from bare
+     * Add a line to the journal, read and rewritten as one step (the lock is
+     * re-entrant, so [replace] takes it again) and renamed into place, so the
+     * screen never reads half of it. Never throws: it is called from bare
      * threads and catch blocks, and a line lost to a full disk is the right
      * failure, where a crash would take the listener down with it.
      */
     fun log(text: String) = synchronized(FILES) {
         try {
             val lines = (if (journal.exists()) journal.readLines() else emptyList()) + "${stamp()} $text"
-            journal.writeText(lines.takeLast(JOURNAL_LINES).joinToString("\n", postfix = "\n"))
+            replace(journal, lines.takeLast(JOURNAL_LINES).joinToString("\n", postfix = "\n"))
         } catch (_: IOException) {
         }
     }

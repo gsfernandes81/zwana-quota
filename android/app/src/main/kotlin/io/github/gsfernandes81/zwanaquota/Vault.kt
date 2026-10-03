@@ -30,16 +30,15 @@ class Vault(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("vault", Context.MODE_PRIVATE)
 
     /**
-     * The login, decrypted once per process and kept: the tile, the widget
-     * and the settings screen ask on the main thread, often, and each
-     * decrypt is a round trip to the Keystore. Only this class changes it.
+     * The login, kept once it has decrypted: the tile, the widget and the
+     * settings screen ask on the main thread, often, and each decrypt is a
+     * round trip to the Keystore. Only a login is kept, never its absence:
+     * a Keystore that did not answer once is asked again next time, and
+     * signed out costs nothing, since nothing stored means nothing to
+     * decrypt. Only this class changes it.
      */
     fun credentials(): Credentials? = synchronized(LOCK) {
-        if (!known) {
-            loaded = decrypt()
-            known = true
-        }
-        loaded
+        loaded ?: decrypt().also { loaded = it }
     }
 
     private fun decrypt(): Credentials? {
@@ -48,30 +47,39 @@ class Vault(context: Context) {
         return Credentials(username, password).takeIf { username.isNotBlank() && password.isNotEmpty() }
     }
 
+    /**
+     * Both values sealed before either is stored, and stored in one edit: a
+     * Keystore that refuses throws before anything changes, so neither the
+     * stored login nor the kept one is ever half the new one.
+     */
     fun setCredentials(credentials: Credentials) = synchronized(LOCK) {
-        write("username", credentials.username)
-        write("password", credentials.password)
-        // A new login is a new session.
-        prefs.edit().remove("cookies").apply()
-        known = false
+        val username = seal(credentials.username)
+        val password = seal(credentials.password)
+        prefs.edit()
+            .putString("username", username)
+            .putString("password", password)
+            // A new login is a new session.
+            .remove("cookies")
+            .apply()
+        loaded = null
     }
 
     fun signOut() = synchronized(LOCK) {
         prefs.edit().clear().apply()
-        known = false
+        loaded = null
     }
 
     val signedIn: Boolean get() = credentials() != null
 
     fun cookies(): CookieJar = CookieJar.parse(read("cookies"))
 
-    fun saveCookies(jar: CookieJar) = write("cookies", jar.serialize())
+    fun saveCookies(jar: CookieJar) = prefs.edit().putString("cookies", seal(jar.serialize())).apply()
 
-    private fun write(name: String, value: String) {
+    private fun seal(value: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val sealed = cipher.iv + cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-        prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).apply()
+        return Base64.encodeToString(sealed, Base64.NO_WRAP)
     }
 
     private fun read(name: String): String? {
@@ -104,7 +112,6 @@ class Vault(context: Context) {
         /** Held while the login is read or changed, so a read never keeps an old one. */
         val LOCK = Any()
         var loaded: Credentials? = null
-        var known = false
 
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "zwana-vault"

@@ -67,9 +67,8 @@ object Garmin {
             // registers a receiver and binds Garmin Connect anew, and only
             // shutdown gives them back -- in the process the listener keeps
             // alive for days, they would pile up, and each would hand on the
-            // watch's messages. It throws when nothing was started. The
-            // listeners it drops were dead with the SDK, and WatchListener
-            // registers again every quarter of an hour.
+            // watch's messages. It throws when nothing was started. The new
+            // receiver starts with no listener: registered again below.
             try {
                 iq.shutdown(app)
             } catch (_: Exception) {
@@ -103,8 +102,16 @@ object Garmin {
             }
         }
         if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) state = "no answer from Garmin Connect in ${timeoutMs / 1000}s"
-        return iq.takeIf { state == READY }
+        if (state != READY) return null
+        // Started, so listening to nobody: whoever listened before listens
+        // again before anything is sent saying the phone is listening.
+        listener?.let { register(iq, it) }
+        return iq
     }
+
+    /** The last listener [listen] registered: what a new start registers again. */
+    @Volatile
+    private var listener: ((String, List<Any?>) -> Unit)? = null
 
     /**
      * What a [send] did: a line per watch (or one saying why nothing could be
@@ -145,7 +152,13 @@ object Garmin {
      * Connect restart is picked up. Returns what happened, in words.
      */
     fun listen(context: Context, asked: (String, List<Any?>) -> Unit): String {
+        listener = asked
         val iq = ready(context) ?: return state
+        return register(iq, asked)
+    }
+
+    /** Register [asked] for the watch app on every paired watch, on the main thread. */
+    private fun register(iq: ConnectIQ, asked: (String, List<Any?>) -> Unit): String {
         val devices = try {
             iq.knownDevices.orEmpty()
         } catch (e: Exception) {
@@ -153,7 +166,7 @@ object Garmin {
         }
         if (devices.isEmpty()) return "no watch is paired with Garmin Connect"
         val app = IQApp(APP_ID)
-        val listener = ConnectIQ.IQApplicationEventListener { device, _, message, status ->
+        val events = ConnectIQ.IQApplicationEventListener { device, _, message, status ->
             if (status == ConnectIQ.IQMessageStatus.SUCCESS && !message.isNullOrEmpty()) {
                 asked(device?.friendlyName ?: "a watch", message)
             }
@@ -164,7 +177,7 @@ object Garmin {
             outcome.set(
                 devices.joinToString("; ") { device ->
                     try {
-                        iq.registerForAppEvents(device, app, listener)
+                        iq.registerForAppEvents(device, app, events)
                         "${device.friendlyName}: listening"
                     } catch (e: Exception) {
                         "${device.friendlyName}: not listening (${e.javaClass.simpleName})"
