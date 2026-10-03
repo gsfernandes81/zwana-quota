@@ -7,10 +7,9 @@ import java.time.ZoneId
  * lines. Android never tells a tile its size -- not on stock Android, and
  * not on One UI 8.5, where a tile can be dragged wider -- so it is a setting.
  *
- * There is no one-cell budget: a one-cell tile draws no text at all, only the
- * icon, which is why the icon carries the level and the warning ([TileIcon]).
- * The budgets are quota_widget.QS_SIZES' `medium` and `large`, measured on
- * this phone's panel for the Tasker tile this one replaces.
+ * There is no one-cell budget: a one-cell tile draws no text at all, only its
+ * icon and whether it is lit. The budgets were measured on this phone's panel
+ * for the Tasker tile this one replaced (its `medium` and `large`).
  */
 enum class TileWidth(val label: Int, val subtitle: Int) {
     /** Two cells: the tile every panel draws with text. */
@@ -20,30 +19,24 @@ enum class TileWidth(val label: Int, val subtitle: Int) {
     WIDE(12, 34),
 }
 
-/** What the tile's icon shows: the level, unless the figure cannot be stood behind. */
-enum class TileIcon { OK, LOW, CRITICAL, UNKNOWN, STALE, OFFLINE }
-
 /**
- * The Quick Settings tile's face: quota_widget.compose_qs, which the Tasker
- * tile printed, on the phone's own clock.
+ * The Quick Settings tile's text: the ladder the Tasker tile printed
+ * (quota_widget.compose_qs, retired with it), on the phone's own clock.
  *
  * - **The reset survives.** The subtitle is a ladder, and every rung of a
  *   current reading keeps the reset time, the one thing on the tile that
  *   cannot be worked out from the rest.
  * - **A reading that overstates says so**, in place of the share, at every
- *   width -- and on the icon, which is all a one-cell tile draws.
+ *   width.
  * - **The ladder is climbed as well as descended**: a wide tile is told the
  *   pool, rather than left saying what a narrow one says.
- * - **[active] is never a third state.** Android's unavailable state greys a
- *   tile out and stops it being tapped, and a tap is how a tile with no
- *   reading gets one.
+ *
+ * The text is the reading and nothing else. Whether the tile is lit is the
+ * session ([lit]), and its icon never changes.
  */
 data class TileFace(
     val label: String,
     val subtitle: String,
-    /** Free data left to spend right now: the tile is drawn lit. Paid only, or no reading: dim. */
-    val active: Boolean,
-    val icon: TileIcon,
     /** The whole of it in words, for TalkBack: never clipped. */
     val description: String,
 ) {
@@ -65,37 +58,32 @@ data class TileFace(
                 }
                 granted + listOf("$percent, reset $stamp", "$percent, $stamp", stamp)
             }
-            val level = Format.grade(share)
             return TileFace(
                 label = size(doc.remainderBytes, width.label),
                 subtitle = ladder.firstOrNull { it.length <= width.subtitle } ?: ladder.last(),
-                active = doc.freeLeftBytes > 0,
-                icon = when {
-                    mark == null -> when (level) {
-                        Level.OK -> TileIcon.OK
-                        Level.LOW -> TileIcon.LOW
-                        else -> TileIcon.CRITICAL
-                    }
-                    // The same precedence as the mark: age first.
-                    mark == "offline" -> TileIcon.OFFLINE
-                    else -> TileIcon.STALE
-                },
                 description = "${Format.size(doc.remainderBytes)} left: ${ladder.first()}",
             )
         }
 
-        /** The Tasker tile's `quota ? / no reading`: [why] in the subtitle, and still tappable. */
+        /** No reading at all: `quota ?`, with [why] in the subtitle. */
         fun unknown(why: String): TileFace = TileFace(
             label = "quota ?",
             subtitle = why,
-            active = false,
-            icon = TileIcon.UNKNOWN,
             description = "no reading: $why",
         )
 
         /**
+         * Whether the tile is drawn lit: this phone is on data, as the
+         * widget's switch would say "Data on". Data off, data on only for
+         * other devices, or a session never read (or nobody signed in to
+         * read it): dim. Never Android's third, unavailable state, which
+         * greys a tile out and stops the tap that opens the panel.
+         */
+        fun lit(session: Session?): Boolean = session != null && session.on && session.role != Role.OUTSIDE
+
+        /**
          * The remainder in as much precision as [room] characters allow:
-         * quota_widget.qs_size. The first spelling is [Format.size]'s, so an
+         * the Tasker tile's qs_size. The first spelling is [Format.size]'s, so an
          * unclipped tile reads exactly as the widget does; the rungs below
          * give up decimals, then the space and the thousands separator.
          */

@@ -11,7 +11,6 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.view.ContextThemeWrapper
-import androidx.annotation.DrawableRes
 import androidx.core.net.toUri
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -19,16 +18,16 @@ import io.github.gsfernandes81.zwanaquota.core.Face
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.PortalClient
 import io.github.gsfernandes81.zwanaquota.core.TileFace
-import io.github.gsfernandes81.zwanaquota.core.TileIcon
 import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.ZoneId
 
 /**
- * The quota in the Quick Settings panel, in place of the Tasker tile: the
- * figure as the label, the share and the reset as the subtitle (on a tile two
- * cells wide or more; [TileFace] has the ladder), and the level -- or that the
- * reading is old -- as the icon, which is all a one-cell tile draws.
+ * The quota in the Quick Settings panel: the figure as the label, the share
+ * and the reset as the subtitle (on a tile two cells wide or more; [TileFace]
+ * has the ladder). Lit while this phone is on data and dim otherwise
+ * ([TileFace.lit]); the icon is the same satellite whatever the state or the
+ * reading, so the tile is always found in the same place by the same mark.
  *
  * A tap opens [TilePanel] over the panel with TileService.showDialog(), the
  * way Android lets a tile open up without leaving for an app: the reading,
@@ -39,7 +38,7 @@ import java.time.ZoneId
  *
  * The tile is drawn whenever the panel shows it, from the cache, and a read
  * is started then if the cache is older than [Refresher.MAX_AGE_SECONDS] --
- * the Tasker tile's `cached` mode. Nothing keeps it fresh in between, because
+ * as the Tasker tile it replaced did. Nothing keeps it fresh in between, because
  * nothing needs to: a tile is only seen when the panel is pulled down.
  *
  * Never Tile.STATE_UNAVAILABLE: it greys the tile out and stops it being
@@ -111,12 +110,14 @@ class QuotaTile : TileService() {
     private fun redraw() {
         val tile = qsTile ?: return
         val face = tileFace(this)
+        val lit = TileFace.lit(Store(this).session()?.takeIf { Vault(this).signedIn })
         tile.label = face.label
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = face.subtitle
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) tile.stateDescription = face.description
-        tile.contentDescription = face.description
-        tile.icon = Icon.createWithResource(this, iconOf(face.icon))
-        tile.state = if (face.active) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        val spoken = getString(if (lit) R.string.tile_spoken_on else R.string.tile_spoken_off, face.description)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) tile.stateDescription = spoken
+        tile.contentDescription = spoken
+        tile.icon = Icon.createWithResource(this, R.drawable.ic_tile)
+        tile.state = if (lit) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.updateTile()
     }
 
@@ -169,16 +170,6 @@ class QuotaTile : TileService() {
                 ?: return TileFace.unknown(context.getString(if (Vault(context).signedIn) R.string.tile_no_reading else R.string.tile_sign_in))
             val doc = Pipeline.derive(reading, Pipeline.epochSeconds(now) - reading.ts, false, now)
             return TileFace.of(doc, ZoneId.systemDefault(), Refresher.hour24(context), Store(context).tileWidth)
-        }
-
-        @DrawableRes
-        fun iconOf(icon: TileIcon): Int = when (icon) {
-            TileIcon.OK -> R.drawable.ic_ok
-            TileIcon.LOW -> R.drawable.ic_low
-            TileIcon.CRITICAL -> R.drawable.ic_critical
-            TileIcon.UNKNOWN -> R.drawable.ic_unknown
-            TileIcon.STALE -> R.drawable.ic_stale
-            TileIcon.OFFLINE -> R.drawable.ic_offline
         }
     }
 }

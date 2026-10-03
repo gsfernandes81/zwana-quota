@@ -83,6 +83,8 @@
     <!-- The Quick Settings tile, and the panel a tap on it opens. -->
     <string name="tile_label">Data left</string>
     <string name="tile_no_reading">tap to read</string>
+    <string name="tile_spoken_on">Data on. %s</string>
+    <string name="tile_spoken_off">Data off for this phone. %s</string>
     <string name="tile_sign_in">tap to sign in</string>
     <string name="panel_app">App</string>
     <string name="panel_portal">Portal</string>
@@ -110,5 +112,5 @@
     <string name="busy_remove">taking %s off...</string>
     <string name="tile_settings">Quick Settings tile</string>
     <string name="tile_wide">Wide tile</string>
-    <string name="tile_wide_detail">Android does not tell an app how wide its tile is. Switch this on if you dragged the tile wider than two cells: it then says the pool and tonight\'s top-up too. A one-cell tile shows only its icon.</string>
+    <string name="tile_wide_detail">Android does not tell an app how wide its tile is. Switch this on if you dragged the tile wider than two cells: it then says the pool and tonight\'s top-up too. A one-cell tile shows only its icon, lit while this phone is on data.</string>
 </resources>

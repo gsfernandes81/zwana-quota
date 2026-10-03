@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Quick Settings tile's icon: a satellite and its signal, for the
+     ship's satellite link. The same in every state, by design: whether this
+     phone is on data is the tile's brightness, and the reading is its text.
+     White on transparent; the system tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:rotation="45"
+        android:translateX="14.5"
+        android:translateY="9.5">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M-2,-2.6h4v5.2h-4z M-4.2,-0.5h2.2v1h-2.2z M2,-0.5h2.2v1h-2.2z M-8.4,-2.6h4.2v5.2h-4.2z M4.2,-2.6h4.2v5.2h-4.2z M-0.6,2.6h1.2v1.4h-1.2z M-2,4h4v1.3h-4z" />
+    </group>
+    <path
+        android:pathData="M3,16.5A4.5,4.5 0 0 1 7.5,21 M3,12A9,9 0 0 1 12,21"
+        android:strokeWidth="2"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round" />
+</vector>

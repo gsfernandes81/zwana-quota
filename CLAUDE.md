@@ -2,19 +2,20 @@
 
 The phone's metered-data readout: `zwana_quota.py` (the portal client for
 `ic.zwana.io`), `quota_widget.py` (the widget face and the library), and
-`tasker/zwana-tile` (the Tasker Quick Settings tile, superseded by the app's
-own `QuotaTile`). Split out of the `or3`
-monorepo's `termux/` on 2026-08-28. The `dlq` repo's nightly runner imports
+`android/` (the app: a widget, a Quick Settings tile, the watch's companion).
+Split out of the `or3` monorepo's `termux/` on 2026-08-28. The `dlq` repo's nightly runner imports
 `quota_widget` from this checkout — this repo depends on nothing.
 
 Decisions that travel with this code:
 
-- **`zwana-tile` prints four lines Tasker addresses by position**, so their
-  order is the interface and a test must pin it. It prints four lines and
-  exits 0 whatever happens, because a tile nobody watches fail must carry its
-  failure on its face rather than abort the task that draws it; its state is
-  never Android's `UNAVAILABLE`, which would grey out the tap that is how it
-  recovers. `docs/quota-tile.md`.
+- **The Quick Settings tile is the app's (`QuotaTile`); the Tasker tile is
+  gone** (`tasker/`, `--qs*` and `test_qs_tile.py`, removed 2026-10-03). Its
+  text ladder lives on as `TileFace` in `android/core` (`TileTest`): the reset
+  survives every rung of a current reading, an old or offline reading says so
+  at every width. The tile is lit while this phone is on data and dim
+  otherwise, never Android's `UNAVAILABLE` (that greys out the tap), and its
+  icon never changes: state is the brightness, the reading is the text. A tap
+  opens the device panel (`TilePanel`) through `TileService.showDialog()`.
 - **The face must fit 35 x 5 at every magnitude** (`TILE` in
   `quota_widget.py`): overflowing is not an error, it is a widget with a line
   clipped off. The figure and its small print share a row, so a wide figure
@@ -101,7 +102,6 @@ uses.
 | `test_cache.py` | a stale reading is never handed back as live, the max-age boundary, an unreadable cache being no reading rather than a crash, and the refresh lock: one at a time, abandoned after `LOCK_TIMEOUT`, and never left behind by a spawn that failed |
 | `test_format.py` | the size, money, age and countdown spellings by round trip — the figure has to be true to the precision it printed — the reset ahead and within a day at six timezones either side of the date line, and the three grades |
 | `test_tile_face.py` | the face: five rows, never wider than `TILE`, ASCII only, at every unit threshold and every digit-gaining value; the reset time surviving every squeeze; a stale or offline reading *drawn* and not merely fitted |
-| `test_qs_tile.py` | the four lines in the order Tasker splits them into, the label and subtitle budgets at all three named sizes, the state never Android's third one, and the level word for the icon |
 | `test_full_box.py` | `--full`: nothing but ASCII and the one measured middot inside the frame, no row padded out with spaces, the bar's filled run being the share that has gone, and the countdown giving way before the clock time does |
 | `test_vectors.py` | `vectors/quota.json` is still what the live `gather` and `derive` produce, and building it leaves the clock and the portal stub as it found them |
 | `test_cli.py` | both command lines: which stream the answer lands on, the exit codes, that calibration costs no request, that the tile printed is the tile composed, and that `--refresh-only` says nothing and leaves a good cache alone when it fails |
@@ -115,17 +115,14 @@ could. The face's height is `GLYPH_ROWS`, which the module already spells;
 ships.
 
 **The bounds the fits are checked to** are the magnitudes the figures reach,
-not infinity, and each is stated where it is used: the tile face to 32 TiB,
-the Quick Settings label to 8 TiB (below which the 5-character small tile
-still has a rung), and the `--full` box to 10 GiB at 30 columns or wider —
+not infinity, and each is stated where it is used: the tile face to 32 TiB
+and the `--full` box to 10 GiB at 30 columns or wider —
 its headline states the figure *twice*, so a hundred-gibibyte reading wants
 more columns than the box has. A day's pool is 763 MiB.
 
 **The checks worth not weakening**: the upper/lower bound property in
-`test_derive.py` (it is what the `dlq` runner's guards stand on), the
-four-line order in `test_qs_tile.py` (Tasker addresses them by position, so
-reordering silently relabels the tile rather than failing), and the
-stale-or-offline tests in both tile files — those check the warning is
+`test_derive.py` (it is what the `dlq` runner's guards stand on), and the
+stale-or-offline tests in `test_tile_face.py` and the Kotlin `TileTest` — those check the warning is
 *drawn*, which is the failure the widths exist to prevent.
 
 ## Mutation testing
@@ -138,8 +135,10 @@ carries the flat-root layout (`source_folders = ["."]`, poodle's default of
 copy every worker gets. It takes about forty minutes on four idle cores:
 1,851 mutants, one suite each.
 
-Where it stands (2026-09-03): **1,624 of 1,851 caught, 87.7%**, no timeouts
-and no errors. The suite that replaced the self-test started at 76.9%; the
+Where it stood (2026-09-03): **1,624 of 1,851 caught, 87.7%**, no timeouts
+and no errors. That run predates the Tasker tile's removal (2026-10-03),
+which took its ladder and its CLI flags out of the mutated code; the next run
+will have fewer mutants. The suite that replaced the self-test started at 76.9%; the
 gap was closed by reading the survivors, not by adding tests until the number
 moved.
 
@@ -167,10 +166,7 @@ What survives, and why each is meant to:
 - **Wording.** Every message, every `--help` string, every `json.dumps(indent=)`,
   every label on the probe's glyph pages. Roughly half of what is left. The
   suite deliberately pins no phrasing, so mutating one changes nothing it can
-  see — that is the whole trade the suite was rebuilt to make. The exceptions
-  are the phrases that are an *interface*: `active`/`inactive`, `ok`/`low`/
-  `critical`, and `quota ? / no reading`, which are pinned because Tasker and
-  `docs/quota-tile.md` are written against them.
+  see — that is the whole trade the suite was rebuilt to make.
 - **Paths off `Path.home()`** — `CACHE`, `LOCK`, `PROBE_LOG`, `COOKIE_FILE`,
   `DEFAULT_ENV`, and `sys.path.insert`. The suite points them at a temporary
   home, so their spelling cannot be checked without writing to the person's

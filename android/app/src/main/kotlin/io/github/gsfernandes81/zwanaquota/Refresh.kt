@@ -315,9 +315,9 @@ class Refresher(context: Context) {
         const val MAX_AGE_SECONDS = 45.0
 
         /**
-         * How often the watch is sent a reading: the Tasker tile's "kept
-         * fresh" profile runs every 30 minutes (docs/quota-tile.md), and this
-         * is the same cadence rather than a new one. The watch draws a reading
+         * How often the watch is sent a reading: the retired Tasker tile's
+         * "kept fresh" profile ran every 30 minutes, and this kept that
+         * cadence rather than inventing a new one. The watch draws a reading
          * older than twice this as stale.
          */
         const val EVERY_MINUTES = 30L

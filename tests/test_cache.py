@@ -66,8 +66,8 @@ def test_storing_replaces_rather_than_appends(clock):
 
 
 def test_the_cache_policy_figures_are_the_ones_the_tile_was_wired_to():
-    """``tasker/zwana-tile`` passes ``--max-age 45`` and is written against
-    these; the lock's timeout is how long a killed refresher can freeze the
+    """The Android app's ``Refresher.MAX_AGE_SECONDS`` is this same 45; the
+    lock's timeout is how long a killed refresher can freeze the
     figure before another is allowed to try."""
     assert qw.DEFAULT_MAX_AGE == 45
     assert qw.LOCK_TIMEOUT == 120

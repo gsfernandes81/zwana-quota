@@ -22,12 +22,8 @@ import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.Role
 import io.github.gsfernandes81.zwanaquota.core.Session
 import io.github.gsfernandes81.zwanaquota.core.SessionAction
-import io.github.gsfernandes81.zwanaquota.core.TileFace
-import io.github.gsfernandes81.zwanaquota.core.TileIcon
-import io.github.gsfernandes81.zwanaquota.core.TileWidth
 import io.github.gsfernandes81.zwanaquota.core.removable
 import java.time.Instant
-import java.time.ZoneId
 
 /**
  * What the Quick Settings tile opens: today's reading as the app's card has
@@ -105,23 +101,23 @@ class TilePanel(private val context: Context, private val host: Host) {
         this.busy = busy
         this.signedIn = signedIn
         val now = Instant.now()
-        val zone = ZoneId.systemDefault()
         val doc = store.reading()?.let { Pipeline.derive(it, Pipeline.epochSeconds(now) - it.ts, false, now) }
 
         figure.text = face.figure
-        val tile = doc?.let { TileFace.of(it, zone, Refresher.hour24(context), TileWidth.WIDE) }
-        val icon = tile?.icon ?: TileIcon.UNKNOWN
-        val colour = ContextCompat.getColor(context, colourOf(icon))
-        level.text = when (icon) {
-            TileIcon.OK -> context.getString(R.string.level_ok)
-            TileIcon.LOW -> context.getString(R.string.level_low)
-            TileIcon.CRITICAL -> context.getString(R.string.level_critical)
-            TileIcon.UNKNOWN -> context.getString(R.string.level_unknown)
-            TileIcon.OFFLINE -> context.getString(R.string.offline)
-            TileIcon.STALE -> context.getString(R.string.out_of_date, doc?.let { Face.mark(it) }.orEmpty())
+        // The level, unless the reading cannot be stood behind: then why, in grey.
+        val mark = doc?.let { Face.mark(it) }
+        val (icon, label) = when {
+            doc == null -> R.drawable.ic_unknown to context.getString(R.string.level_unknown)
+            mark == "offline" -> R.drawable.ic_offline to context.getString(R.string.offline)
+            mark != null -> R.drawable.ic_stale to context.getString(R.string.out_of_date, mark)
+            face.level == Level.OK -> R.drawable.ic_ok to context.getString(R.string.level_ok)
+            face.level == Level.LOW -> R.drawable.ic_low to context.getString(R.string.level_low)
+            else -> R.drawable.ic_critical to context.getString(R.string.level_critical)
         }
+        val colour = ContextCompat.getColor(context, if (doc == null || mark != null) R.color.status_unknown else colourOf(face.level))
+        level.text = label
         level.setTextColor(colour)
-        level.setCompoundDrawablesRelativeWithIntrinsicBounds(QuotaTile.iconOf(icon), 0, 0, 0)
+        level.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
         TextViewCompat.setCompoundDrawableTintList(level, ColorStateList.valueOf(colour))
 
         val share = doc?.let { it.remainderBytes.toDouble() / maxOf(1L, it.poolBytes) } ?: 0.0
@@ -266,13 +262,5 @@ class TilePanel(private val context: Context, private val host: Host) {
         Level.LOW -> R.color.status_warning
         Level.CRITICAL -> R.color.status_critical
         Level.UNKNOWN -> R.color.status_unknown
-    }
-
-    @ColorRes
-    private fun colourOf(icon: TileIcon): Int = when (icon) {
-        TileIcon.OK -> R.color.status_good
-        TileIcon.LOW -> R.color.status_warning
-        TileIcon.CRITICAL -> R.color.status_critical
-        TileIcon.UNKNOWN, TileIcon.STALE, TileIcon.OFFLINE -> R.color.status_unknown
     }
 }

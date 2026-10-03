@@ -139,6 +139,34 @@ class ScreensTest {
         File("build/screens/tile-joined.txt").writeText(tileLines("joined"))
     }
 
+    /** The tile's icon as the panel draws it, lit and dim, at its size and large, to check the vector draws. */
+    @Test
+    fun `the tile's icon, lit and dim`() {
+        val density = context.resources.displayMetrics.density
+        val sizes = listOf(24, 96)
+        val pad = (12 * density).toInt()
+        val cell = sizes.sumOf { (it * density).toInt() + pad } + pad
+        val sheet = Bitmap.createBitmap(2 * cell, (96 * density).toInt() + 2 * pad, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(sheet)
+        listOf(0xFF9EF2EE.toInt() to 0xFF00201F.toInt(), 0xFF33404F.toInt() to 0xFFDCE3EA.toInt()).forEachIndexed { i, (ground, ink) ->
+            val paint = android.graphics.Paint().apply { color = ground }
+            canvas.drawRect((i * cell).toFloat(), 0f, ((i + 1) * cell).toFloat(), sheet.height.toFloat(), paint)
+            var x = i * cell + pad
+            for (dp in sizes) {
+                val px = (dp * density).toInt()
+                context.getDrawable(R.drawable.ic_tile)!!.mutate().apply {
+                    setTint(ink)
+                    setBounds(x, pad, x + px, pad + px)
+                    draw(canvas)
+                }
+                x += px + pad
+            }
+        }
+        val out = File("build/screens/tile-icon.png").apply { parentFile?.mkdirs() }
+        out.outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertTrue("nothing was written", out.length() > 0)
+    }
+
     /** The panel as the tile builds it, signed in, in a window so the meter draws (it draws only attached). */
     private fun panel(): TilePanel {
         Store(context).saveNames(
@@ -163,7 +191,7 @@ class ScreensTest {
         for (width in io.github.gsfernandes81.zwanaquota.core.TileWidth.entries) {
             Store(context).tileWidth = width
             val tile = QuotaTile.tileFace(context)
-            appendLine("$name $width: ${tile.label} | ${tile.subtitle} | ${tile.icon} | active=${tile.active}")
+            appendLine("$name $width: ${tile.label} | ${tile.subtitle}")
         }
     }
 

@@ -491,7 +491,8 @@ def test_a_session_can_be_saved_before_the_cache_directory_exists():
 
 
 def test_the_read_is_bounded_so_a_hung_portal_is_not_a_hung_widget():
-    """The tile's own deadline is set against this one; see tasker/zwana-tile."""
+    """A widget shortcut waiting on a portal that never answers is a widget
+    that never redraws."""
     assert zq.TIMEOUT_SECONDS == 30
 
 

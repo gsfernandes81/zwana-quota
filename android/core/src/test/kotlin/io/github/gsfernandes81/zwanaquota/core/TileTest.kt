@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 /**
  * The Quick Settings tile by its rules, as tests/test_qs_tile.py held the
- * Tasker tile to them: the budgets at every magnitude, the reset surviving,
+ * Tasker tile to them before it was retired: the budgets at every magnitude, the reset surviving,
  * a reading that overstates saying so -- never the wording.
  */
 class TileTest {
@@ -126,18 +126,15 @@ class TileTest {
     }
 
     @Test
-    fun `a reading that overstates says so on the subtitle and the icon, at every width`() {
+    fun `a reading that overstates says so on the subtitle, at every width`() {
         for (width in TileWidth.entries) {
             for (bytes in magnitudes) {
                 val stale = TileFace.of(doc(bytes, age = 7200.0, live = false), ZoneId.of("UTC"), true, width)
                 assertTrue("ago" in stale.subtitle, stale.subtitle)
-                assertEquals(TileIcon.STALE, stale.icon)
                 val offline = TileFace.of(doc(bytes, online = false), ZoneId.of("UTC"), true, width)
                 assertTrue("offline" in offline.subtitle, offline.subtitle)
-                assertEquals(TileIcon.OFFLINE, offline.icon)
                 val current = TileFace.of(doc(bytes), ZoneId.of("UTC"), true, width)
                 assertFalse("ago" in current.subtitle || "offline" in current.subtitle, current.subtitle)
-                assertTrue(current.icon in listOf(TileIcon.OK, TileIcon.LOW, TileIcon.CRITICAL))
             }
         }
     }
@@ -164,28 +161,6 @@ class TileTest {
     }
 
     @Test
-    fun `the icon is the level the widget would colour it`() {
-        for (bytes in magnitudes) {
-            val d = doc(bytes)
-            val expected = when (Format.grade(d.remainderBytes.toDouble() / maxOf(1L, d.poolBytes))) {
-                Level.OK -> TileIcon.OK
-                Level.LOW -> TileIcon.LOW
-                else -> TileIcon.CRITICAL
-            }
-            assertEquals(expected, TileFace.of(d, ZoneId.of("UTC"), true, TileWidth.STANDARD).icon)
-        }
-    }
-
-    @Test
-    fun `lit means there is still free data, not merely data`() {
-        val rng = Random(13)
-        repeat(500) {
-            val d = doc(rng.nextLong(0, 1L shl 33), grantBytes = rng.nextLong(0, 1L shl 32))
-            assertEquals(d.freeLeftBytes > 0, TileFace.of(d, ZoneId.of("UTC"), true, TileWidth.STANDARD).active)
-        }
-    }
-
-    @Test
     fun `the spoken description is never clipped -- the figure, the reset, and any warning`() {
         for ((kind, make) in readings) {
             val d = make(1_803_886_264)
@@ -201,6 +176,17 @@ class TileTest {
         val tile = TileFace.unknown("tap to sign in")
         assertTrue(tile.label.isNotBlank())
         assertEquals("tap to sign in", tile.subtitle)
-        assertEquals(TileIcon.UNKNOWN, tile.icon)
+    }
+
+    @Test
+    fun `lit is this phone on data, whatever is left and whoever pays for it`() {
+        val me = "10.1.0.225"
+        val laptop = "10.1.0.125"
+        assertTrue(TileFace.lit(Session(true, me, 0, me, listOf(laptop))), "this phone switched data on")
+        assertTrue(TileFace.lit(Session(true, laptop, 0, me, listOf(me))), "this phone joined")
+        assertTrue(TileFace.lit(Session(true, laptop, 0, null, emptyList())), "on, and the portal did not say which device this is")
+        assertFalse(TileFace.lit(Session(true, laptop, 0, me, emptyList())), "on for another device only")
+        assertFalse(TileFace.lit(Session(false, null, 0, me, emptyList())), "data off")
+        assertFalse(TileFace.lit(null), "never read")
     }
 }

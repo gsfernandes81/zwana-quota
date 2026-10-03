@@ -8,7 +8,7 @@ One APK, three jobs:
   watch.
 - **a Quick Settings tile**: the same figure one swipe down from anywhere,
   and a tap opens the device list, where each device can be taken off data
-  on its own. It replaces the Tasker tile (`../docs/quota-tile.md`).
+  on its own. It replaced the Tasker tile, which was removed on 2026-10-03.
 - **a Connect IQ companion**: when switched on, it sends the same reading to
   the zwana quota app on a Garmin Instinct 3 (`../garmin/`), which shows it
   as a glance.
@@ -91,15 +91,20 @@ Pull the panel down, edit the tiles, and drag **Data left** in. It says:
 
 | tile size | shows |
 |---|---|
-| one cell | the icon alone: a tick, a warning triangle or an alert circle for the level, a clock when the reading is old, a cloud when the portal said the session was down, a question mark with no reading |
+| one cell | the satellite icon alone, lit or dim |
 | two cells | `1.68 GiB` over `96%, 05:30`: the figure, the share of today's pool and when it resets |
 | wider (One UI) | `96% of 1.75 GiB, +763 MiB 05:30`: the pool and tonight's top-up as well |
 
+The tile is **lit while this phone is on data** (it switched data on, or
+joined) and **dim otherwise**: data off, or on only for other devices. How
+much is left, and whether it is free or paid, changes the text, never the
+brightness, and the icon is the same in every state. A reading that is old
+or offline says so in the subtitle (`2h ago, 05:30`). The tile is never
+greyed out, since a tap is how a tile with no reading gets one. TalkBack reads
+all of it, data on or off included, whatever the size.
+
 Android never tells an app how wide its tile is, so if you drag it wider than
-two cells, switch on **Wide tile** in the app. The tile is lit while free data
-is left and dim once only paid data is, and it is never greyed out, since a
-tap is how a tile with no reading gets one. TalkBack reads all of it whatever
-the size.
+two cells, switch on **Wide tile** in the app.
 
 It is drawn whenever the panel is pulled down, from the last reading, and a
 read starts then if that reading is more than 45 seconds old: the figure moves
@@ -118,7 +123,7 @@ phone the panel waits for the unlock, since it can take devices off. Signed
 out, a tap opens the app to sign in.
 
 **Long press** opens the app. The panel's **Portal** opens `ic.zwana.io` in
-the browser, which is what the Tasker tile's double tap did.
+the browser.
 
 ### Signing, so updates install over each other
 

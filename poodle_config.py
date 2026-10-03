@@ -31,7 +31,6 @@ file_copy_filters = [
     ".hypothesis/**",
     "__pycache__/**",
     "*.pyc",
-    "tasker/**",
     "android/**",
     "garmin/**",
     ".env",
