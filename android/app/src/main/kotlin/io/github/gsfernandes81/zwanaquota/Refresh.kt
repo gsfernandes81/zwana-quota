@@ -293,8 +293,12 @@ class Refresher(context: Context) {
             // A message that only answers an ask is not the periodic send's
             // reading (QuotaWorker's screen-off check).
             if (reading != null) store.lastPush = now.epochSecond
-            store.note("watch", Garmin.send(app, payload).joinToString("; "))
-            if (Garmin.delivered) store.watchReached = true
+            val sent = Garmin.send(app, payload)
+            store.note("watch", sent.lines.joinToString("; "))
+            // A watch reached makes the screen-off send worth its read; one
+            // no longer paired ends it.
+            if (sent.delivered && !store.watchReached) store.watchReached = true
+            if (sent.unpaired && store.watchReached) store.watchReached = false
         }
     }
 
@@ -506,8 +510,13 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
             // widget, or Garmin Connect installed or removed).
             try {
                 WatchListener.sync(applicationContext, "worker")
+            } catch (e: Exception) {
+                store.note("listener", "not synced: ${e.javaClass.simpleName}")
+            }
+            try {
                 Work.schedule(applicationContext)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                store.note("worker", "not rescheduled: ${e.javaClass.simpleName}")
             }
         }
         return Result.success()

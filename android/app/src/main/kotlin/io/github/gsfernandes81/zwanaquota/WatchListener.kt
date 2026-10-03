@@ -70,21 +70,19 @@ class WatchListener : Service() {
             // Registering blocks on Garmin Connect, so not on the main thread;
             // and again every so often, for a watch paired later or a Garmin
             // Connect that restarted and forgot this app.
+            announce = true
             main.postDelayed(relisten, 0)
-            // The watch learns that the phone is listening from the next
-            // message it is sent (`ask`): send it the stored reading now, not
-            // at the next period -- after the process was killed, the last it
-            // was told was that nothing listens. No portal read for it.
-            Thread {
-                try {
-                    Refresher(this).sendStored()
-                } catch (e: Exception) {
-                    Store(this).note("watch", "not sent on listening: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
-                }
-            }.start()
         }
         return START_STICKY
     }
+
+    /**
+     * Whether the watch is still to be told the phone is listening: from
+     * the first registration after starting, since after the process was
+     * killed the last it was told was that nothing listens.
+     */
+    @Volatile
+    private var announce = false
 
     /** The last outcome of [listen], so a repeat that changed nothing is not journalled. */
     @Volatile
@@ -106,6 +104,17 @@ class WatchListener : Service() {
             }
             if (outcome != lastOutcome) Store(this).note("listener", "$outcome ($why)")
             lastOutcome = outcome
+            // Registered: now the watch may hear it (`ask`), from the stored
+            // reading, not a portal read. With none stored there is nothing to
+            // send, and the first read carries it.
+            if (announce) {
+                announce = false
+                try {
+                    Refresher(this).sendStored()
+                } catch (e: Exception) {
+                    Store(this).note("watch", "not sent on listening: ${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
+                }
+            }
         }.start()
     }
 

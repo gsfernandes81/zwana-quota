@@ -6,7 +6,8 @@ import android.graphics.Canvas
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
-import androidx.work.WorkManager
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
 import io.github.gsfernandes81.zwanaquota.core.Pipeline
 import io.github.gsfernandes81.zwanaquota.core.Reading
 import io.github.gsfernandes81.zwanaquota.core.Session
@@ -47,10 +48,14 @@ class ScreensTest {
     }
 
     // The settings screen schedules the periodic job when it opens, and
-    // Robolectric runs no startup initializer: WorkManager is set up here.
+    // Robolectric runs no startup initializer: a test WorkManager, running
+    // nothing, for each test's own application.
     @Before
     fun workManager() {
-        if (!WorkManager.isInitialized()) WorkManager.initialize(context, Configuration.Builder().build())
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            context,
+            Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
+        )
     }
 
     @Test

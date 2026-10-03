@@ -95,27 +95,25 @@ object Garmin {
         return instance
     }
 
-    /** Whether the last [send] reached the watch app on any watch. */
-    @Volatile
-    var delivered = false
-        private set
-
     /**
-     * Send [payload] to the watch app on every connected watch. Returns one
-     * line per watch saying what happened, or one line saying why nothing
-     * could be tried; [delivered] says whether any got there.
+     * What a [send] did: a line per watch (or one saying why nothing could be
+     * tried); whether any watch app got it; and whether Garmin Connect has
+     * no watch paired at all, which it knows only once it answers.
      */
-    fun send(context: Context, payload: Map<String, Any>): List<String> {
-        delivered = false
-        val iq = ready(context) ?: return listOf(state)
+    class Sent(val lines: List<String>, val delivered: Boolean, val unpaired: Boolean)
+
+    /** Send [payload] to the watch app on every connected watch. */
+    fun send(context: Context, payload: Map<String, Any>): Sent {
+        val iq = ready(context) ?: return Sent(listOf(state), delivered = false, unpaired = false)
         val devices = try {
             iq.knownDevices.orEmpty()
         } catch (e: Exception) {
-            return listOf("cannot list watches: ${e.javaClass.simpleName}")
+            return Sent(listOf("cannot list watches: ${e.javaClass.simpleName}"), delivered = false, unpaired = false)
         }
-        if (devices.isEmpty()) return listOf("no watch is paired with Garmin Connect")
+        if (devices.isEmpty()) return Sent(listOf("no watch is paired with Garmin Connect"), delivered = false, unpaired = true)
         val app = IQApp(APP_ID)
-        return devices.map { device ->
+        var delivered = false
+        val lines = devices.map { device ->
             val status = statusOf(iq, device)
             if (status != "CONNECTED") {
                 "${device.friendlyName}: not sent, watch is $status"
@@ -125,6 +123,7 @@ object Garmin {
                 "${device.friendlyName}: $outcome"
             }
         }
+        return Sent(lines, delivered, unpaired = false)
     }
 
     /**
