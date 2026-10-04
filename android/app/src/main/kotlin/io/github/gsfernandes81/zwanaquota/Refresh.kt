@@ -168,7 +168,7 @@ class Refresher(context: Context) {
         }
         val (client, network) = connect(Networks.path(app))
         // Under the portal's lock, as a read is: no read's session can land
-        // on top of this change's (run takes it again after; it is re-entrant).
+        // on top of this change's (the run below takes it again once this has let go).
         val (notice, word) = synchronized(PORTAL) {
             try {
                 store.save(send(client) { Instant.now().epochSecond <= deadline })
