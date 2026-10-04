@@ -1,0 +1,16 @@
+<drawables>
+    <!-- Written by garmin/tools/glyphs.py, which draws them: change them
+         there, not here. One colour on transparency, never dithered. -->
+    <bitmap id="PhoneIcon" filename="glyphs/phone_icon.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="LaptopIcon" filename="glyphs/laptop_icon.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="PhoneSmall" filename="glyphs/phone_small.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="LaptopSmall" filename="glyphs/laptop_small.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+</drawables>

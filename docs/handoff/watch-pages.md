@@ -36,6 +36,14 @@ Every departure comes from the real screen and fonts, which the mockups stood in
   unguarded ended the app as it opened there, before this change too. Now guarded with
   `has`.
 
+- **Glyphs are bitmaps** (after build-92, which felt heavy on the Solar: slides showed
+  about two frames). Drawing them run by run from `Glyphs.mc`'s rows was ~80% of a page's
+  draw in the simulator's profiler; as bitmap resources (`garmin/tools/glyphs.py` writes
+  the PNGs) a page draws about 7x faster, the app's memory fell from 43.8 to 31.4 kB, and
+  the release `.prg` from 29.9 to 25.3 kB. The list's rows no longer draw the small device
+  icons (a quarter size and off-centre on the watch); the focused device's icon stays in
+  the sub-window.
+
 Still for a watch to settle: whether `onWrap` fires the same on the watch as in the
 simulator (it does there, both ends), and how the native list looks on the AMOLEDs' touch.
 

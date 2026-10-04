@@ -1,0 +1,43 @@
+<drawables>
+    <!-- Written by garmin/tools/glyphs.py, which draws them: change them
+         there, not here. One colour on transparency, never dithered. -->
+    <bitmap id="Refresh" filename="glyphs/refresh.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="Power" filename="glyphs/power.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="Disconnect" filename="glyphs/disconnect.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="Main" filename="glyphs/main.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="MainPhone" filename="glyphs/main_phone.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="Device" filename="glyphs/device.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="Phone" filename="glyphs/phone.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="NotListening" filename="glyphs/not_listening.png" dithering="none">
+        <palette><color>000000</color></palette>
+    </bitmap>
+    <bitmap id="PhoneIcon" filename="glyphs/phone_icon.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="LaptopIcon" filename="glyphs/laptop_icon.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="PhoneSmall" filename="glyphs/phone_small.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="LaptopSmall" filename="glyphs/laptop_small.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+    <bitmap id="Rule" filename="glyphs/rule.png" dithering="none">
+        <palette><color>FFFFFF</color></palette>
+    </bitmap>
+</drawables>

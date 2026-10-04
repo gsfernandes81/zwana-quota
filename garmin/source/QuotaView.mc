@@ -84,14 +84,14 @@ class QuotaView extends WatchUi.View {
                 // Nothing heard from the phone yet: nothing known about it.
                 PageDraw.word(dc, s, "?");
             } else if (Quota.canAsk(d)) {
-                PageDraw.glyph(dc, s, Glyphs.REFRESH);
+                PageDraw.glyph(dc, s, Rez.Drawables.Refresh);
             } else {
-                PageDraw.glyph(dc, s, Glyphs.NOT_LISTENING);
+                PageDraw.glyph(dc, s, Rez.Drawables.NotListening);
             }
         } else if (page == 1) {
             var dd = d as Dictionary;
             if (Quota.canControl(dd) && Quota.str(dd, "act").length() > 0) {
-                PageDraw.glyph(dc, s, Glyphs.POWER);
+                PageDraw.glyph(dc, s, Rez.Drawables.Power);
             } else {
                 PageDraw.word(dc, s, on(dd) ? "ON" : "OFF");
             }
@@ -479,50 +479,52 @@ class QuotaView extends WatchUi.View {
             return y + dc.getFontHeight(font) / 2;
         }
         var big = n <= 4;
-        // A pixel of the glyphs' for each of the Solar's.
-        var k = dc.getWidth() / DESIGN;
-        k = k < 1 ? 1 : k;
         var gap = at(dc, big ? 10 : 4);
         var kinds = Quota.arr(d, "dg");
-        var glyphs = [] as Array<Array<String>>;
+        var row = [] as Array<WatchUi.BitmapResource>;
+        var widths = [] as Array<Number>;
+        var tall = 0;
         for (var i = 0; i < n; i++) {
             var g = Quota.item(kinds, i);
             var phone = g.equals("phone") || g.equals("mainphone");
-            glyphs.add(big ? (phone ? Glyphs.PHONE_ICON : Glyphs.LAPTOP_ICON) : (phone ? Glyphs.PHONE_SMALL : Glyphs.LAPTOP_SMALL));
+            var b = PageDraw.bitmap(big ? (phone ? Rez.Drawables.PhoneIcon : Rez.Drawables.LaptopIcon)
+                : (phone ? Rez.Drawables.PhoneSmall : Rez.Drawables.LaptopSmall));
+            row.add(b);
+            widths.add(b.getWidth());
+            tall = b.getHeight() > tall ? b.getHeight() : tall;
         }
         var total = Quota.num(d, "dx");
         var base = at(dc, 156);
-        var tall = (glyphs[0].size() > glyphs[glyphs.size() - 1].size() ? glyphs[0] : glyphs[glyphs.size() - 1]).size() * k;
         var room = PageDraw.chord(dc, base + 1 - tall, tall);
         // Narrower gaps first, down to 2; then fewer icons, the rest
         // counted in +N. This phone, first, always stays.
+        var shown = n;
         var width = 0;
         var more = "";
         while (true) {
             width = 0;
-            for (var i = 0; i < glyphs.size(); i++) {
-                width += glyphs[i][0].length() * k + (i > 0 ? gap : 0);
+            for (var i = 0; i < shown; i++) {
+                width += widths[i] + (i > 0 ? gap : 0);
             }
-            more = total > glyphs.size() ? "+" + (total - glyphs.size()).toString() : "";
+            more = total > shown ? "+" + (total - shown).toString() : "";
             if (more.length() > 0) {
                 width += gap + dc.getTextWidthInPixels(more, font);
             }
-            if (width <= room || glyphs.size() <= 1) {
+            if (width <= room || shown <= 1) {
                 break;
             }
             if (gap > at(dc, 2)) {
                 gap--;
             } else {
-                glyphs = glyphs.slice(0, glyphs.size() - 1);
+                shown--;
             }
         }
         var x = (dc.getWidth() - width) / 2;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        for (var i = 0; i < glyphs.size(); i++) {
-            var rows = glyphs[i];
-            PageDraw.bits(dc, x, base - rows.size() * k + 1, rows, k);
-            x += rows[0].length() * k + gap;
+        for (var i = 0; i < shown; i++) {
+            dc.drawBitmap(x, base + 1 - row[i].getHeight(), row[i]);
+            x += widths[i] + gap;
         }
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         if (more.length() > 0) {
             dc.drawText(x, base + 1 - Graphics.getFontAscent(font), font, more, Graphics.TEXT_JUSTIFY_LEFT);
         }

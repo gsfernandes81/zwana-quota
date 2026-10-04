@@ -1,21 +1,27 @@
-"""Draw the watch's glyphs pixel by pixel and write garmin/source/Glyphs.mc.
+"""Draw the watch's glyphs pixel by pixel, as bitmap resources.
 
-The watch draws each glyph from the rows written here, a pixel for a pixel,
-so it looks the same on every build rather than being scaled from shapes at
-run time. Run from the repo root after changing a glyph:
+The watch draws each glyph as one bitmap (PageDraw.bitmap), the same pixels on
+every build. They were rows of `#` drawn run by run, and that interpreted
+loop was most of what a page cost to draw: the slide between pages showed
+two frames. Run from the repo root after changing a glyph:
 
-    python3 garmin/tools/glyphs.py            # writes garmin/source/Glyphs.mc
+    python3 garmin/tools/glyphs.py            # writes the PNGs and their XML
     python3 garmin/tools/glyphs.py --preview  # also writes glyphs.png beside it
 
 Each glyph is drawn black on white at 1:1 with PIL (which draws without
-anti-aliasing), then read back as rows of `#` and `.`. Two kinds:
+anti-aliasing), then written in one colour on transparency:
 
-- the sub-window's, 31 x 31, centred in it (PageDraw.glyph), on the pages and
-  for the device list's focused item (DeviceIcon);
-- the device icons, cropped to their ink (PageDraw.bits): the sub-window's
-  phone and laptop at full size for the Connection page's row, and a small
-  pair for when more devices than four share that row, and beside a name in
-  the device list.
+- the sub-window's, 31 x 31 in black, centred on its white (PageDraw.glyph),
+  on the pages and for the device list's focused device (DeviceIcon);
+- the Connection page's device icons in white, cropped to their ink: the
+  sub-window's phone and laptop at full size, and a small pair for when
+  more devices than four share the row;
+- the dotted rule between the Data page's rows, in white, wider than any
+  screen and clipped to the row.
+
+garmin/resources/drawables/glyphs/ holds them at 1:1, for the Solar's 176
+pixels; garmin/resources-2x/drawables/ the icons and the rule again at 2:1,
+for the AMOLEDs (monkey.jungle gives them that folder, which overrides).
 """
 
 from __future__ import annotations
@@ -212,62 +218,93 @@ def ink(draw):
     return cropped
 
 
+def rule() -> Image.Image:
+    # Every other pixel, from the first: wider than any screen, clipped.
+    im = Image.new("L", (RULE, 1), PAPER)
+    for x in range(0, RULE, 2):
+        im.putpixel((x, 0), INK)
+    return im
+
+
+RULE = 420
+
+BLACK, WHITE = "000000", "FFFFFF"
+
+# Resource id: (draw, colour of the ink, scaled 2:1 for the AMOLEDs).
 GLYPHS = {
-    "REFRESH": refresh,
-    "POWER": power,
-    "DISCONNECT": disconnect,
-    "MAIN": main_device,
-    "MAIN_PHONE": main_phone,
-    "DEVICE": device,
-    "PHONE": this_phone,
-    "NOT_LISTENING": not_listening,
+    "Refresh": (refresh, BLACK, False),
+    "Power": (power, BLACK, False),
+    "Disconnect": (disconnect, BLACK, False),
+    "Main": (main_device, BLACK, False),
+    "MainPhone": (main_phone, BLACK, False),
+    "Device": (device, BLACK, False),
+    "Phone": (this_phone, BLACK, False),
+    "NotListening": (not_listening, BLACK, False),
     # The Connection page's row of devices: full size up to four, small past.
-    "PHONE_ICON": ink(this_phone),
-    "LAPTOP_ICON": ink(device),
-    "PHONE_SMALL": small_phone,
-    "LAPTOP_SMALL": small_laptop,
+    "PhoneIcon": (ink(this_phone), WHITE, True),
+    "LaptopIcon": (ink(device), WHITE, True),
+    "PhoneSmall": (small_phone, WHITE, True),
+    "LaptopSmall": (small_laptop, WHITE, True),
+    "Rule": (rule, WHITE, False),
 }
+def png(im: Image.Image, colour: str, scale: int, path: Path) -> None:
+    """[im]'s ink in [colour] on transparency, each pixel [scale] by [scale]."""
+    ink = tuple(int(colour[i : i + 2], 16) for i in (0, 2, 4))
+    out = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    px, opx = im.load(), out.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            if px[x, y] < 128:
+                opx[x, y] = (*ink, 255)
+    if scale > 1:
+        out = out.resize((im.width * scale, im.height * scale), Image.NEAREST)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    out.save(path)
 
-def rows(im: Image.Image) -> list[str]:
-    px = im.load()
-    w, h = im.size
-    return ["".join("#" if px[x, y] < 128 else "." for x in range(w)) for y in range(h)]
 
-
-def monkey_c(glyphs: dict[str, list[str]]) -> str:
+def xml(entries: list[tuple[str, str, str]]) -> str:
     out = [
-        "import Toybox.Lang;",
-        "",
-        "// The watch's glyphs, a pixel for a pixel: written by",
-        "// garmin/tools/glyphs.py, which draws them -- change them there, not here.",
-        "// Rows of `#` for ink, the same pixels on every build. The sub-window's",
-        f"// are {SIZE} x {SIZE}, which PageDraw.glyph centres in it; the *_ICON and",
-        "// *_SMALL ones are cropped to their ink, for PageDraw.bits to stand on a",
-        "// baseline.",
-        "module Glyphs {",
+        "<drawables>",
+        "    <!-- Written by garmin/tools/glyphs.py, which draws them: change them",
+        "         there, not here. One colour on transparency, never dithered. -->",
     ]
-    for name, lines in glyphs.items():
-        out.append(f"    const {name} = [")
-        out.extend(f'        "{line}",' for line in lines)
-        out.append("    ];")
-    out.append("}")
+    for rid, filename, colour in entries:
+        out.append(f'    <bitmap id="{rid}" filename="{filename}" dithering="none">')
+        out.append(f"        <palette><color>{colour}</color></palette>")
+        out.append("    </bitmap>")
+    out.append("</drawables>")
     return "\n".join(out) + "\n"
 
 
+def snake(name: str) -> str:
+    # MainPhone -> main_phone
+    return "".join("_" + c.lower() if c.isupper() else c for c in name).lstrip("_")
+
+
 def main() -> None:
-    glyphs = {name: rows(draw()) for name, draw in GLYPHS.items()}
     root = Path(__file__).resolve().parents[1]
-    (root / "source" / "Glyphs.mc").write_text(monkey_c(glyphs))
+    base = root / "resources" / "drawables"
+    double = root / "resources-2x" / "drawables"
+    entries, doubled = [], []
+    for rid, (draw, colour, scaled) in GLYPHS.items():
+        name = f"glyphs/{snake(rid)}.png"
+        png(draw(), colour, 1, base / name)
+        entries.append((rid, name, colour))
+        if scaled:
+            png(draw(), colour, 2, double / name)
+            doubled.append((rid, name, colour))
+    (base / "glyphs.xml").write_text(xml(entries))
+    (double / "glyphs.xml").write_text(xml(doubled))
     if "--preview" in sys.argv:
         scale, pad = 8, 4
+        shown = [draw() for rid, (draw, _, _) in GLYPHS.items() if rid != "Rule"]
         sheet = Image.new(
             "RGB",
-            (len(glyphs) * (SIZE * scale + pad) + pad, SIZE * scale + 2 * pad),
+            (len(shown) * (SIZE * scale + pad) + pad, SIZE * scale + 2 * pad),
             (200, 200, 200),
         )
-        for i, draw in enumerate(GLYPHS.values()):
-            im = draw().convert("RGB")
-            im = im.resize((im.width * scale, im.height * scale), Image.NEAREST)
+        for i, im in enumerate(shown):
+            im = im.convert("RGB").resize((im.width * scale, im.height * scale), Image.NEAREST)
             sheet.paste(im, (pad + i * (SIZE * scale + pad), pad))
         sheet.save(Path(__file__).with_name("glyphs.png"))
 
