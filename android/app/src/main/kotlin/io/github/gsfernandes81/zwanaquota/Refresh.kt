@@ -53,8 +53,10 @@ import java.util.concurrent.TimeUnit
  * One refresh: read the portal if the cache is too old, draw the widget, and,
  * when a send is wanted, send the watch the newest reading.
  *
- * quota_widget.current()'s policy, minus its lock and its detached child --
- * WorkManager's unique work is both of those. The cache is answered from for
+ * quota_widget.current()'s policy. Its detached child is WorkManager's
+ * unique work; its lock is [PORTAL], since the jobs are several unique
+ * names (a tap, the watch's ask, the periodic read, a switch) that
+ * WorkManager runs side by side. The cache is answered from for
  * [MAX_AGE_SECONDS]; anything older is read again, and a read that fails
  * leaves the old reading standing and drawn *as* old, never as current.
  */
@@ -70,30 +72,42 @@ class Refresher(context: Context) {
      */
     fun run(force: Boolean, pushWanted: Boolean, trigger: String, notice: String? = null, asked: Boolean = false) {
         val now = Instant.now()
-        var reading = store.reading()
+        var reading: Reading? = null
         var live = false
         var why: String? = null
         // What a watch that asked is told when there is no new reading for it.
         var whyWatch: String? = null
         val path = Networks.path(app)
 
-        val age = reading?.let { Pipeline.epochSeconds(now) - it.ts }
-        if (force || age == null || age > MAX_AGE_SECONDS) {
-            if (!vault.signedIn) {
-                why = "sign in: open the app"
-                whyWatch = "sign in on phone"
-                store.note("read", "not signed in")
+        // One read at a time, the cache looked at once the lock is held: a
+        // job that waited behind another's read finds it, not the portal.
+        // Forced, it reads again unless that read began after this job did
+        // (a reading's ts is when its job began).
+        synchronized(PORTAL) {
+            val cached = store.reading()
+            reading = cached
+            val stale = cached == null || if (force) {
+                cached.ts < Pipeline.epochSeconds(now)
             } else {
-                val (client, network) = connect(path)
-                try {
-                    reading = client.read(reading?.carry(), now).also(store::save)
-                    live = true
-                    store.note("read", "ok over ${network()} ($trigger)")
-                    readSession(client)
-                } catch (e: PortalError) {
-                    why = "portal: ${e.message}"
-                    whyWatch = "portal read failed"
-                    store.note("read", "failed over ${network()}: ${e.message}")
+                Pipeline.epochSeconds(now) - cached.ts > MAX_AGE_SECONDS
+            }
+            if (stale) {
+                if (!vault.signedIn) {
+                    why = "sign in: open the app"
+                    whyWatch = "sign in on phone"
+                    store.note("read", "not signed in")
+                } else {
+                    val (client, network) = connect(path)
+                    try {
+                        reading = client.read(cached?.carry(), now).also(store::save)
+                        live = true
+                        store.note("read", "ok over ${network()} ($trigger)")
+                        readSession(client)
+                    } catch (e: PortalError) {
+                        why = "portal: ${e.message}"
+                        whyWatch = "portal read failed"
+                        store.note("read", "failed over ${network()}: ${e.message}")
+                    }
                 }
             }
         }
@@ -153,20 +167,24 @@ class Refresher(context: Context) {
             return run(force = false, pushWanted, trigger)
         }
         val (client, network) = connect(Networks.path(app))
-        val (notice, word) = try {
-            store.save(send(client) { Instant.now().epochSecond <= deadline })
-            store.note("session", "$what ok over ${network()} ($trigger)")
-            null to ""
-        } catch (e: TooLate) {
-            store.note("session", "$what not sent: ${e.message}")
-            "too late: nothing done" to "too late"
-        } catch (e: SessionChanged) {
-            store.note("session", "$what not sent: ${e.message}")
-            readSession(client)
-            "changed elsewhere: nothing done" to "changed elsewhere"
-        } catch (e: PortalError) {
-            store.note("session", "$what failed over ${network()}: ${e.message}")
-            "$failed: ${e.message}" to failed
+        // Under the portal's lock, as a read is: no read's session can land
+        // on top of this change's (run takes it again after; it is re-entrant).
+        val (notice, word) = synchronized(PORTAL) {
+            try {
+                store.save(send(client) { Instant.now().epochSecond <= deadline })
+                store.note("session", "$what ok over ${network()} ($trigger)")
+                null to ""
+            } catch (e: TooLate) {
+                store.note("session", "$what not sent: ${e.message}")
+                "too late: nothing done" to "too late"
+            } catch (e: SessionChanged) {
+                store.note("session", "$what not sent: ${e.message}")
+                readSession(client)
+                "changed elsewhere: nothing done" to "changed elsewhere"
+            } catch (e: PortalError) {
+                store.note("session", "$what failed over ${network()}: ${e.message}")
+                "$failed: ${e.message}" to failed
+            }
         }
         askId?.let { store.answer(it, word) }
         run(force = true, pushWanted, trigger, notice)
@@ -188,7 +206,15 @@ class Refresher(context: Context) {
             transport,
             vault.cookies(),
             credentials = { vault.credentials() },
-            saveSession = { vault.saveCookies(it) },
+            // A cookie the Keystore will not seal is not kept, and the read
+            // or switch it came with still stands: the next run logs in again.
+            saveSession = {
+                try {
+                    vault.saveCookies(it)
+                } catch (e: Exception) {
+                    store.note("vault", "cookie not kept: ${e.javaClass.simpleName}")
+                }
+            },
         )
         return client to { network }
     }
@@ -315,6 +341,9 @@ class Refresher(context: Context) {
     companion object {
         /** Held for the whole of a send to the watch ([push]). */
         private val SENDING = Any()
+
+        /** Held while the portal is read or changed ([run], [change]), across every job. */
+        private val PORTAL = Any()
 
         /** quota_widget.DEFAULT_MAX_AGE and the tile's CACHE_MAX_AGE. */
         const val MAX_AGE_SECONDS = 45.0

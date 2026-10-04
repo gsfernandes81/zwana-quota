@@ -12,7 +12,7 @@ Each glyph is drawn black on white at 1:1 with PIL (which draws without
 anti-aliasing), then written in one colour on transparency:
 
 - the sub-window's, 31 x 31 in black, centred on its white (PageDraw.glyph),
-  on the pages and for the device list's focused device (DeviceIcon);
+  on the pages and for the device list's focused device (SubIcon);
 - the Connection page's device icons in white, cropped to their ink: the
   sub-window's phone and laptop at full size, and a small pair for when
   more devices than four share the row;
@@ -20,8 +20,9 @@ anti-aliasing), then written in one colour on transparency:
   screen and clipped to the row.
 
 garmin/resources/drawables/glyphs/ holds them at 1:1, for the Solar's 176
-pixels; garmin/resources-2x/drawables/ the icons and the rule again at 2:1,
-for the AMOLEDs (monkey.jungle gives them that folder, which overrides).
+pixels; garmin/resources-2x/drawables/ the device icons again at 2:1, for
+the AMOLEDs (monkey.jungle gives them that folder, which overrides). The
+rule stays 1:1 there too: every other pixel at any size.
 """
 
 from __future__ import annotations

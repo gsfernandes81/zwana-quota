@@ -93,8 +93,12 @@ object Garmin {
                             done.countDown()
                         }
 
+                        // Also when Garmin Connect's process dies: the SDK binds
+                        // again and says ready by itself, and Garmin Connect has
+                        // forgotten who listened -- so the next call registers.
                         override fun onSdkShutDown() {
                             state = "shut down"
+                            registered = false
                         }
                     })
                 } catch (e: Exception) {
