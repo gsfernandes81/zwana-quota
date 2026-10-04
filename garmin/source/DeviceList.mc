@@ -7,10 +7,11 @@ import Toybox.WatchUi;
 // lists do. Each item is the device's name over how it is on (`dn`, `dr`).
 //
 // On a watch with a sub-window the list draws the focused item's icon there,
-// as the other pages draw theirs (DeviceIcon): the device with a cross when
+// as the other pages draw theirs (SubIcon): the device with a cross when
 // START can take it off, else which device it is -- the one that switched
-// data on, with a star, or this phone. Where there is no sub-window the items
-// have no icons.
+// data on, with a star, or this phone; "0" on the item saying there are
+// none. Plain items with an :icon, which shows only in the sub-window: an
+// IconMenuItem also keeps a cell for its icon beside the name.
 //
 // UP at the top and DOWN at the bottom hand back to the other pages
 // (DeviceListDelegate.onWrap); BACK leaves the app, as on every page.
@@ -41,7 +42,7 @@ class DeviceList extends WatchUi.Menu2 {
         }
         if (n == 0) {
             var why = Quota.hasSession(d) && Quota.str(d as Dictionary, "dat").equals("on") ? "none listed" : "data is off";
-            items.add(new WatchUi.MenuItem(why, null, -1, null));
+            items.add(new WatchUi.MenuItem(why, null, -1, icons ? {:icon => new SubIcon("0")} : null));
         }
         for (var i = 0; i < items.size(); i++) {
             if (i < shown) {
@@ -68,46 +69,47 @@ class DeviceList extends WatchUi.Menu2 {
         var role = Quota.item(Quota.arr(d, "dr"), i);
         var label = name.length() > 0 ? name : "?";
         var sub = role.length() > 0 ? role : null;
-        if (!icons) {
-            return new WatchUi.MenuItem(label, sub, i, null);
+        return new WatchUi.MenuItem(label, sub, i, icons ? {:icon => new SubIcon(icon(d, i))} : null);
+    }
+
+    // What the sub-window shows for device [i]: what START does to it, or
+    // else which device it is.
+    function icon(d as Dictionary, i as Number) as ResourceId {
+        if (Pages.deviceIp(d, i).length() > 0) {
+            return Rez.Drawables.Disconnect;
         }
-        return new WatchUi.IconMenuItem(label, sub, i, new DeviceIcon(d, i), null);
+        var g = Quota.item(Quota.arr(d, "dg"), i);
+        if (g.equals("main")) {
+            return Rez.Drawables.Main;
+        } else if (g.equals("mainphone")) {
+            return Rez.Drawables.MainPhone;
+        } else if (g.equals("phone")) {
+            return Rez.Drawables.Phone;
+        }
+        return Rez.Drawables.Device;
     }
 }
 
-// A device's icon in the sub-window, for the focused device: the
-// sub-window as every page draws it, white with the glyph in black. The list
-// also hands the icon a small cell beside the name (24 x 14 on the Solar);
-// nothing is drawn there -- an icon that small reads as a smudge.
-class DeviceIcon extends WatchUi.Drawable {
-    var id as ResourceId;
+// The focused item's sub-window, as every page draws it: white, with a
+// glyph [what] (a resource) or a word (a String) in black.
+class SubIcon extends WatchUi.Drawable {
+    var what as ResourceId or String;
 
-    function initialize(d as Dictionary, i as Number) {
+    function initialize(w as ResourceId or String) {
         Drawable.initialize({});
-        var g = Quota.item(Quota.arr(d, "dg"), i);
-        if (Pages.deviceIp(d, i).length() > 0) {
-            id = Rez.Drawables.Disconnect;
-        } else if (g.equals("main")) {
-            id = Rez.Drawables.Main;
-        } else if (g.equals("mainphone")) {
-            id = Rez.Drawables.MainPhone;
-        } else if (g.equals("phone")) {
-            id = Rez.Drawables.Phone;
-        } else {
-            id = Rez.Drawables.Device;
-        }
+        what = w;
     }
 
     function draw(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
         var h = dc.getHeight();
-        // The sub-window's canvas, not the cell beside the name.
-        if (w < 40 || h < 40) {
-            return;
-        }
         var s = [w / 2, h / 2, (w < h ? w : h) / 2];
         PageDraw.sub(dc, s);
-        PageDraw.glyph(dc, s, id);
+        if (what instanceof String) {
+            PageDraw.word(dc, s, what as String);
+        } else {
+            PageDraw.glyph(dc, s, what as ResourceId);
+        }
     }
 }
 

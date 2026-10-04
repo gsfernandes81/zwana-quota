@@ -40,7 +40,7 @@ module Draw {
 
     // A small clock, beside when the grant lands: a thin face, its hands at
     // 12 and 3. Not a circular arrow, which on the pages is START's refresh
-    // in the sub-window just above (PageDraw.refreshGlyph).
+    // in the sub-window just above (Rez.Drawables.Refresh).
     function clockIcon(dc as Graphics.Dc, cx as Number, cy as Number, r as Number) as Void {
         dc.setPenWidth(1);
         dc.drawCircle(cx, cy, r);
