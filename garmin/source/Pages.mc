@@ -57,10 +57,19 @@ module Pages {
     // it shows ages on its own -- the countdown to the reset, and a reading
     // becoming "2h ago" or "new day" when the phone has gone quiet.
     const REDRAW_MS = 60000;
+    // How long after a confirmation over the list is answered a stale list
+    // is made again: once the confirmation has been taken off the top.
+    const UNCOVER_MS = 200;
 
     var at as Number = 0;                // the page last turned to
     var top as WatchUi.View? = null;     // its view
     var list as DeviceList? = null;      // that view, when it is the list
+    // A confirmation pushed over the list, not yet answered: only the top
+    // of the views can be switched, so the list is not made again under it.
+    var covered as Boolean = false;
+    // The list no longer has as many items as the last message has devices,
+    // and is to be made again as soon as it is on top.
+    var stale as Boolean = false;
     var indicating as Boolean = false;   // the edge indicator is up
     // One timer for both: it takes the indicator down, then redraws every
     // REDRAW_MS. A watch app may have only three, and Ask holds another.
@@ -70,10 +79,17 @@ module Pages {
     // where there is no sub-window. The list opens on its first device, or
     // on its last when [fromBelow]: arrived at going up, from Data.
     function view(page as Number, fromBelow as Boolean) as [WatchUi.Views, WatchUi.InputDelegates] {
+        return make(page, fromBelow ? -1 : 0);
+    }
+
+    // Page [page], the list opening on item [focus] (-1 for its last).
+    function make(page as Number, focus as Number) as [WatchUi.Views, WatchUi.InputDelegates] {
         at = page;
         list = null;
+        covered = false;
+        stale = false;
         if (page == DEVICES && listed(Quota.last())) {
-            var l = new DeviceList(fromBelow);
+            var l = new DeviceList(focus);
             list = l;
             top = l;
             return [l, new DeviceListDelegate(l)];
@@ -119,16 +135,55 @@ module Pages {
     }
 
     // A new message: the list follows it. The Devices page becomes the list
-    // when devices first arrive; the list, once up, stays up and is brought
-    // into line in place (DeviceList.sync), since a confirmation may lie
-    // over it and only the top of the views can be switched.
+    // when devices first arrive. The list, once up, is brought into line in
+    // place while the number of devices holds (DeviceList.sync); when it
+    // changes the page is made again -- the list, on the item that took the
+    // pressed one's place, or the page saying why there are none -- since a
+    // Menu2 shrunk or grown while shown crashes on the watch. Not under a
+    // confirmation: that waits for its answer (uncovered).
     function heard() as Void {
         var d = Quota.last();
         if (list != null) {
-            (list as DeviceList).sync(d);
+            if ((list as DeviceList).sync(d)) {
+                stale = false;
+                return;
+            }
+            stale = true;
+            if (!covered) {
+                rebuild();
+            }
         } else if (at == DEVICES && listed(d)) {
             var pair = view(DEVICES, false);
             WatchUi.switchToView(pair[0], pair[1], WatchUi.SLIDE_IMMEDIATE);
+        }
+    }
+
+    // The Devices page made again, in place of a stale list on top.
+    function rebuild() as Void {
+        if (list == null || !stale) {
+            return;
+        }
+        var pair = make(DEVICES, (list as DeviceList).picked);
+        WatchUi.switchToView(pair[0], pair[1], WatchUi.SLIDE_IMMEDIATE);
+    }
+
+    // The confirmation over the list has its answer. It is still on top
+    // until its delegate returns, so a stale list is made again a moment
+    // later, on the timer, which then goes back to its redraws.
+    function uncovered() as Void {
+        if (!covered) {
+            return;
+        }
+        covered = false;
+        if (stale) {
+            every(:again, UNCOVER_MS, false);
+        }
+    }
+
+    function again() as Void {
+        every(:redraw, REDRAW_MS, true);
+        if (!covered) {
+            rebuild();
         }
     }
 }
