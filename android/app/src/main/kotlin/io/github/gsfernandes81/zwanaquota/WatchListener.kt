@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
+import io.github.gsfernandes81.zwanaquota.core.WatchWords
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -145,10 +146,10 @@ class WatchListener : Service() {
             // Switching and removing only with their own setting on. The
             // watch only offers them then, so this refuses a stale watch
             // that still thinks it may.
-            command != WatchCommand.Refresh && !store.watchCanControl -> "not allowed"
+            command != WatchCommand.Refresh && !store.watchCanControl -> WatchWords.DENIED
             // One of each kind at a time, whoever asked: a second is refused,
             // never queued behind the first.
-            !Work.fromWatch(this, command, id) -> "phone busy"
+            !Work.fromWatch(this, command, id) -> WatchWords.BUSY
             else -> null
         }
         if (refusal == null) return store.note("listener", "$watch asked to $command")

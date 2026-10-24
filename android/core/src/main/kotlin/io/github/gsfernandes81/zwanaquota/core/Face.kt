@@ -192,8 +192,8 @@ data class Face(
  *
  * `re` and `rw` answer the watch's asks by their ids ([Answers]): `re` the
  * ids of the last few asks the phone has answered, `rw` beside each what
- * became of it -- "" for done, else a word for the watch to show ("too
- * late", "phone busy"). A bounded list rather than the one ask this message
+ * became of it -- "" for done, else a word for the watch to show
+ * ([WatchWords]). A bounded list rather than the one ask this message
  * answers, so a later message that supersedes it on the watch still does.
  * Always sent, perhaps empty: the watch tells an older phone app by its
  * absence.

@@ -34,6 +34,7 @@ import io.github.gsfernandes81.zwanaquota.core.UrlConnectionTransport
 import io.github.gsfernandes81.zwanaquota.core.WatchCommand
 import io.github.gsfernandes81.zwanaquota.core.WatchPayload
 import io.github.gsfernandes81.zwanaquota.core.WatchSession
+import io.github.gsfernandes81.zwanaquota.core.WatchWords
 import io.github.gsfernandes81.zwanaquota.core.remove
 import io.github.gsfernandes81.zwanaquota.core.removable
 import io.github.gsfernandes81.zwanaquota.core.apply
@@ -94,7 +95,7 @@ class Refresher(context: Context) {
             if (stale) {
                 if (!vault.signedIn) {
                     why = "sign in: open the app"
-                    whyWatch = "sign in on phone"
+                    whyWatch = WatchWords.SIGN_IN
                     store.note("read", "not signed in")
                 } else {
                     val (client, network) = connect(path)
@@ -105,7 +106,7 @@ class Refresher(context: Context) {
                         readSession(client)
                     } catch (e: PortalError) {
                         why = "portal: ${e.message}"
-                        whyWatch = "portal read failed"
+                        whyWatch = WatchWords.FAILED
                         store.note("read", "failed over ${network()}: ${e.message}")
                     }
                 }
@@ -163,7 +164,7 @@ class Refresher(context: Context) {
         send: (PortalClient, () -> Boolean) -> Session,
     ) {
         if (!vault.signedIn) {
-            askId?.let { store.answer(it, "sign in on phone") }
+            askId?.let { store.answer(it, WatchWords.SIGN_IN) }
             return run(force = false, pushWanted, trigger)
         }
         val (client, network) = connect(Networks.path(app))
@@ -176,14 +177,14 @@ class Refresher(context: Context) {
                 null to ""
             } catch (e: TooLate) {
                 store.note("session", "$what not sent: ${e.message}")
-                "too late: nothing done" to "too late"
+                "too late: nothing done" to WatchWords.TOO_LATE
             } catch (e: SessionChanged) {
                 store.note("session", "$what not sent: ${e.message}")
                 readSession(client)
-                "changed elsewhere: nothing done" to "changed elsewhere"
+                "changed elsewhere: nothing done" to WatchWords.STALE
             } catch (e: PortalError) {
                 store.note("session", "$what failed over ${network()}: ${e.message}")
-                "$failed: ${e.message}" to failed
+                "$failed: ${e.message}" to WatchWords.FAILED
             }
         }
         askId?.let { store.answer(it, word) }
@@ -493,7 +494,7 @@ class QuotaWorker(context: Context, params: WorkerParameters) : Worker(context, 
                 store.note("session", "${action?.name?.lowercase() ?: "remove $remove"} past its deadline; too late, nothing done")
                 Faces.draw(applicationContext, Refresher.cachedFace(applicationContext).copy(footnote = "too late: nothing done", warning = true))
                 if (askId != null) {
-                    store.answer(askId, "too late")
+                    store.answer(askId, WatchWords.TOO_LATE)
                     if (store.watchOn) refresher.sendStored()
                 }
                 return Result.success()
@@ -628,7 +629,7 @@ object Work {
      * one request of each kind in flight, never a queue: a switch or removal
      * while another switch (the widget's or the watch's) is going, or a
      * request for a reading while another is being read. The caller tells the
-     * watch "phone busy" ([Store.refuse]). Blocks: not on the main thread.
+     * watch [WatchWords.BUSY] ([Store.refuse]). Blocks: not on the main thread.
      *
      * A request for a reading is answered by the first reading its job begins
      * ([Answers.settle]), so it is noted as heard before the job is enqueued.
