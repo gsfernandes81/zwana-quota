@@ -9,58 +9,58 @@ import Toybox.WatchUi;
 // On a watch with a sub-window the list draws the focused item's icon there,
 // as the other pages draw theirs (SubIcon): the device with a cross when
 // START can take it off, else which device it is -- the one that switched
-// data on, with a star, or this phone; "0" on the item saying there are
-// none. Plain items with an :icon, which shows only in the sub-window: an
-// IconMenuItem also keeps a cell for its icon beside the name.
+// data on, with a star, or this phone. Plain items with an :icon, which
+// shows only in the sub-window: an IconMenuItem also keeps a cell for its
+// icon beside the name.
+//
+// Never grown or shrunk while it is up: on the watch (not in the simulator)
+// a Menu2 that has had an item deleted while shown fails its next draw with
+// an Array Out Of Bounds in the firmware, no line of this app on the stack,
+// and the app is gone -- as it was on taking a device off from here, the
+// list one shorter at the phone's answer. Garmin's forum has it on other
+// watches ("app crashes when menu items are dynamically updated"). A
+// message with as many devices is brought in in place (sync); one with more
+// or fewer has the page made again (Pages.heard).
 //
 // UP at the top and DOWN at the bottom hand back to the other pages
 // (DeviceListDelegate.onWrap); BACK leaves the app, as on every page.
 class DeviceList extends WatchUi.Menu2 {
     var icons as Boolean;
     var shown as Number = 0;   // how many items are in the list
+    var picked as Number = 0;  // the item last pressed, or opened on
 
-    function initialize(fromBelow as Boolean) {
+    // Made only when there are devices to list (Pages.listed): a Menu2
+    // cannot be shown empty. Opens on item [focus], or on the last for -1
+    // or past the end.
+    function initialize(focus as Number) {
         Menu2.initialize({:title => "DEVICES"});
         icons = PageDraw.subscreen() != null;
         var d = Quota.last();
-        sync(d);
-        if (fromBelow && shown > 0) {
-            setFocus(shown - 1);
+        shown = (d != null && Pages.listed(d)) ? Pages.devices(d as Dictionary) : 0;
+        for (var i = 0; i < shown; i++) {
+            addItem(item(d as Dictionary, i));
+        }
+        picked = (focus < 0 || focus >= shown) ? shown - 1 : focus;
+        if (picked > 0) {
+            setFocus(picked);
+        } else {
+            picked = 0;
         }
     }
 
-    // Bring the items into line with [d], in place: each item's id is its
-    // place in the phone's list, so a press reads what is there now. A list
-    // emptied while it is up keeps one item saying so: a Menu2 cannot be
-    // shown empty, and the list is not switched away from under a
-    // confirmation (Pages.heard).
-    function sync(d as Dictionary?) as Void {
+    // Bring the items into line with [d], in place, if it lists as many
+    // devices; false, and nothing changed, if it does not. Each item's id is
+    // its place in the phone's list, so a press reads what is there now.
+    function sync(d as Dictionary?) as Boolean {
         var n = (d != null && Pages.listed(d)) ? Pages.devices(d as Dictionary) : 0;
-        var items = [] as Array<WatchUi.MenuItem>;
+        if (n != shown) {
+            return false;
+        }
         for (var i = 0; i < n; i++) {
-            items.add(item(d as Dictionary, i));
+            updateItem(item(d as Dictionary, i), i);
         }
-        if (n == 0) {
-            var why = Quota.hasSession(d) && Quota.str(d as Dictionary, "dat").equals("on") ? "none listed" : "data is off";
-            items.add(new WatchUi.MenuItem(why, null, -1, icons ? {:icon => new SubIcon("0")} : null));
-        }
-        for (var i = 0; i < items.size(); i++) {
-            if (i < shown) {
-                updateItem(items[i], i);
-            } else {
-                addItem(items[i]);
-            }
-        }
-        for (var i = shown - 1; i >= items.size(); i--) {
-            deleteItem(i);
-        }
-        // Not left on an item that is gone: the simulator's list moves the
-        // focus back itself, and nothing says a watch's does.
-        if (items.size() < shown) {
-            setFocus(items.size() - 1);
-        }
-        shown = items.size();
         WatchUi.requestUpdate();
+        return true;
     }
 
     // Device [i]: its name, how it is on, and its icon for the sub-window.
@@ -90,12 +90,12 @@ class DeviceList extends WatchUi.Menu2 {
     }
 }
 
-// The focused item's sub-window, as every page draws it: white, with a
-// glyph [what] (a resource) or a word (a String) in black.
+// The focused item's sub-window, as every page draws it: white, with the
+// glyph [what] in black.
 class SubIcon extends WatchUi.Drawable {
-    var what as ResourceId or String;
+    var what as ResourceId;
 
-    function initialize(w as ResourceId or String) {
+    function initialize(w as ResourceId) {
         Drawable.initialize({});
         what = w;
     }
@@ -105,11 +105,7 @@ class SubIcon extends WatchUi.Drawable {
         var h = dc.getHeight();
         var s = [w / 2, h / 2, (w < h ? w : h) / 2];
         PageDraw.sub(dc, s);
-        if (what instanceof String) {
-            PageDraw.word(dc, s, what as String);
-        } else {
-            PageDraw.glyph(dc, s, what as ResourceId);
-        }
+        PageDraw.glyph(dc, s, what);
     }
 }
 
@@ -129,10 +125,19 @@ class DeviceListDelegate extends WatchUi.Menu2InputDelegate {
         if (list != Pages.top) {
             return;
         }
+        // A list a message has outgrown, under a confirmation that has gone
+        // without telling (Pages.covered): the press is on what it no longer
+        // shows, so it only brings the list up to date.
+        if (Pages.stale) {
+            Pages.covered = false;
+            Pages.rebuild();
+            return;
+        }
         var i = item.getId();
         if (!(i instanceof Number)) {
             return;
         }
+        list.picked = i as Number;
         var d = Quota.last();
         var ip = Pages.deviceIp(d, i as Number);
         if (ip.length() == 0) {
@@ -143,6 +148,7 @@ class DeviceListDelegate extends WatchUi.Menu2InputDelegate {
             return;
         }
         var name = Quota.item(Quota.arr(d as Dictionary, "dn"), i as Number);
+        Pages.covered = true;
         WatchUi.pushView(new WatchUi.Confirmation("Disconnect " + (name.length() > 0 ? name : ip) + "?"),
             new SendConfirm(off), WatchUi.SLIDE_IMMEDIATE);
     }

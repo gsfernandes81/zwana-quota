@@ -85,6 +85,7 @@ class SendConfirm extends WatchUi.ConfirmationDelegate {
     // question was up, and a Yes refused for it is told so. The phone
     // checks the request itself as well.
     function onResponse(response as WatchUi.Confirm) as Boolean {
+        Pages.uncovered();
         if (response == WatchUi.CONFIRM_YES) {
             if (Quota.canControl(Quota.last())) {
                 Ask.send(message);
