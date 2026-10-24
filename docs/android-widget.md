@@ -39,7 +39,7 @@ read-and-send of its own, and is answered by that read: by a reading begun
 after the phone heard it, or by why that read has none. One request of each
 kind is in flight at a time, never a queue: an ask for a reading while
 another is being read, or a switch while another switch is going, is
-answered `phone busy`. The watch sends one ask at a time, and the answers
+answered `busy`. The watch sends one ask at a time, and the answers
 are one list for one watch: a second watch paired to the same phone is not
 supported. Messages to the watch are made one at a time, each with the
 newest reading the phone has when its turn comes.

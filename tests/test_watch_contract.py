@@ -100,3 +100,36 @@ def test_a_failed_read_for_the_watch_is_answered_while_the_watch_still_waits():
     send = number(r"const val SEND_SECONDS\s*=\s*(\d+)L", GARMIN_KT)
     wait = number(r"const WAIT\s*=\s*(\d+);", ASK_MC)
     assert timeout + send < wait
+
+
+def watch_words() -> tuple[int, list[str]]:
+    text = ANSWERS_KT.read_text()
+    start = text.index("object WatchWords")
+    block = text[start : text.index("\n}\n", start)]
+    limit = re.search(r"const val MAX\s*=\s*(\d+)", block)
+    assert limit, "WatchWords.MAX not found"
+    return int(limit.group(1)), re.findall(r'const val \w+\s*=\s*"([^"]*)"', block)
+
+
+def test_every_toast_on_the_watch_is_short_enough_to_be_read_whole():
+    # An Instinct's toast shows a few characters and cuts the rest: a long
+    # message is a truncated one. What the phone answers an ask with is
+    # shown in a toast too, so it is held to the same length.
+    limit, phone = watch_words()
+    calls = re.findall(r"\btoast\(([^;]*)\);", "\n".join(p.read_text() for p in WATCH_SOURCES))
+    watch = [w for call in calls for w in re.findall(r'"([^"]*)"', call)]
+    assert phone and watch, "found no toast text"
+    long = [w for w in phone + watch if len(w) > limit]
+    assert not long, f"longer than {limit} characters: {long}"
+
+
+def test_the_phone_answers_the_watch_only_with_words_from_watchwords():
+    # A word spelt where it is used escapes the length check above.
+    app = (ROOT / "android" / "app" / "src" / "main" / "kotlin").rglob("*.kt")
+    sources = [*app, *CORE.glob("*.kt")]
+    spelt = [
+        f"{p.name}: {m.group(0)}"
+        for p in sources
+        for m in re.finditer(r'\b(?:answer|refuse)\([^,()]+,\s*"[^"]+"|\bAnswer\([^,()]+,\s*"[^"]+"', p.read_text())
+    ]
+    assert not spelt, spelt

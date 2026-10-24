@@ -90,7 +90,7 @@ class SendConfirm extends WatchUi.ConfirmationDelegate {
             if (Quota.canControl(Quota.last())) {
                 Ask.send(message);
             } else {
-                Ask.toast("not offered now, not sent");
+                Ask.toast("not now");
             }
         }
         return true;

@@ -13,13 +13,17 @@ import Toybox.WatchUi;
 // no `re`, and then any new message, told apart by its `sent`, is the answer.
 //
 // How an ask goes is told in the watch's own toasts (WatchUi.showToast), as
-// Garmin has an asynchronous event told: one when it is sent ("asking
-// phone", whatever was asked: the phone decides), one if the phone cannot
-// be reached, one if no answer comes within the wait, one with the phone's
-// word if it did not do what was asked ("too late", "phone busy"), and one
-// when an ask is refused here -- another on its way, or, at a
-// confirmation's Yes, no longer allowed (QuotaDelegate). An answer that did
-// what was asked needs none: the page it changes is redrawn.
+// Garmin has an asynchronous event told: one when it is sent ("asking",
+// whatever was asked: the phone decides), one if the phone cannot be
+// reached ("no phone"), one if no answer comes within the wait ("no
+// reply"), one with the phone's word if it did not do what was asked ("too
+// late", "busy": WatchWords on the phone), and one when an ask is refused
+// here -- another on its way ("busy", or "waiting" for the same again), or,
+// at a confirmation's Yes, no longer allowed ("not now", QuotaDelegate). An
+// answer that did what was asked needs none: the page it changes is
+// redrawn. Every toast is a word: an Instinct's shows a few characters and
+// cuts the rest, so each is at most WatchWords.MAX (tests/
+// test_watch_contract.py).
 //
 // Offered only when the phone's last message said it is listening (`ask`,
 // and `ctl` for switching): the phone runs its listener whenever Garmin
@@ -82,7 +86,7 @@ module Ask {
             return true;
         }
         var same = message.toString().equals((current as Asking).message);
-        toast(same ? "sent, waiting for phone" : "phone busy, not sent");
+        toast(same ? "waiting" : "busy");
         return false;
     }
 
@@ -107,7 +111,7 @@ module Ask {
             unreached(a);
             return;
         }
-        toast("asking phone");
+        toast("asking");
         // Once the wait is over, say so if nothing came. One timer, kept.
         if (timer == null) {
             timer = new Timer.Timer();
@@ -163,14 +167,14 @@ module Ask {
             return;
         }
         a.failed = true;
-        toast("phone not reached");
+        toast("no phone");
     }
 
     function expired() as Void {
         if (current != null) {
             var a = current as Asking;
             if (!a.failed && !a.answered()) {
-                toast("no answer from phone");
+                toast("no reply");
             }
         }
     }
