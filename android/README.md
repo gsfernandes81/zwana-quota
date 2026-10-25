@@ -306,10 +306,10 @@ every tap of the widget. Without Garmin Connect the SDK is never touched.
 
 **Asking from the watch.** START on the watch's first page asks the phone
 for a fresh reading, usually within ten seconds (`START: refresh` at the
-bottom says so). The watch says `asking` when it sends, and `no reply` after
-a minute; when the phone could not read the portal it says why (`failed`,
-`sign in`) and sends the reading it has, and while it is still reading for an
-earlier ask it says `busy`. (Each is one short word: the watch's toast cuts
+bottom says so). The watch says `Refreshing` when it sends, and `No reply`
+after a minute; when the phone could not read the portal it says why
+(`Failed`, `Sign in`) and sends the reading it has, and while it is still
+reading for an earlier ask it says `Busy`. (Each is one short word: the watch's toast cuts
 off anything longer than a few characters.) For
 this the app keeps a small listener running (Garmin Connect only delivers a
 watch's message to an app that is running), so set its battery use to
@@ -323,10 +323,10 @@ page switch data -- off for every device when this phone switched it on,
 only this phone when it joined, as the widget does -- and START on another
 joined device's own page take it off. The watch asks first; the phone then
 checks the request against the portal before sending anything, and does
-nothing if the session changed (`stale`), if another switch is still on its
-way (`busy`), or if it heard the request more than 45 seconds ago (`too
+nothing if the session changed (`Stale`), if another switch is still on its
+way (`Busy`), or if it heard the request more than 45 seconds ago (`Too
 late`): the watch waits a minute and a half for the answer, so a switch is
-not made after it has said `no reply`,
+not made after it has said `No reply`,
 unless the request itself took more than half of it to reach the phone.
 This phone and the device that switched data on are never offered for
 removal.
