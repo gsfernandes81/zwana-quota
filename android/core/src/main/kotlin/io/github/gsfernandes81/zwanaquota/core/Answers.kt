@@ -62,7 +62,7 @@ object Answers {
 /**
  * What the watch is told when an ask was not done (`rw`, beside its id): it
  * shows the word in a toast, and an Instinct's toast shows a few characters
- * and cuts the rest, so each is at most [MAX] -- a word, not a sentence
+ * and cuts the rest, so each is at most [MAX] -- a word or two, capitalised, not a sentence
  * (tests/test_watch_contract.py holds these and the watch's own toasts to
  * it). The phone's own notes and footnotes say the long version.
  */
@@ -70,20 +70,20 @@ object WatchWords {
     const val MAX = 8
 
     /** Another ask of the same kind is on its way. */
-    const val BUSY = "busy"
+    const val BUSY = "Busy"
 
     /** The watch may not switch: its setting is off on the phone. */
-    const val DENIED = "denied"
+    const val DENIED = "Denied"
 
     /** Heard too long ago to act on, or no reading came in time. */
-    const val TOO_LATE = "too late"
+    const val TOO_LATE = "Too late"
 
     /** The session changed since the watch was sent it: nothing done. */
-    const val STALE = "stale"
+    const val STALE = "Stale"
 
     /** The portal refused the read or the change. */
-    const val FAILED = "failed"
+    const val FAILED = "Failed"
 
     /** The phone has no login. */
-    const val SIGN_IN = "sign in"
+    const val SIGN_IN = "Sign in"
 }
