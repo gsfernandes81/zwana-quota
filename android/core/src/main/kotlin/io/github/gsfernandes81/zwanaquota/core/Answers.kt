@@ -67,7 +67,7 @@ object Answers {
  * it). The phone's own notes and footnotes say the long version.
  */
 object WatchWords {
-    const val MAX = 10
+    const val MAX = 8
 
     /** Another ask of the same kind is on its way. */
     const val BUSY = "Busy"

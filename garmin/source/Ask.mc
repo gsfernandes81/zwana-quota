@@ -14,7 +14,7 @@ import Toybox.WatchUi;
 //
 // How an ask goes is told in the watch's own toasts (WatchUi.showToast), as
 // Garmin has an asynchronous event told: one when it is sent
-// ("Refreshing" for a reading, "Asking" for a switch or a removal, whatever
+// ("Updating" for a reading, "Sending" for a switch or a removal, whatever
 // becomes of it: the phone decides), one if the phone cannot be reached
 // ("No phone"), one if no answer comes within the wait ("No reply"), one
 // with the phone's word if it did not do what was asked ("Too late",
@@ -112,7 +112,7 @@ module Ask {
             unreached(a);
             return;
         }
-        toast(message.hasKey("ask") ? "Refreshing" : "Asking");
+        toast(message.hasKey("ask") ? "Updating" : "Sending");
         // Once the wait is over, say so if nothing came. One timer, kept.
         if (timer == null) {
             timer = new Timer.Timer();

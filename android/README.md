@@ -306,7 +306,7 @@ every tap of the widget. Without Garmin Connect the SDK is never touched.
 
 **Asking from the watch.** START on the watch's first page asks the phone
 for a fresh reading, usually within ten seconds (`START: refresh` at the
-bottom says so). The watch says `Refreshing` when it sends, and `No reply`
+bottom says so). The watch says `Updating` when it sends, and `No reply`
 after a minute; when the phone could not read the portal it says why
 (`Failed`, `Sign in`) and sends the reading it has, and while it is still
 reading for an earlier ask it says `Busy`. (Each is one short word: the watch's toast cuts
